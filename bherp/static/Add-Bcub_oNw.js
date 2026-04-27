@@ -1,0 +1,1 @@
+import{g as n,h as o,j as t,m as r}from"./index-B11hB-Yq.js";const s={xmlns:"http://www.w3.org/2000/svg","xmlns:xlink":"http://www.w3.org/1999/xlink",viewBox:"0 0 32 32"},w=n({name:"Add",render:function(d,e){return t(),o("svg",s,e[0]||(e[0]=[r("path",{d:"M17 15V8h-2v7H8v2h7v7h2v-7h7v-2z",fill:"currentColor"},null,-1)]))}});export{w as A};

@@ -1,0 +1,95 @@
+/** 全局 CSS 变量，这种变量不仅可以在 CSS 和 SCSS 中使用，还可以导入到 JS 中使用 */
+
+:root {
+  /** ERP 弹窗 / 表单规范（与 naive-ui-global.scss 联动） */
+  --erp-radius-modal: 14px;
+  --erp-radius-control: 8px;
+  --erp-shadow-modal: 0 24px 48px -12px rgba(15, 23, 42, 0.14), 0 0 0 1px rgba(15, 23, 42, 0.04);
+  --erp-border-subtle: rgba(15, 23, 42, 0.08);
+  --erp-modal-header-padding-y: 14px;
+  --erp-modal-header-padding-x: 22px;
+  --erp-modal-body-padding-y: 20px;
+  --erp-modal-body-padding-x: 22px;
+  --erp-modal-footer-padding-y: 12px;
+  --erp-modal-footer-padding-x: 22px;
+  --erp-modal-footer-bg: rgba(248, 250, 252, 0.85);
+  --erp-form-item-gap: 16px;
+  --erp-form-row-gap: 4px;
+  --erp-text-secondary: rgba(15, 23, 42, 0.65);
+  --erp-layout-header-shadow: 0 1px 0 rgba(15, 23, 42, 0.06);
+
+  --n-padding-bottom: 0;
+  /** Body */
+  --v3-body-text-color: var(--el-text-color-primary);
+  --v3-body-bg-color: var(--el-bg-color-page);
+  /** Header 区域 = NavigationBar 组件 + TagsView 组件 */
+  --v3-header-height: calc(
+    var(--v3-navigationbar-height) + var(--v3-tagsview-height) + var(--v3-header-border-bottom-width)
+  );
+  --v3-header-height-custom: calc(
+    var(--v3-navigationbar-height) + var(--v3-tagsview-height) + var(--v3-header-border-bottom-width) + var(--v3-topbar-height)
+  );
+  --v3-header-bg-color: var(--el-bg-color);
+  --v3-header-box-shadow: var(--el-box-shadow-lighter);
+  --v3-header-border-bottom-width: 1px;
+  --v3-header-border-bottom: var(--v3-header-border-bottom-width) solid var(--el-fill-color);
+  /** NavigationBar 组件 */
+  --v3-navigationbar-height: 50px;
+  --v3-topbar-height: 45px;
+  --v3-navigationbar-text-color: var(--el-text-color-regular);
+  /** Sidebar 组件（左侧模式全部生效、顶部模式全部不生效、混合模式非颜色部分生效） */
+  /* --v3-sidebar-width: 220px; */
+  --v3-sidebar-width: 180px;
+  --v3-sidebar-hide-width: 58px;
+  --v3-sidebar-border-right: 1px solid var(--el-fill-color);
+  --v3-sidebar-menu-item-height: 60px;
+  --v3-sidebar-menu-tip-line-bg-color: var(--el-color-primary);
+  --v3-sidebar-menu-bg-color: #001428;
+  --v3-sidebar-menu-hover-bg-color: #409eff10;
+  --v3-sidebar-menu-text-color: #cfd3dc;
+  --v3-sidebar-menu-active-text-color: #ffffff;
+  /** TagsView 组件 */
+  --v3-tagsview-height: 34px;
+  --v3-tagsview-text-color: var(--el-text-color-regular);
+  --v3-tagsview-tag-active-text-color: #ffffff;
+  --v3-tagsview-tag-bg-color: var(--el-bg-color);
+  --v3-tagsview-tag-active-bg-color: var(--el-color-primary);
+  --v3-tagsview-tag-border-radius: 2px;
+  --v3-tagsview-tag-border-color: var(--el-border-color-lighter);
+  --v3-tagsview-tag-active-border-color: var(--el-color-primary);
+  --v3-tagsview-tag-icon-hover-bg-color: #00000030;
+  --v3-tagsview-tag-icon-hover-color: #ffffff;
+  --v3-tagsview-contextmenu-text-color: var(--el-text-color-regular);
+  --v3-tagsview-contextmenu-hover-text-color: var(--el-text-color-primary);
+  --v3-tagsview-contextmenu-bg-color: var(--el-bg-color-overlay);
+  --v3-tagsview-contextmenu-hover-bg-color: var(--el-fill-color);
+  --v3-tagsview-contextmenu-box-shadow: var(--el-box-shadow);
+  /** Hamburger 组件 */
+  --v3-hamburger-text-color: var(--el-text-color-primary);
+  /** RightPanel 组件  */
+  --v3-rightpanel-button-bg-color: #001428;
+}
+
+/** 内容区放大时，将不需要的组件隐藏 */
+body.content-large {
+  /** Header 区域 = TagsView 组件 */
+  --v3-header-height: var(--v3-tagsview-height);
+  /** NavigationBar 组件 */
+  --v3-navigationbar-height: 0px;
+  /** Sidebar 组件 */
+  --v3-sidebar-width: 0px;
+  --v3-sidebar-hide-width: 0px;
+}
+
+/** 内容区全屏时，将不需要的组件隐藏 */
+body.content-full {
+  /** Header 区域 */
+  --v3-header-height: 0px;
+  /** NavigationBar 组件 */
+  --v3-navigationbar-height: 0px;
+  /** Sidebar 组件 */
+  --v3-sidebar-width: 0px;
+  --v3-sidebar-hide-width: 0px;
+  /** TagsView 组件 */
+  --v3-tagsview-height: 0px;
+}

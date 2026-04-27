@@ -1,0 +1,46 @@
+/**
+ * 消除浏览器整页滚动条：Naive n-layout 默认 .n-layout-scroll-container 为 overflow:auto。
+ * 右侧 n-layout-content 使用 :native-scrollbar="false" 由 NScrollbar 承担主内容区滚动。
+ */
+
+.erp-main-layout .n-layout-scroll-container {
+  min-height: 0 !important;
+  // 不强行设置 overflow/height，避免破坏 NaiveUI 内部 flex 高度计算
+  display: flex;
+  flex-direction: column;
+}
+
+.erp-main-layout .n-layout-sider-scroll-container {
+  min-height: 0 !important;
+}
+
+.erp-layout-content.n-layout-content {
+  min-height: 0 !important;
+}
+
+.erp-layout-content.n-layout-content .n-scrollbar {
+  min-height: 0 !important;
+  flex: 1 1 0% !important;
+  display: flex;
+}
+
+.erp-layout-content.n-layout-content .n-scrollbar-container {
+  min-height: 0 !important;
+  flex: 1 1 auto !important;
+  display: flex;
+}
+
+.erp-layout-content.n-layout-content .n-scrollbar-content {
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+}
+
+.erp-main-fill {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}

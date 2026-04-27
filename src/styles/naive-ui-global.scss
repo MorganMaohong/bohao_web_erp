@@ -1,0 +1,65 @@
+/**
+ * 全局 Naive UI 弹窗 / 表单视觉规范（无需逐页改 n-modal）
+ * 与 variables.css 中 --erp-* 变量配合使用
+ */
+
+/* —— Modal preset=card（挂载在 body 下，兼容不同版本类名） —— */
+body .n-modal .n-card,
+.n-modal .n-card {
+  border-radius: var(--erp-radius-modal);
+  box-shadow: var(--erp-shadow-modal);
+  border: 1px solid var(--erp-border-subtle);
+  overflow: hidden;
+}
+
+body .n-modal .n-card > .n-card-header,
+.n-modal .n-card > .n-card-header {
+  padding: var(--erp-modal-header-padding-y) var(--erp-modal-header-padding-x);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.35;
+  border-bottom: 1px solid var(--erp-border-subtle);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(248, 250, 252, 0.95) 100%);
+}
+
+body .n-modal .n-card > .n-card__content,
+.n-modal .n-card > .n-card__content {
+  padding: var(--erp-modal-body-padding-y) var(--erp-modal-body-padding-x);
+}
+
+body .n-modal .n-card > .n-card__footer,
+.n-modal .n-card > .n-card__footer {
+  padding: var(--erp-modal-footer-padding-y) var(--erp-modal-footer-padding-x);
+  border-top: 1px solid var(--erp-border-subtle);
+  background: var(--erp-modal-footer-bg);
+}
+
+/* 弹窗内表单：统一行距与标签区 */
+body .n-modal .n-form.n-form--medium .n-form-item,
+.n-modal .n-form.n-form--medium .n-form-item {
+  margin-bottom: var(--erp-form-item-gap);
+}
+
+body .n-modal .n-form.n-form--medium .n-form-item:last-child,
+.n-modal .n-form.n-form--medium .n-form-item:last-child {
+  margin-bottom: 0;
+}
+
+body .n-modal .n-form-item-label,
+.n-modal .n-form-item-label {
+  font-weight: 500;
+  color: var(--erp-text-secondary);
+}
+
+/* Dialog 预设（删除确认等） */
+body .n-modal .n-dialog,
+.n-modal .n-dialog {
+  border-radius: var(--erp-radius-modal);
+  box-shadow: var(--erp-shadow-modal);
+}
+
+body .n-modal .n-dialog__title,
+.n-modal .n-dialog__title {
+  font-weight: 600;
+}

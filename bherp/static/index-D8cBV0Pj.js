@@ -1,0 +1,1 @@
+var _=(r=>(r.REPAIR_FLOW="repair_flow",r.PURCHASE_APPLY_FLOW="purchase_apply_flow",r.PURCHASE_ORDER_FLOW="purchase_order_flow",r.PRODUCTION_PLAN_FLOW="production_plan_flow",r.INVENTORY_REQUEST_FLOW="inventory_request_flow",r))(_||{}),R=(r=>(r.PENDING="pending",r.COMPLETED="completed",r.REJECTED="rejected",r.WITHDRAWN="withdrawn",r.COPY="copy",r))(R||{});export{_ as F,R as a};

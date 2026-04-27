@@ -1,0 +1,160 @@
+/**
+ * 左侧竖向菜单：必须用全局样式命中 Naive 子组件根节点，
+ * scoped + 子组件会导致 .erp-sider-menu 等选择器不生效 → 白底 + 浅色字看不见
+ */
+
+.main-layout-sider.n-layout-sider {
+  background-color: #10204e !important;
+}
+
+.main-layout-sider .n-layout-sider-scroll-container {
+  background-color: #10204e !important;
+}
+
+/* 菜单根节点 */
+.main-layout-sider .erp-sider-menu.n-menu,
+.main-layout-sider .n-menu.erp-sider-menu {
+  background-color: #10204e !important;
+  --n-item-text-color: rgba(248, 250, 252, 0.95) !important;
+  --n-item-text-color-hover: #ffffff !important;
+  --n-item-text-color-active: #ffffff !important;
+  --n-item-icon-color: rgba(248, 250, 252, 0.88) !important;
+  --n-item-icon-color-hover: #ffffff !important;
+  --n-item-icon-color-active: #ffffff !important;
+}
+
+/* 未选中：文字与链接必须对比度足够 */
+.main-layout-sider .n-menu .n-menu-item-content {
+  color: rgba(248, 250, 252, 0.95) !important;
+  border-radius: 8px;
+  margin-top: 4px;
+}
+
+.main-layout-sider .n-menu .n-menu-item-content .n-menu-item-content-header {
+  color: inherit !important;
+}
+
+.main-layout-sider .n-menu .n-menu-item-content .n-menu-item-content-header a,
+.main-layout-sider .n-menu .n-menu-item-content .n-menu-item-content-header a:visited {
+  color: inherit !important;
+}
+
+.main-layout-sider .n-menu .n-menu-item-content .n-menu-item-content__icon {
+  color: rgba(248, 250, 252, 0.88) !important;
+}
+
+/* hover */
+.main-layout-sider .n-menu .n-menu-item-content:not(.n-menu-item-content--disabled):hover::before {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px;
+}
+
+/* 主菜单选中 */
+.main-layout-sider .n-menu .n-menu-item-content.n-menu-item-content--selected::before {
+  background-color: #1c2a5e !important;
+  border-radius: 8px;
+}
+
+/* 子菜单选中 */
+.main-layout-sider .n-submenu-children .n-menu-item-content.n-menu-item-content--selected::before {
+  background-color: #22306a !important;
+  border-radius: 6px;
+}
+
+.main-layout-sider .n-menu .n-menu-item-content.n-menu-item-content--selected {
+  color: #ffffff !important;
+  font-weight: 600;
+}
+
+.main-layout-sider .n-menu .n-menu-item-content.n-menu-item-content--selected .n-menu-item-content-header a {
+  color: #ffffff !important;
+}
+
+.main-layout-sider .n-menu .n-menu-item-content.n-menu-item-content--selected .n-menu-item-content__icon {
+  color: #ffffff !important;
+}
+
+/* 折叠触发条区域与侧栏一致 */
+.main-layout-sider .n-layout-sider-trigger {
+  background-color: #0c1a42 !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(248, 250, 252, 0.85) !important;
+}
+
+/* —— 树形：子菜单区域与父级拉开上下间距 + 左侧引导线（子项无 icon 时层次更清晰） —— */
+.main-layout-sider .erp-sider-menu--tree .n-submenu-children {
+  margin-top: 0px;
+  margin-bottom: 0px;
+  padding-top: 0px;
+  padding-bottom: 0px;
+  margin-left: 0px;
+  padding-left: 0px;
+  //border-left: 2px solid rgba(148, 163, 184, 0.42);
+}
+
+/* 更深一层子树：再缩进一档、引导线略淡 */
+.main-layout-sider .erp-sider-menu--tree .n-submenu-children .n-submenu-children {
+  margin-top: 10px;
+  margin-bottom: 8px;
+  padding-top: 8px;
+  margin-left: 8px;
+  padding-left: 12px;
+  border-left-color: rgba(148, 163, 184, 0.28);
+}
+
+/* 子级字号略小；水平缩进由 n-menu 的 indent / root-indent 控制，避免与内联 padding 打架 */
+.main-layout-sider .erp-sider-menu--tree .n-submenu-children .n-menu-item-content {
+  font-size: 13px;
+}
+
+.main-layout-sider .erp-sider-menu--tree .n-submenu-children .n-submenu-children .n-menu-item-content {
+  font-size: 12.75px;
+}
+/* —— 右侧展开箭头：尺寸 & 布局 —— */
+.main-layout-sider .n-menu-item-content__arrow {
+  flex-shrink: 0;
+  width: 24px !important;
+  height: 24px !important;
+  margin-left: 4px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  opacity: 1 !important;
+}
+
+/* 图标大小 */
+.main-layout-sider .n-menu-item-content__arrow .n-base-icon {
+  width: 20px !important;
+  height: 20px !important;
+  font-size: 20px !important;
+}
+
+.main-layout-sider .n-menu-item-content__arrow svg {
+  width: 20px !important;
+  height: 20px !important;
+}
+
+/* —— 默认状态（未展开）—— */
+.main-layout-sider .n-submenu[aria-expanded="false"] > .n-menu-item .n-menu-item-content__arrow {
+  color: rgba(255, 255, 255, 0.45) !important;
+}
+
+/* —— 已展开（子菜单打开）—— */
+.main-layout-sider .n-submenu[aria-expanded="true"] > .n-menu-item .n-menu-item-content__arrow {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+
+/* —— hover —— */
+.main-layout-sider .n-menu-item-content--hover .n-menu-item-content__arrow {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* —— 子路由激活（父级高亮）—— */
+.main-layout-sider .n-menu-item-content--child-active .n-menu-item-content__arrow {
+  color: #ffffff !important;
+}
+
+/* —— 当前选中 —— */
+.main-layout-sider .n-menu-item-content--selected .n-menu-item-content__arrow {
+  color: #ffffff !important;
+}

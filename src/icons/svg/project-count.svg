@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="_图层_2" data-name="图层 2" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 33.76 36.44">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #e7eafc;
+      }
+
+      .cls-2 {
+        fill: #eceffd;
+      }
+
+      .cls-3 {
+        fill: #d4e2ff;
+      }
+
+      .cls-4 {
+        fill: url(#_未命名的渐变_336);
+      }
+
+      .cls-5 {
+        fill: url(#_未命名的渐变_161);
+      }
+    </style>
+    <linearGradient id="_未命名的渐变_336" data-name="未命名的渐变 336" x1="14.26" y1="33.19" x2="14.26" y2="3.25" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#c54de0"/>
+      <stop offset="1" stop-color="#be4dd8"/>
+    </linearGradient>
+    <linearGradient id="_未命名的渐变_161" data-name="未命名的渐变 161" x1="18.53" y1="36.44" x2="18.53" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#b256fd"/>
+      <stop offset="1" stop-color="#e47efd"/>
+    </linearGradient>
+  </defs>
+  <g id="_图层_1-2" data-name="图层 1">
+    <g>
+      <g>
+        <path class="cls-4" d="M23.37,33.19H5.14c-2.83,0-5.14-2.31-5.14-5.14V8.39C0,5.57,2.31,3.25,5.14,3.25h16.55l6.82,5.91v18.89c0,2.83-2.31,5.14-5.14,5.14Z"/>
+        <rect class="cls-2" x="8.18" y="15.07" width="12.5" height="2.1" rx="1.05" ry="1.05"/>
+        <rect class="cls-1" x="3.76" y="15.07" width="2.1" height="2.1" rx="1.05" ry="1.05" transform="translate(9.61 32.25) rotate(-180)"/>
+        <rect class="cls-1" x="8.18" y="20.82" width="12.5" height="2.1" rx="1.05" ry="1.05"/>
+        <rect class="cls-1" x="3.76" y="20.82" width="2.1" height="2.1" rx="1.05" ry="1.05" transform="translate(9.61 43.75) rotate(180)"/>
+        <path class="cls-3" d="M19.66,3.25l.42,4.74c-.11.58.32,1.13.92,1.16h5.48s-6.82-5.9-6.82-5.9Z"/>
+      </g>
+      <g>
+        <path class="cls-5" d="M28.27,36.44H8.79c-3.02,0-5.49-2.82-5.49-6.26V6.26C3.3,2.82,5.77,0,8.79,0h17.69l7.29,7.19v23c0,3.44-2.47,6.26-5.49,6.26Z"/>
+        <rect class="cls-1" x="8.18" y="12.2" width="14.24" height="2.56" rx="1.28" ry="1.28"/>
+        <rect class="cls-1" x="8.18" y="19.59" width="21.93" height="2.56" rx="1.28" ry="1.28"/>
+        <path class="cls-3" d="M26.48,0v5.77c-.12.71.37,1.38,1.05,1.41h6.24S26.48,0,26.48,0Z"/>
+      </g>
+    </g>
+  </g>
+</svg>
