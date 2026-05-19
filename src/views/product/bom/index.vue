@@ -1,7 +1,8 @@
 <script lang="ts" setup>
-import { h, onMounted, ref } from "vue"
+import { computed, onMounted, ref } from "vue"
 import { Reset, Search } from "@vicons/carbon"
-import { NButton } from "naive-ui"
+import { VxeTableInstance, VxeToolbarInstance } from "vxe-table"
+import { VxePagerEvents } from "vxe-pc-ui"
 import { useAppStore } from "@/store/modules/app"
 import LCard from "@/components/LCard/index.vue"
 import MCard from "@/components/MCard/index.vue"
@@ -11,12 +12,23 @@ import { ProductionBomForm, ProductionBomItemVo, ProductionBomProductVo, Product
 import { ProductionBomService } from "@/services/product/ProductionBomService"
 
 const appStore = useAppStore()
+const componentSize = computed(() => appStore.componentSize as "small" | "medium" | "large")
+const TableCardRef = ref()
+const TableCardMaxHeight = ref(0)
+const VxeTableRef = ref<VxeTableInstance>()
+const VxeToolbarRef = ref<VxeToolbarInstance>()
 const loading = ref(false)
 const submitting = ref(false)
 const showEdit = ref(false)
 const query = ref<ProductionBomQuery>({ currentPage: 1, pageSize: 50, key: "" })
 const data = ref<PageVo<ProductionBomProductVo, void>>({})
 const formData = ref<ProductionBomForm>({ detailList: [], componentOptions: [] })
+
+function getCardProps() {
+  TableCardMaxHeight.value = TableCardRef.value?.$el?.clientHeight
+    ? TableCardRef.value.$el.clientHeight - 20
+    : 520
+}
 
 function select() {
   loading.value = true
@@ -38,6 +50,12 @@ function reset() {
   query.value = resetRef(query.value)
   query.value.currentPage = 1
   query.value.pageSize = 50
+  select()
+}
+
+function pageChange(event: VxePagerEvents) {
+  query.value.currentPage = event.currentPage
+  query.value.pageSize = event.pageSize
   select()
 }
 
@@ -97,6 +115,12 @@ function submit() {
 
 onMounted(() => {
   select()
+  getCardProps()
+  const $table = VxeTableRef.value
+  const $toolbar = VxeToolbarRef.value
+  if ($table && $toolbar) {
+    $table.connect($toolbar)
+  }
 })
 </script>
 
@@ -105,7 +129,7 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <n-form label-placement="left" :size="appStore.componentSize" class="NaiveForm">
+          <n-form label-placement="left" :size="componentSize" class="NaiveForm">
             <n-grid :cols="4" x-gap="12" y-gap="12">
               <n-gi>
                 <n-form-item label="成品:">
@@ -115,11 +139,11 @@ onMounted(() => {
               <n-gi span="3">
                 <n-form-item>
                   <div class="flex gap-2">
-                    <n-button type="info" secondary strong @click="search">
+                    <n-button :size="componentSize" type="info" secondary strong @click="search">
                       <template #icon><n-icon><Search /></n-icon></template>
                       搜索
                     </n-button>
-                    <n-button type="tertiary" secondary strong @click="reset">
+                    <n-button :size="componentSize" type="tertiary" secondary strong @click="reset">
                       <template #icon><n-icon><Reset /></n-icon></template>
                       重置
                     </n-button>
@@ -131,22 +155,45 @@ onMounted(() => {
         </m-card>
       </template>
       <template #default>
-        <m-card class="h-full overflow-auto">
-          <n-data-table :columns="[
-            { title: '成品', key: 'name' },
-            { title: '类型', key: 'typeName' },
-            { title: '单位', key: 'unitName' },
-            { title: 'BOM数量', key: 'bomCount' },
-            {
-              title: '操作',
-              key: 'actions',
-              render: (row: ProductionBomProductVo) => h(
-                NButton,
-                { type: 'primary', size: 'small', onClick: () => openEdit(row.uid) },
-                { default: () => '编辑BOM' }
-              )
-            }
-          ]" :data="data.list || []" :loading="loading" />
+        <m-card class="w-full h-full flex flex-col" padding="0">
+          <m-card padding="0" class="px-2 pt-2 flex items-center justify-end">
+            <vxe-toolbar ref="VxeToolbarRef" custom />
+          </m-card>
+          <m-card ref="TableCardRef" class="flex-1">
+            <vxe-table
+              ref="VxeTableRef"
+              :column-config="{ resizable: true }"
+              :data="data.list || []"
+              border
+              stripe
+              :loading="loading"
+              :row-config="{ isHover: true }"
+              :height="TableCardMaxHeight"
+              :size="componentSize"
+            >
+              <vxe-column field="name" title="成品" show-overflow="tooltip" align="center" min-width="180" />
+              <vxe-column field="typeName" title="类型" show-overflow="tooltip" align="center" width="140" />
+              <vxe-column field="unitName" title="单位" show-overflow="tooltip" align="center" width="100" />
+              <vxe-column field="bomCount" title="BOM数量" show-overflow="tooltip" align="center" width="120" />
+              <vxe-column fixed="right" title="操作" align="center" width="140">
+                <template #default="{ row }">
+                  <n-button type="primary" text @click="openEdit(row.uid)">编辑BOM</n-button>
+                </template>
+              </vxe-column>
+            </vxe-table>
+          </m-card>
+        </m-card>
+      </template>
+      <template #footer>
+        <m-card class="w-full h-full flex items-center justify-end">
+          <vxe-pager
+            :size="componentSize"
+            v-model:currentPage="data.currentPage"
+            v-model:pageSize="data.pageSize"
+            :total="data.count || 0"
+            :layouts="['Home', 'PrevJump', 'PrevPage', 'Number', 'NextPage', 'NextJump', 'End', 'Sizes', 'FullJump', 'Total']"
+            @page-change="pageChange"
+          />
         </m-card>
       </template>
     </l-card>
@@ -158,9 +205,9 @@ onMounted(() => {
         </n-alert>
         <div class="flex justify-between items-center">
           <div class="text-sm text-gray-500">BOM 明细</div>
-          <n-button type="primary" @click="addDetail">新增零件</n-button>
+          <n-button :size="componentSize" type="primary" @click="addDetail">新增零件</n-button>
         </div>
-        <n-table striped size="small">
+        <n-table striped :size="componentSize">
           <thead>
             <tr>
               <th class="w-[260px]">零件</th>
@@ -181,13 +228,13 @@ onMounted(() => {
                 />
               </td>
               <td>
-                <n-input-number v-model:value="item.quantity" :min="0" class="w-full" />
+                <n-input-number v-model:value="item.quantity" :min="0.000001" class="w-full" />
               </td>
               <td>
                 <n-input v-model:value="item.remark" />
               </td>
               <td>
-                <n-button type="error" tertiary @click="removeDetail(index)">删除</n-button>
+                <n-button :size="componentSize" type="error" tertiary @click="removeDetail(index)">删除</n-button>
               </td>
             </tr>
           </tbody>

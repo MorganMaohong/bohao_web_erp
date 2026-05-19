@@ -18,9 +18,12 @@ import { InventoryOverviewService } from "@/services/inventory/InventoryOverview
 import { InventoryQuery, InventoryQueryData, InventoryVo } from "@/model/inventory"
 import { InventoryOutOrderDetailVo } from "@/model/inventory/outbound"
 import {
-  InventoryTransferOrderDetail,
+  InventoryTransferDetail,
+  InventoryTransferOrderForm,
   InventoryTransferOrderDetailVo,
-  InventoryTransferOrderForm
+  InventoryTransferOrderQuery,
+  InventoryTransferOrderQueryData,
+  InventoryTransferOrderVo
 } from "@/model/inventory/transfer"
 import { InventoryTransferOrderService } from "@/services/inventory/InventoryTransferOrderService"
 import SelectWarehouseTable from "@/views/inventory/components/SelectWarehouseTable/index.vue"
@@ -43,7 +46,7 @@ const warehouseData = ref<PageVo<WarehouseVo, void>>({})
 const itemsQuery = ref<InventoryQuery>({ currentPage: 1, pageSize: 50 })
 const itemsData = ref<PageVo<InventoryVo, InventoryQueryData>>({ currentPage: 1, pageSize: 50 })
 const VxeTableItemsRef = ref<VxeTableInstance>()
-const detailData = ref<InventoryTransferOrderDetail>({ detailList: [], imageList: [] })
+const detailData = ref<InventoryTransferDetail>({ detailList: [], imageList: [] })
 const tmpImageList = ref([])
 const tmpImageIndex = ref(0)
 const formRef = ref<FormInst>()
@@ -88,8 +91,8 @@ const formRule = {
     trigger: ["input", "blur"]
   }
 }
-const query = ref<InventoryInOrderQuery>({ currentPage: 1, pageSize: 50 })
-const data = ref<PageVo<InventoryInOrderVo, InventoryInOrderQueryData>>({})
+const query = ref<InventoryTransferOrderQuery>({ currentPage: 1, pageSize: 50 })
+const data = ref<PageVo<InventoryTransferOrderVo, InventoryTransferOrderQueryData>>({})
 const VxeTableRef = ref<VxeTableInstance>()
 const VxeToolbarRef = ref<VxeToolbarInstance>()
 
@@ -285,9 +288,13 @@ function confirmUpdateItems() {
 }
 
 function confirmDeleteItems(row: InventoryTransferOrderDetailVo, index: number) {
-  if (!row.uid) return
-  InventoryTransferOrderService.deleteDetail(row.uid)
-  formData.value?.detailList.splice(index, 1)
+  if (!row.uid) {
+    formData.value?.detailList.splice(index, 1)
+    return
+  }
+  InventoryTransferOrderService.deleteDetail(row.uid).then(() => {
+    formData.value?.detailList.splice(index, 1)
+  })
 }
 
 const totalQuantity = computed(() => {
@@ -432,14 +439,15 @@ onMounted(() => {
               :cell-config="{ height: 40 }"
             >
               <vxe-column field="code" title="编号" show-overflow="tooltip" align="center" width="10%" />
-              <vxe-column field="inWarehouseName" title="入库名称" show-overflow="tooltip" align="center" width="15%" />
+              <vxe-column field="inWarehouseName" title="调入仓库" show-overflow="tooltip" align="center" width="15%" />
               <vxe-column
                 field="outWarehouseName"
-                title="出库名称"
+                title="调出仓库"
                 show-overflow="tooltip"
                 align="center"
                 width="15%"
               />
+              <vxe-column field="projectName" title="项目" show-overflow="tooltip" align="center" width="15%" />
               <vxe-column field="typeName" title="类型" show-overflow="tooltip" align="center" width="15%" />
               <vxe-column title="状态" show-overflow="tooltip" align="center" width="15%">
                 <template #default="{ row }">
@@ -531,9 +539,12 @@ onMounted(() => {
     </l-card>
   </div>
   <!-- 弹窗 -->
-  <n-modal v-model:show="showUpdate" preset="card" class="w-[900px]" content-style="padding: 0" title="其他入库单">
+  <n-modal v-model:show="showUpdate" preset="card" class="w-[900px]" content-style="padding: 0" title="调拨单">
     <n-scrollbar style="max-height: 600px; padding: 0 24px 24px 20px" trigger="none">
       <n-form :model="formData" ref="formRef" :rules="formRule">
+        <n-alert type="info" :show-icon="false" class="mb-4">
+          调拨应由调出仓库发起，货物到达后再由调入仓库确认收货。
+        </n-alert>
         <div class="flex items-center mb-4">
           <div class="w-1 h-4 bg-blue-500 mr-2 rounded" />
           <div class="text-base font-semibold text-gray-700">调拨基本信息</div>
@@ -590,11 +601,11 @@ onMounted(() => {
 
         <div class="flex items-center mb-4">
           <div class="w-1 h-4 bg-blue-500 mr-2 rounded" />
-          <div class="text-base font-semibold text-gray-700">调出仓信息</div>
+          <div class="text-base font-semibold text-gray-700">调入仓信息</div>
         </div>
         <n-grid cols="3" x-gap="24">
           <n-gi>
-            <n-form-item label="入库仓库" class="w-full" path="inWarehouseUid">
+            <n-form-item label="调入仓库" class="w-full" path="inWarehouseUid">
               <n-input
                 class="w-full"
                 @click="showInWarehouseModal"
@@ -624,11 +635,11 @@ onMounted(() => {
         </n-grid>
         <div class="flex items-center mb-4">
           <div class="w-1 h-4 bg-blue-500 mr-2 rounded" />
-          <div class="text-base font-semibold text-gray-700">调入仓信息</div>
+          <div class="text-base font-semibold text-gray-700">调出仓信息</div>
         </div>
         <n-grid cols="3" x-gap="24">
           <n-gi>
-            <n-form-item label="出库仓库" class="w-full" path="outWarehouseUid">
+            <n-form-item label="调出仓库" class="w-full" path="outWarehouseUid">
               <n-input
                 class="w-full"
                 @click="showOutWarehouseModal"
@@ -738,7 +749,7 @@ onMounted(() => {
                     />
                     <vxe-column fixed="right" title="调拨数量" align="center" show-overflow="tooltip" width="15%">
                       <template #default="{ row }">
-                        <vxe-number-input v-model="row.quantity" :min="1" />
+                        <vxe-number-input v-model="row.quantity" :min="1" :max="Number(row.availableQuantity || 0)" />
                       </template>
                     </vxe-column>
                     <vxe-column fixed="right" title="操作" align="center" show-overflow="tooltip" width="60">
@@ -975,16 +986,22 @@ onMounted(() => {
     @positive-click="confirmDelete"
     :size="appStore.componentSize"
   />
-  <n-modal v-model:show="showDetail" preset="card" class="w-[1000px]" content-style="padding: 0" title="出库信息">
+  <n-modal v-model:show="showDetail" preset="card" class="w-[1000px]" content-style="padding: 0" title="调拨详情">
     <n-scrollbar style="max-height: 800px; padding: 0 24px 24px 20px" trigger="none">
       <n-space vertical :size="12">
         <n-descriptions bordered :column="4" title="单据信息">
           <n-descriptions-item label="编号">{{ detailData.code }}</n-descriptions-item>
-          <n-descriptions-item label="出库类型">{{ detailData.typeName }}</n-descriptions-item>
-          <n-descriptions-item label="出库时间">{{ detailData.timeName }}</n-descriptions-item>
-          <n-descriptions-item label="仓库名称">{{ detailData.warehouseName }}</n-descriptions-item>
+          <n-descriptions-item label="调拨类型">{{ detailData.typeName }}</n-descriptions-item>
+          <n-descriptions-item label="申请时间">{{ detailData.applyTimeName || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="期望到货">{{ detailData.expectTimeName || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="调出仓库">{{ detailData.outWarehouseName || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="调入仓库">{{ detailData.inWarehouseName || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="关联项目">{{ detailData.projectName || "-" }}</n-descriptions-item>
           <n-descriptions-item label="状态">{{ detailData.statusName }}</n-descriptions-item>
-          <n-descriptions-item label="备注" :span="3">{{ detailData.remark }}</n-descriptions-item>
+          <n-descriptions-item label="收货人">{{ detailData.receiveUserName || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="收货时间">{{ detailData.receiveTimeName || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="收货说明" :span="4">{{ detailData.receiveRemark || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="备注" :span="4">{{ detailData.remark }}</n-descriptions-item>
           <n-descriptions-item label="照片" :span="4">
             <n-grid x-gap="12" y-gap="12" cols="8">
               <n-gi v-for="(url, index) in detailData.imageList">
@@ -1004,7 +1021,7 @@ onMounted(() => {
           </n-descriptions-item>
         </n-descriptions>
         <div>
-          <n-descriptions :column="4" title="出库明细单" />
+          <n-descriptions :column="4" title="调拨明细" />
           <m-card ref="TableCardRef" padding="0">
             <vxe-table
               :loading="loading"
@@ -1049,17 +1066,17 @@ onMounted(() => {
           </m-card>
         </div>
         <n-descriptions :column="4" bordered>
-          <n-descriptions-item label="出库总数">
+          <n-descriptions-item label="调拨总数">
             {{ detailData.totalQuantity }}
           </n-descriptions-item>
-          <n-descriptions-item label="出库总采购价（含税）/元">
+          <n-descriptions-item label="调拨总采购价（含税）/元">
             {{ detailData.totalPurchasePriceWithTax }}
           </n-descriptions-item>
-          <n-descriptions-item label="出库总采购价（不含税）/元">
-            {{ detailData.totalAmountWithTax }}
+          <n-descriptions-item label="调拨总采购价（不含税）/元">
+            {{ detailData.totalAmountWithoutTax }}
           </n-descriptions-item>
-          <n-descriptions-item label="本次出库品总税额/元">
-            {{ detailData.totalQuantity }}
+          <n-descriptions-item label="本次调拨总税额/元">
+            {{ detailData.totalTaxAmount }}
           </n-descriptions-item>
         </n-descriptions>
       </n-space>
@@ -1071,7 +1088,7 @@ onMounted(() => {
     preset="dialog"
     type="error"
     title="提示信息"
-    content="确定取消该入库单吗?"
+    content="确定取消该调拨单吗?"
     positive-text="确定"
     @positive-click="confirmCancel"
   />

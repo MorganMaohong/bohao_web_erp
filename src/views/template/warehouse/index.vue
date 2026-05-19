@@ -198,10 +198,11 @@ onMounted(() => {
               :loading="loading"
               :height="TableCardMaxHeight"
               ref="VxeTableRef"
+              :size="appStore.componentSize"
             >
               <vxe-column field="code" title="编码" show-overflow="tooltip" align="center" width="15%" />
               <vxe-column field="name" title="名称" show-overflow="tooltip" align="center" width="15%" />
-              <vxe-column field="name" title="地址" show-overflow="tooltip" align="center" width="30%" />
+              <vxe-column field="address" title="地址" show-overflow="tooltip" align="center" width="30%" />
               <vxe-column field="remark" title="备注" show-overflow="tooltip" align="center" width="30%" />
               <vxe-column
                 field="createTime"

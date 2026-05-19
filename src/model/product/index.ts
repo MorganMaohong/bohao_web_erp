@@ -160,6 +160,7 @@ export interface ProductionPlanIssueDetailItem {
   componentSpec?: string
   componentMaterial?: string
   componentTypeName?: string
+  stockQuantity?: number
   availableQuantity?: number
   requiredQuantity?: number
   issuedQuantity?: number

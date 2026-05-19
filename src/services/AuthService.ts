@@ -25,7 +25,7 @@ export const LoginService = {
       if (!accessToken) {
         return Promise.reject(new Error("未获取到有效的登录凭证"))
       }
-      setToken(accessToken)
+      setToken(accessToken, Boolean(data.check))
       return loginInfo
     } catch (err) {
       return Promise.reject(err)

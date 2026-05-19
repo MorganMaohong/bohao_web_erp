@@ -8,6 +8,7 @@ import { ElMessage, ElScrollbar } from "element-plus"
 import { cloneDeep, debounce } from "lodash-es"
 import { useDevice } from "@/hooks/useDevice"
 import { isExternal } from "@/utils/validate"
+import { openSystemUrl } from "@/utils/system-link"
 
 /** 控制 modal 显隐 */
 const modelValue = defineModel<boolean>({ required: true })
@@ -125,7 +126,7 @@ const handleEnter = () => {
   const name = activeRouteName.value
   const path = resultList.value.find((item) => item.name === name)?.path
   if (path && isExternal(path)) {
-    window.open(path, "_blank", "noopener, noreferrer")
+    openSystemUrl(path)
     return
   }
   if (!name) {

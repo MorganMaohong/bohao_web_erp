@@ -14,6 +14,9 @@ export interface InventoryOutOrder extends BaseEntityLd {
   purchaseReturnType?: string
   resendOrderUid?: string
   resendOrderUids?: string
+  bizType?: string
+  bizUid?: string
+  bizName?: string
   images?: string
   remark?: string
   status?: string
@@ -37,6 +40,7 @@ export interface InventoryOutOrderDetail extends ItemsBase {
   batchNo?: string
   orderUid?: string
   purchaseOrderDetailUid?: string
+  bizDetailUid?: string
   sourceInDetailUid?: string
 }
 

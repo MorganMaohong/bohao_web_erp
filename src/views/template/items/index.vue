@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { onMounted, ref } from "vue"
+import { computed, onMounted, ref, watch } from "vue"
 import LCard from "@/components/LCard/index.vue"
 import MCard from "@/components/MCard/index.vue"
 import { useAppStore } from "@/store/modules/app"
@@ -56,7 +56,7 @@ const VxeTableRef = ref<VxeTableInstance>()
 const VxeToolbarRef = ref<VxeToolbarInstance>()
 
 function getCardProps() {
-  TableCardMaxHeight.value = TableCardRef.value.$el.clientHeight - 200
+  TableCardMaxHeight.value = TableCardRef.value.$el.clientHeight - 20
 }
 
 function select() {
@@ -90,7 +90,7 @@ function showCopyModal(uid: string) {
 }
 
 function confirmUpdate() {
-  console.log(formData.value)
+  normalizePrice()
   formRef.value?.validate((err) => {
     if (err) return
     if (isSubmitting.value) return
@@ -143,11 +143,54 @@ function handlerBeforeUpload(v: string) {
   formData.value.image = v
 }
 
-/*
+const priceWithoutTaxPreview = computed(() => {
+  const price = Number(formData.value.purchasePriceWithTax || 0)
+  const rate = Number(formData.value.vatTaxRate || 0)
+  if (!price) return 0
+  return Number((price / (1 + rate / 100)).toFixed(4))
+})
+
+const taxAmountPreview = computed(() => {
+  const withTax = Number(formData.value.purchasePriceWithTax || 0)
+  const withoutTax = Number(formData.value.purchasePriceWithoutTax || 0)
+  return Number((withTax - withoutTax).toFixed(4))
+})
+
+const salePriceWithoutTaxPreview = computed(() => {
+  const price = Number(formData.value.salePriceWithTax || 0)
+  const rate = Number(formData.value.vatTaxRate || 0)
+  if (!price) return 0
+  return Number((price / (1 + rate / 100)).toFixed(4))
+})
+
+watch(
+  () => [formData.value.purchasePriceWithTax, formData.value.vatTaxRate],
+  () => {
+    formData.value.purchasePriceWithoutTax = priceWithoutTaxPreview.value
+    formData.value.taxAmount = taxAmountPreview.value
+  }
+)
+
+watch(
+  () => [formData.value.salePriceWithTax, formData.value.vatTaxRate],
+  () => {
+    formData.value.salePriceWithoutTax = salePriceWithoutTaxPreview.value
+  }
+)
+
+function normalizePrice() {
+  if (formData.value.purchasePriceWithTax !== undefined && formData.value.purchasePriceWithTax !== null) {
+    formData.value.purchasePriceWithoutTax = priceWithoutTaxPreview.value
+    formData.value.taxAmount = taxAmountPreview.value
+  }
+  if (formData.value.salePriceWithTax !== undefined && formData.value.salePriceWithTax !== null) {
+    formData.value.salePriceWithoutTax = salePriceWithoutTaxPreview.value
+  }
+}
+
 function handleUpdateTypeValue(v: string) {}
 
 function handleUpdateUnitValue(v: string) {}
-*/
 
 onMounted(() => {
   select()
@@ -217,10 +260,10 @@ onMounted(() => {
               stripe
               :loading="loading"
               :cell-config="{ height: 80 }"
-              
               :row-config="{ isHover: true }"
               :height="TableCardMaxHeight"
               ref="VxeTableRef"
+              :size="appStore.componentSize"
             >
               <vxe-column field="name" title="名称" show-overflow="tooltip" align="center" width="20%" />
               <vxe-column title="图片" show-overflow="tooltip" align="center" width="10%">
@@ -233,6 +276,7 @@ onMounted(() => {
               <vxe-column field="typeName" title="类型" show-overflow="tooltip" align="center" width="10%" />
               <vxe-column field="itemBizTypeName" title="业务类型" show-overflow="tooltip" align="center" width="10%" />
               <vxe-column field="unitName" title="单位" show-overflow="tooltip" align="center" width="10%" />
+              <vxe-column field="brand" title="品牌" show-overflow="tooltip" align="center" width="10%" />
               <vxe-column field="vatTaxRate" title="增值税率" show-overflow="tooltip" align="center" width="15%" />
               <vxe-column
                 field="purchasePriceWithTax"
@@ -244,6 +288,21 @@ onMounted(() => {
               <vxe-column
                 field="purchasePriceWithoutTax"
                 title="采购单价（不含税）"
+                show-overflow="tooltip"
+                align="center"
+                width="15%"
+              />
+              <vxe-column field="taxAmount" title="税额" show-overflow="tooltip" align="center" width="12%" />
+              <vxe-column
+                field="salePriceWithTax"
+                title="销售单价（含税）"
+                show-overflow="tooltip"
+                align="center"
+                width="15%"
+              />
+              <vxe-column
+                field="salePriceWithoutTax"
+                title="销售单价（不含税）"
                 show-overflow="tooltip"
                 align="center"
                 width="15%"
@@ -375,6 +434,11 @@ onMounted(() => {
           </n-form-item>
         </n-gi>
         <n-gi>
+          <n-form-item label="品牌">
+            <n-input v-model:value="formData.brand" placeholder="请输入品牌" />
+          </n-form-item>
+        </n-gi>
+        <n-gi>
           <n-form-item label="规格">
             <n-input v-model:value="formData.spec" placeholder="请输入规格" />
           </n-form-item>
@@ -388,8 +452,10 @@ onMounted(() => {
           <n-form-item label="增值税率%" class="w-full">
             <n-input-number
               v-model:value="formData.vatTaxRate"
-              placeholder="请输入规格"
+              placeholder="请输入增值税率，如13"
               :show-button="false"
+              :min="0"
+              :max="100"
               class="w-full"
             />
           </n-form-item>
@@ -399,8 +465,9 @@ onMounted(() => {
             <n-input-number
               class="w-full"
               v-model:value="formData.purchasePriceWithTax"
-              placeholder="请输入规格"
+              placeholder="请输入含税单价"
               :show-button="false"
+              :min="0"
             />
           </n-form-item>
         </n-gi>
@@ -409,8 +476,45 @@ onMounted(() => {
             <n-input-number
               class="w-full"
               v-model:value="formData.purchasePriceWithoutTax"
-              placeholder="请输入规格"
+              placeholder="根据含税单价和税率自动计算"
               :show-button="false"
+              :min="0"
+              disabled
+            />
+          </n-form-item>
+        </n-gi>
+        <n-gi>
+          <n-form-item label="税额/元" class="w-full">
+            <n-input-number
+              class="w-full"
+              v-model:value="formData.taxAmount"
+              placeholder="根据采购含税价自动计算"
+              :show-button="false"
+              :min="0"
+              disabled
+            />
+          </n-form-item>
+        </n-gi>
+        <n-gi>
+          <n-form-item label="销售单价（含税）/元" class="w-full">
+            <n-input-number
+              class="w-full"
+              v-model:value="formData.salePriceWithTax"
+              placeholder="请输入销售含税单价"
+              :show-button="false"
+              :min="0"
+            />
+          </n-form-item>
+        </n-gi>
+        <n-gi>
+          <n-form-item label="销售单价（不含税）/元" class="w-full">
+            <n-input-number
+              class="w-full"
+              v-model:value="formData.salePriceWithoutTax"
+              placeholder="根据销售含税单价和税率自动计算"
+              :show-button="false"
+              :min="0"
+              disabled
             />
           </n-form-item>
         </n-gi>

@@ -8,11 +8,15 @@ export interface ItemsBase extends BaseEntityLd {
   itemBizType?: string
   spec?: string
   material?: string
+  brand?: string
   supplierUid?: string
   remark?: string
   vatTaxRate?: number
+  taxAmount?: number
   purchasePriceWithTax?: number
   purchasePriceWithoutTax?: number
+  salePriceWithTax?: number
+  salePriceWithoutTax?: number
 }
 
 export interface Items extends ItemsBase {}

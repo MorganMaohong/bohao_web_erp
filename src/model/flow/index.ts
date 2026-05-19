@@ -174,6 +174,7 @@ export interface FlowLog extends BaseEntityLd {
 
 export interface PurchaseApplyPriceSubmitItem {
   uid?: string
+  supplierUid?: string
   vatTaxRate?: number
   purchasePriceWithTax?: number
   purchasePriceWithoutTax?: number

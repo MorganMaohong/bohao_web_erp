@@ -17,6 +17,7 @@ import { MenuTypeDictionary } from "@/constants/enum"
 import { useNotifyStore } from "@/store/modules/notify"
 import { useTaskStore } from "@/store/modules/task"
 import { websocketUtil } from "@/utils/websocket"
+import { openSystemUrl } from "@/utils/system-link"
 
 const userStore = useUserStore()
 const router = useRouter()
@@ -218,7 +219,7 @@ watch(
     if (routes.meta.linkType) {
       router.push({ path: "/link", params: routes.meta })
     } else {
-      window.open(routes?.meta.link)
+      openSystemUrl(routes?.meta.link)
       appStore.setCurrentRootRoute(oldRoute)
       router.push({ path: oldRoute })
     }

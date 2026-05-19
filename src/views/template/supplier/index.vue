@@ -110,7 +110,7 @@ function search() {
 }
 
 function reset() {
-  query.value = resetRef(query.value)
+  query.value = { currentPage: 1, pageSize: 50 }
   select()
 }
 
@@ -189,18 +189,24 @@ onMounted(() => {
               border
               stripe
               :loading="loading"
-              
-              
+              :size="appStore.componentSize"
               :row-config="{ isHover: true }"
               :height="TableCardMaxHeight"
               ref="VxeTableRef"
             >
               <vxe-column field="code" title="编码" show-overflow="tooltip" align="center" width="15%" />
               <vxe-column field="name" title="名称" show-overflow="tooltip" align="center" width="15%" />
+              <vxe-column field="contactName" title="联系人" show-overflow="tooltip" align="center" width="12%" />
+              <vxe-column field="contactPhone" title="联系电话" show-overflow="tooltip" align="center" width="14%" />
+              <vxe-column field="taxNo" title="税号" show-overflow="tooltip" align="center" width="16%" />
               <vxe-column field="categoryName" title="供应商分类" show-overflow="tooltip" align="center" width="15%" />
               <vxe-column field="levelName" title="供应商等级" show-overflow="tooltip" align="center" width="15%" />
               <vxe-column field="settlementName" title="结算期限" show-overflow="tooltip" align="center" width="15%" />
+              <vxe-column field="settlementMethod" title="结算方式" show-overflow="tooltip" align="center" width="15%" />
               <vxe-column field="creditLimit" title="信用额度" show-overflow="tooltip" align="center" width="15%" />
+              <vxe-column field="bankName" title="开户银行" show-overflow="tooltip" align="center" width="16%" />
+              <vxe-column field="bankAccountName" title="银行账户名" show-overflow="tooltip" align="center" width="16%" />
+              <vxe-column field="bankAccountNo" title="银行账号" show-overflow="tooltip" align="center" width="18%" />
               <vxe-column
                 field="startTimeName"
                 title="签约开始日期"
@@ -279,6 +285,16 @@ onMounted(() => {
           </n-form-item>
         </n-gi>
         <n-gi>
+          <n-form-item label="联系人">
+            <n-input v-model:value="formData.contactName" placeholder="请输入联系人" />
+          </n-form-item>
+        </n-gi>
+        <n-gi>
+          <n-form-item label="联系人电话">
+            <n-input v-model:value="formData.contactPhone" placeholder="请输入联系人电话" />
+          </n-form-item>
+        </n-gi>
+        <n-gi>
           <n-form-item label="供应商分类">
             <n-select v-model:value="formData.category" placeholder="请选择分类" :options="formData.categoryOptions" />
           </n-form-item>
@@ -311,6 +327,11 @@ onMounted(() => {
           </n-form-item>
         </n-gi>
         <n-gi>
+          <n-form-item label="税号">
+            <n-input v-model:value="formData.taxNo" placeholder="请输入供应商税号" />
+          </n-form-item>
+        </n-gi>
+        <n-gi>
           <n-form-item label="结算期限">
             <n-select
               v-model:value="formData.settlement"
@@ -320,8 +341,37 @@ onMounted(() => {
           </n-form-item>
         </n-gi>
         <n-gi>
+          <n-form-item label="结算方式">
+            <n-input
+              v-model:value="formData.settlementMethod"
+              placeholder="如微信、支付宝、银行转账、商业汇票等"
+            />
+          </n-form-item>
+        </n-gi>
+        <n-gi>
           <n-form-item label="信用额度/元">
-            <n-input v-model:value="formData.creditLimit" placeholder="请输入信用额度" />
+            <n-input-number
+              v-model:value="formData.creditLimit"
+              placeholder="请输入信用额度"
+              class="w-full"
+              :min="0"
+              :show-button="false"
+            />
+          </n-form-item>
+        </n-gi>
+        <n-gi span="2">
+          <n-form-item label="开户银行">
+            <n-input v-model:value="formData.bankName" placeholder="请输入开户银行" />
+          </n-form-item>
+        </n-gi>
+        <n-gi>
+          <n-form-item label="银行账户名">
+            <n-input v-model:value="formData.bankAccountName" placeholder="请输入银行账户名" />
+          </n-form-item>
+        </n-gi>
+        <n-gi>
+          <n-form-item label="银行账号">
+            <n-input v-model:value="formData.bankAccountNo" placeholder="请输入银行账号" />
           </n-form-item>
         </n-gi>
         <n-gi span="2">

@@ -1,7 +1,7 @@
 //  src/utils/request.ts
 import axios, { type InternalAxiosRequestConfig, type AxiosResponse } from "axios"
 // import { useUserStoreHook } from '@/store/modules/user';
-import { ElMessage, ElMessageBox } from "element-plus"
+import { ElMessage } from "element-plus"
 import { getToken } from "@/utils/cache/cookies"
 import { LoginService } from "@/services/AuthService"
 import router from "@/router"
@@ -17,8 +17,10 @@ const service = axios.create({
 service.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     // debugger
+    config.headers["x-client-system"] = "erp"
     const accessToken = getToken()
     if (accessToken) {
+      config.headers["x-token"] = accessToken
       config.headers.satoken = accessToken
     }
     return config

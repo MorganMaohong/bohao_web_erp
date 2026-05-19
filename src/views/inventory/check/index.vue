@@ -60,7 +60,13 @@ const formRule = {
     required: true,
     validator() {
       if (!formData.value.detailList || formData.value.detailList.length <= 0) {
-        return new Error("出库明细不能为空！")
+        return new Error("盘点明细不能为空！")
+      }
+
+      for (const item of formData.value.detailList) {
+        if (item.quantity === undefined || item.quantity === null || Number(item.quantity) < 0) {
+          return new Error(`【${item.name}】实盘数量不能小于0！`)
+        }
       }
 
       return true
@@ -248,9 +254,13 @@ function confirmUpdateItems() {
 }
 
 function confirmDeleteItems(row: InventoryTransferOrderDetailVo, index: number) {
-  if (!row.uid) return
-  InventoryCheckOrderService.deleteDetail(row.uid)
-  formData.value?.detailList.splice(index, 1)
+  if (!row.uid) {
+    formData.value?.detailList.splice(index, 1)
+    return
+  }
+  InventoryCheckOrderService.deleteDetail(row.uid).then(() => {
+    formData.value?.detailList.splice(index, 1)
+  })
 }
 
 const totalQuantity = computed(() => {
@@ -440,8 +450,8 @@ onMounted(() => {
                   </vxe-text>
                 </template>
               </vxe-column>
-              <vxe-column field="applyTimeName" title="申请时间" show-overflow="tooltip" align="center" width="20%" />
-              <vxe-column field="expectTimeName" title="到货时间" show-overflow="tooltip" align="center" width="20%" />
+              <vxe-column field="startTimeName" title="开始时间" show-overflow="tooltip" align="center" width="20%" />
+              <vxe-column field="endTimeName" title="结束时间" show-overflow="tooltip" align="center" width="20%" />
               <vxe-column field="remark" title="备注" show-overflow="tooltip" align="center" width="30%" />
               <vxe-column
                 field="createTime"
@@ -510,7 +520,7 @@ onMounted(() => {
       <n-form :model="formData" ref="formRef" :rules="formRule">
         <div class="flex items-center mb-4">
           <div class="w-1 h-4 bg-blue-500 mr-2 rounded" />
-          <div class="text-base font-semibold text-gray-700">调拨基本信息</div>
+          <div class="text-base font-semibold text-gray-700">盘点基本信息</div>
         </div>
         <n-grid cols="3" x-gap="24">
           <n-gi>
@@ -529,23 +539,23 @@ onMounted(() => {
             </n-form-item>
           </n-gi>
           <n-gi>
-            <n-form-item label="盘点开始时间" class="w-full" path="time">
+            <n-form-item label="盘点开始时间" class="w-full" path="startTime">
               <n-date-picker
                 type="datetime"
                 placeholder="请选择开始时间"
                 class="w-full"
-                v-model:value="formData.applyTime"
+                v-model:value="formData.startTime"
                 clearable
               />
             </n-form-item>
           </n-gi>
           <n-gi>
-            <n-form-item label="盘点结束时间" class="w-full" path="time">
+            <n-form-item label="盘点结束时间" class="w-full" path="endTime">
               <n-date-picker
                 type="datetime"
                 placeholder="请选择结束时间"
                 class="w-full"
-                v-model:value="formData.expectTime"
+                v-model:value="formData.endTime"
                 clearable
               />
             </n-form-item>
@@ -592,7 +602,7 @@ onMounted(() => {
         </div>
         <n-grid cols="3" x-gap="24">
           <n-gi span="3">
-            <n-form-item label="出库明细" path="detailList" required>
+            <n-form-item label="盘点明细" path="detailList" required>
               <m-card class="w-full h-full flex flex-col" padding="0">
                 <m-card padding="0" style="position: absolute; right: 0; top: -30px">
                   <n-button :size="appStore.componentSize" type="info" @click="showItemsModal">添加物料</n-button>

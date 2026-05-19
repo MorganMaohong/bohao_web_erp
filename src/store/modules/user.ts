@@ -1,8 +1,6 @@
 import { ref } from "vue"
 import store from "@/store"
 import { defineStore } from "pinia"
-import { useTagsViewStore } from "./tags-view"
-import { useSettingsStore } from "./settings"
 import { getToken } from "@/utils/cache/cookies"
 import { UserInfoVo } from "@/model/user"
 import { UserService } from "@/services/UserService"
@@ -15,9 +13,6 @@ export const useUserStore = defineStore("user", () => {
   const permissions = ref<string[]>([])
   const username = ref<string>("")
   const loginInfo = ref<LoginVo>(undefined)
-
-  const tagsViewStore = useTagsViewStore()
-  const settingsStore = useSettingsStore()
 
   const getUserInfo = async () => {
     await UserService.userInfo().then((res) => {

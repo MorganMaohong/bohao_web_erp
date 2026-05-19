@@ -8,6 +8,13 @@ export interface InventoryInOrder extends BaseEntityLd {
   otherType?: string
   time?: number | string
   warehouseUid?: string
+  projectUid?: string
+  projectName?: string
+  customerName?: string
+  sourcePartyName?: string
+  handlerName?: string
+  approvalRemark?: string
+  inspectionRemark?: string
   purchaseOrderUid?: string
   images?: string
   remark?: string
@@ -45,6 +52,7 @@ export interface InventoryInOrderVo extends InventoryInOrder {
   warehouseName?: string
   statusName?: string
   timeName?: string
+  purchaseOrderCode?: string
 }
 
 export interface InventoryInOrderQuery extends PageQuery {
@@ -71,4 +79,5 @@ export interface InventoryInboundDetail extends InventoryInOrder {
   totalPurchasePriceWithTax?: number
   totalTaxAmount?: number
   totalQuantity?: number
+  purchaseOrderCode?: string
 }

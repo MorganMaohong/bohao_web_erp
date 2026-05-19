@@ -3,8 +3,6 @@ import store from "@/store"
 import { defineStore } from "pinia"
 import { type RouteRecordRaw } from "vue-router"
 import { constantRoutes, dynamicRoutes } from "@/router"
-import { flatMultiLevelRoutes } from "@/router/helper"
-import routeSettings from "@/config/route"
 import { Menu, MenuTreeVo } from "@/model/menu"
 import { MenuTypeDictionary } from "@/constants/enum"
 
@@ -95,7 +93,9 @@ export const usePermissionStore = defineStore("permission", () => {
         }
 
         // 某些容器路由可能没有 children，但带 redirect；优先使用 redirect 目标
-        if (typeof item.redirect === "string" && item.redirect && item.redirect !== "/" && !item.meta?.hidden) return item.redirect
+        if (typeof item.redirect === "string" && item.redirect && item.redirect !== "/" && !item.meta?.hidden) {
+          return item.redirect
+        }
 
         const p = item.path
         if (p && p !== "/" && !item.meta?.hidden) return p
@@ -117,10 +117,14 @@ export const usePermissionStore = defineStore("permission", () => {
   /** 所有路由 = 所有常驻路由 + 所有动态路由 */
   const setAllRoutes = () => {
     routes.value = [...constantRoutes, ...dynamicRoutes]
+    rootPath.value = findFirstEnterablePath(dynamicRoutes) || "/"
+    isRoutesAdded.value = true
   }
 
   const cleanRoutes = () => {
     routes.value = []
+    rootPath.value = ""
+    isRoutesAdded.value = false
   }
 
   return { rootPath, routes, setRoutes, setAllRoutes, cleanRoutes, isRoutesAdded }

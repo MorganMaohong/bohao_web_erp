@@ -9,6 +9,12 @@ export interface InventoryTransferOrder extends BaseEntityLd {
   expectTime?: number
   outWarehouseUid?: string
   inWarehouseUid?: string
+  projectUid?: string
+  projectName?: string
+  receiveUserName?: string
+  receiveTime?: number | string
+  receiveTimeName?: string
+  receiveRemark?: string
   images?: string
   remark?: string
   outOrderUid?: string
@@ -28,6 +34,11 @@ export interface InventoryTransferOrderForm extends InventoryTransferOrder {
 export interface InventoryTransferDetail extends InventoryTransferOrder {
   detailList?: InventoryTransferOrderDetailVo[]
   imageList?: string[]
+  totalQuantity?: number
+  totalPurchasePriceWithTax?: number
+  totalAmountWithTax?: number
+  totalAmountWithoutTax?: number
+  totalTaxAmount?: number
 }
 
 export interface InventoryTransferOrderVo extends InventoryTransferOrder {

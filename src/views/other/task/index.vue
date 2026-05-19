@@ -19,7 +19,15 @@ import { FlowDefinitionTypeOptions, FlowTaskStatusEnum } from "@/constants/flow"
 import { resetRef } from "@/utils"
 import { useTaskStore } from "@/store/modules/task"
 import FastUpload from "@/components/FastUpload/FastUpload.vue"
-import { calcPriceWithoutTax, formatMoney, syncPurchasePriceRows, validatePurchasePriceRows } from "@/utils/purchasePrice"
+import {
+  calcAmountWithTax,
+  calcAmountWithoutTax,
+  calcPriceWithoutTax,
+  calcTaxAmount,
+  formatMoney,
+  syncPurchasePriceRows,
+  validatePurchasePriceRows
+} from "@/utils/purchasePrice"
 
 const appStore = useAppStore()
 const taskStore = useTaskStore()
@@ -302,6 +310,7 @@ function buildApprovePayload() {
     syncPurchasePriceRows(purchaseDetailList.value)
     const priceDetailList = purchaseDetailList.value.map((row: any) => ({
       uid: row.uid,
+      supplierUid: row.supplierUid,
       vatTaxRate: row.vatTaxRate,
       purchasePriceWithTax: row.purchasePriceWithTax,
       purchasePriceWithoutTax: row.purchasePriceWithoutTax
@@ -647,7 +656,11 @@ watch(currentTab, () => {
               <vxe-column field="name" title="名称" show-overflow="tooltip" align="center" width="20%" />
               <vxe-column field="supplierName" title="供应商名称" show-overflow="tooltip" align="center" width="15%">
                 <template #default="{ row }">
-                  <vxe-select :options="detailData.data.supplierOptions" v-model="row.supplierUid" />
+                  <vxe-select
+                    :options="detailData.data.supplierOptions"
+                    v-model="row.supplierUid"
+                    :disabled="!canEditPrice"
+                  />
                 </template>
               </vxe-column>
               <vxe-column
@@ -661,7 +674,7 @@ watch(currentTab, () => {
                   <vxe-number-input
                     v-model="row.purchasePriceWithTax"
                     :show-button="false"
-                    :min="0"
+                    :min="0.0001"
                     :precision="4"
                     :disabled="!canEditPrice"
                     :controls="false"
@@ -692,6 +705,21 @@ watch(currentTab, () => {
                   {{ formatMoney(calcPriceWithoutTax(row.purchasePriceWithTax, row.vatTaxRate)) }}
                 </template>
               </vxe-column>
+              <vxe-column title="税额/元" align="center" show-overflow="tooltip" width="10%">
+                <template #default="{ row }">
+                  {{ formatMoney(calcTaxAmount(row.purchasePriceWithTax, row.vatTaxRate, row.quantity)) }}
+                </template>
+              </vxe-column>
+              <vxe-column title="含税小计/元" align="center" show-overflow="tooltip" width="10%">
+                <template #default="{ row }">
+                  {{ formatMoney(calcAmountWithTax(row.purchasePriceWithTax, row.quantity)) }}
+                </template>
+              </vxe-column>
+              <vxe-column title="不含税小计/元" align="center" show-overflow="tooltip" width="10%">
+                <template #default="{ row }">
+                  {{ formatMoney(calcAmountWithoutTax(row.purchasePriceWithTax, row.vatTaxRate, row.quantity)) }}
+                </template>
+              </vxe-column>
               <vxe-column field="typeName" title="类型" show-overflow="tooltip" align="center" width="15%" />
               <vxe-column field="unitName" title="单位" show-overflow="tooltip" align="center" width="15%" />
               <vxe-column field="spec" title="规格" show-overflow="tooltip" align="center" width="15%" />
@@ -711,6 +739,74 @@ watch(currentTab, () => {
         <n-tag v-if="getFlowActionHint('approve')" :type="canEditPrice ? 'warning' : 'default'" size="small">
           {{ getFlowActionHint("approve") }}
         </n-tag>
+      </template>
+      <template v-else-if="isFlowTask && FlowDefinitionTypeOptions.PURCHASE_ORDER_FLOW === detailData.flowType">
+        <n-descriptions bordered title="采购订单信息" column="4">
+          <n-descriptions-item label="订单编号">{{ detailData.data?.code || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="供应商">{{ detailData.data?.supplierName || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="订单类型">{{ detailData.data?.orderTypeName || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="状态">{{ detailData.data?.statusName || detailData.statusName || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="来源申请">{{ detailData.data?.applyOrderCode || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="来源订单">{{ detailData.data?.sourceOrderCode || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="预计到货">{{ detailData.data?.expectTimeName || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="含税总额">{{ formatMoney(detailData.data?.totalAmount) }}</n-descriptions-item>
+          <n-descriptions-item label="不含税总额">{{ formatMoney(detailData.data?.totalAmountWithoutTax) }}</n-descriptions-item>
+          <n-descriptions-item label="备注" :span="3">{{ detailData.data?.remark || "-" }}</n-descriptions-item>
+        </n-descriptions>
+        <m-card />
+        <div>
+          <n-descriptions :column="4" title="采购订单明细" />
+          <m-card padding="0">
+            <vxe-table
+              :loading="loading"
+              class="w-full"
+              :data="detailData.data?.detailList || []"
+              border
+              stripe
+              :row-config="{ isHover: true }"
+              max-height="420"
+            >
+              <vxe-column field="name" title="名称" align="center" min-width="180" show-overflow="tooltip" />
+              <vxe-column field="supplierName" title="供应商" align="center" min-width="150" show-overflow="tooltip" />
+              <vxe-column field="spec" title="规格" align="center" min-width="140" show-overflow="tooltip" />
+              <vxe-column field="material" title="材质" align="center" min-width="120" show-overflow="tooltip" />
+              <vxe-column field="typeName" title="类型" align="center" min-width="120" show-overflow="tooltip" />
+              <vxe-column field="unitName" title="单位" align="center" width="90" />
+              <vxe-column field="applyQuantity" title="申请数量" align="center" width="110" />
+              <vxe-column field="quantity" title="订单数量" align="center" width="110" />
+              <vxe-column field="inboundQuantity" title="已入库" align="center" width="110" />
+              <vxe-column field="returnQuantity" title="已退货" align="center" width="110" />
+              <vxe-column field="vatTaxRate" title="税率%" align="center" width="100" />
+              <vxe-column title="含税单价" align="center" width="120">
+                <template #default="{ row }">
+                  {{ formatMoney(row.purchasePriceWithTax) }}
+                </template>
+              </vxe-column>
+              <vxe-column title="不含税单价" align="center" width="130">
+                <template #default="{ row }">
+                  {{ formatMoney(row.purchasePriceWithoutTax || calcPriceWithoutTax(row.purchasePriceWithTax, row.vatTaxRate)) }}
+                </template>
+              </vxe-column>
+              <vxe-column title="含税小计" align="center" width="120">
+                <template #default="{ row }">
+                  {{ formatMoney(row.totalAmount || calcAmountWithTax(row.purchasePriceWithTax, row.quantity)) }}
+                </template>
+              </vxe-column>
+              <vxe-column title="不含税小计" align="center" width="130">
+                <template #default="{ row }">
+                  {{
+                    formatMoney(
+                      row.totalAmountWithoutTax ||
+                        calcAmountWithoutTax(row.purchasePriceWithTax, row.vatTaxRate, row.quantity)
+                    )
+                  }}
+                </template>
+              </vxe-column>
+              <vxe-column field="priceCompareReason" title="价格说明" align="center" min-width="180" show-overflow="tooltip" />
+              <vxe-column field="remark" title="备注" align="center" min-width="180" show-overflow="tooltip" />
+            </vxe-table>
+          </m-card>
+        </div>
       </template>
       <template v-else-if="isFlowTask && FlowDefinitionTypeOptions.INVENTORY_REQUEST_FLOW === detailData.flowType">
         <n-descriptions bordered title="领料申请信息" column="4">

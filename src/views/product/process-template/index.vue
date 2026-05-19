@@ -1,7 +1,8 @@
 <script lang="ts" setup>
-import { h, onMounted, ref } from "vue"
+import { computed, onMounted, ref } from "vue"
 import { Reset, Search } from "@vicons/carbon"
-import { NButton } from "naive-ui"
+import { VxeTableInstance, VxeToolbarInstance } from "vxe-table"
+import { VxePagerEvents } from "vxe-pc-ui"
 import { useAppStore } from "@/store/modules/app"
 import LCard from "@/components/LCard/index.vue"
 import MCard from "@/components/MCard/index.vue"
@@ -16,12 +17,23 @@ import {
 import { ProductionProcessTemplateService } from "@/services/product/ProductionProcessTemplateService"
 
 const appStore = useAppStore()
+const componentSize = computed(() => appStore.componentSize as "small" | "medium" | "large")
+const TableCardRef = ref()
+const TableCardMaxHeight = ref(0)
+const VxeTableRef = ref<VxeTableInstance>()
+const VxeToolbarRef = ref<VxeToolbarInstance>()
 const loading = ref(false)
 const submitting = ref(false)
 const showEdit = ref(false)
 const query = ref<ProductionProcessTemplateQuery>({ currentPage: 1, pageSize: 50, key: "" })
 const data = ref<PageVo<ProductionProcessTemplateVo, void>>({})
 const formData = ref<ProductionProcessTemplateForm>({ nodeList: [] })
+
+function getCardProps() {
+  TableCardMaxHeight.value = TableCardRef.value?.$el?.clientHeight
+    ? TableCardRef.value.$el.clientHeight - 20
+    : 520
+}
 
 function select() {
   loading.value = true
@@ -43,6 +55,12 @@ function reset() {
   query.value = resetRef(query.value)
   query.value.currentPage = 1
   query.value.pageSize = 50
+  select()
+}
+
+function pageChange(event: VxePagerEvents) {
+  query.value.currentPage = event.currentPage
+  query.value.pageSize = event.pageSize
   select()
 }
 
@@ -119,6 +137,12 @@ function handleCopy(uid?: string) {
 
 onMounted(() => {
   select()
+  getCardProps()
+  const $table = VxeTableRef.value
+  const $toolbar = VxeToolbarRef.value
+  if ($table && $toolbar) {
+    $table.connect($toolbar)
+  }
 })
 </script>
 
@@ -127,7 +151,7 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <n-form label-placement="left" :size="appStore.componentSize" class="NaiveForm">
+          <n-form label-placement="left" :size="componentSize" class="NaiveForm">
             <n-grid :cols="4" x-gap="12" y-gap="12">
               <n-gi>
                 <n-form-item label="模板:">
@@ -137,15 +161,14 @@ onMounted(() => {
               <n-gi span="3">
                 <n-form-item>
                   <div class="flex gap-2">
-                    <n-button type="info" secondary strong @click="search">
+                    <n-button :size="componentSize" type="info" secondary strong @click="search">
                       <template #icon><n-icon><Search /></n-icon></template>
                       搜索
                     </n-button>
-                    <n-button type="tertiary" secondary strong @click="reset">
+                    <n-button :size="componentSize" type="tertiary" secondary strong @click="reset">
                       <template #icon><n-icon><Reset /></n-icon></template>
                       重置
                     </n-button>
-                    <n-button type="primary" @click="openEdit()">新增模板</n-button>
                   </div>
                 </n-form-item>
               </n-gi>
@@ -154,21 +177,49 @@ onMounted(() => {
         </m-card>
       </template>
       <template #default>
-        <m-card class="h-full overflow-auto">
-          <n-data-table :columns="[
-            { title: '模板名称', key: 'name' },
-            { title: '节点数量', key: 'nodeCount' },
-            { title: '备注', key: 'remark' },
-            {
-              title: '操作',
-              key: 'actions',
-              render: (row: ProductionProcessTemplateVo) => h('div', { class: 'flex gap-2' }, [
-                h(NButton, { size: 'small', type: 'primary', onClick: () => openEdit(row.uid) }, { default: () => '编辑' }),
-                h(NButton, { size: 'small', type: 'info', onClick: () => handleCopy(row.uid) }, { default: () => '复制' }),
-                h(NButton, { size: 'small', type: 'error', tertiary: true, onClick: () => handleDelete(row.uid) }, { default: () => '删除' })
-              ])
-            }
-          ]" :data="data.list || []" :loading="loading" />
+        <m-card class="w-full h-full flex flex-col" padding="0">
+          <m-card padding="0" class="px-2 pt-2 flex items-center justify-between">
+            <n-button type="primary" :size="componentSize" @click="openEdit()">新增模板</n-button>
+            <vxe-toolbar ref="VxeToolbarRef" custom />
+          </m-card>
+          <m-card ref="TableCardRef" class="flex-1">
+            <vxe-table
+              ref="VxeTableRef"
+              :column-config="{ resizable: true }"
+              :data="data.list || []"
+              border
+              stripe
+              :loading="loading"
+              :row-config="{ isHover: true }"
+              :height="TableCardMaxHeight"
+              :size="componentSize"
+            >
+              <vxe-column field="name" title="模板名称" show-overflow="tooltip" align="center" min-width="180" />
+              <vxe-column field="nodeCount" title="节点数量" show-overflow="tooltip" align="center" width="120" />
+              <vxe-column field="remark" title="备注" show-overflow="tooltip" align="center" min-width="220" />
+              <vxe-column fixed="right" title="操作" align="center" width="180">
+                <template #default="{ row }">
+                  <n-flex justify="center">
+                    <n-button type="primary" text @click="openEdit(row.uid)">编辑</n-button>
+                    <n-button type="info" text @click="handleCopy(row.uid)">复制</n-button>
+                    <n-button type="error" text @click="handleDelete(row.uid)">删除</n-button>
+                  </n-flex>
+                </template>
+              </vxe-column>
+            </vxe-table>
+          </m-card>
+        </m-card>
+      </template>
+      <template #footer>
+        <m-card class="w-full h-full flex items-center justify-end">
+          <vxe-pager
+            :size="componentSize"
+            v-model:currentPage="data.currentPage"
+            v-model:pageSize="data.pageSize"
+            :total="data.count || 0"
+            :layouts="['Home', 'PrevJump', 'PrevPage', 'Number', 'NextPage', 'NextJump', 'End', 'Sizes', 'FullJump', 'Total']"
+            @page-change="pageChange"
+          />
         </m-card>
       </template>
     </l-card>
@@ -189,9 +240,9 @@ onMounted(() => {
         </n-grid>
         <div class="flex justify-between items-center">
           <div class="text-sm text-gray-500">工序节点</div>
-          <n-button type="primary" @click="addNode">新增节点</n-button>
+          <n-button :size="componentSize" type="primary" @click="addNode">新增节点</n-button>
         </div>
-        <n-table striped size="small">
+        <n-table striped :size="componentSize">
           <thead>
             <tr>
               <th>名称</th>
@@ -211,7 +262,7 @@ onMounted(() => {
               <td><n-select v-model:value="item.durationUnit" :options="formData.durationUnitOptions" /></td>
               <td><n-select v-model:value="item.startRule" :options="formData.startRuleOptions" /></td>
               <td><n-input v-model:value="item.remark" /></td>
-              <td><n-button type="error" tertiary @click="removeNode(index)">删除</n-button></td>
+              <td><n-button :size="componentSize" type="error" tertiary @click="removeNode(index)">删除</n-button></td>
             </tr>
           </tbody>
         </n-table>

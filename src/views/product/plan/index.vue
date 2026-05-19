@@ -1,8 +1,9 @@
 <script lang="ts" setup>
-import { computed, h, onMounted, ref } from "vue"
+import { computed, onMounted, ref } from "vue"
 import { Reset, Search } from "@vicons/carbon"
 import { AddPhotoAlternateRound } from "@vicons/material"
-import { NButton } from "naive-ui"
+import { VxeTableInstance, VxeToolbarInstance } from "vxe-table"
+import { VxePagerEvents } from "vxe-pc-ui"
 import { useAppStore } from "@/store/modules/app"
 import LCard from "@/components/LCard/index.vue"
 import MCard from "@/components/MCard/index.vue"
@@ -33,6 +34,11 @@ import { WarehouseQuery, WarehouseVo } from "@/model/stock"
 import { FlowDefinitionTypeOptions } from "@/constants/flow"
 
 const appStore = useAppStore()
+const componentSize = computed(() => appStore.componentSize as "small" | "medium" | "large")
+const TableCardRef = ref()
+const TableCardMaxHeight = ref(0)
+const VxeTableRef = ref<VxeTableInstance>()
+const VxeToolbarRef = ref<VxeToolbarInstance>()
 const loading = ref(false)
 const submitting = ref(false)
 const query = ref<ProductionPlanQuery>({ currentPage: 1, pageSize: 50, key: "" })
@@ -91,7 +97,7 @@ const planFormReadonly = computed(() => Boolean(currentPlanUid.value) && formDat
 
 const canConfirmIssue = computed(() =>
   (issueData.value.detailList || []).length > 0 &&
-  (issueData.value.detailList || []).every((item) => Number(item.availableQuantity) <= 0)
+  (issueData.value.detailList || []).every((item) => safeNumber(item.availableQuantity) <= 0)
 )
 
 const componentMap = computed<Record<string, ItemsVo>>(() =>
@@ -108,6 +114,12 @@ function loadBaseOptions() {
     componentData.value = componentRes
     warehouseData.value = warehouseRes
   })
+}
+
+function getCardProps() {
+  TableCardMaxHeight.value = TableCardRef.value?.$el?.clientHeight
+    ? TableCardRef.value.$el.clientHeight - 20
+    : 520
 }
 
 function formatItemLabel(name?: string, spec?: string) {
@@ -138,6 +150,44 @@ function formatNodeDurationText(durationValue?: number, durationUnit?: string) {
   return `${durationValue}小时`
 }
 
+function safeNumber(value?: number) {
+  const numberValue = Number(value)
+  return Number.isFinite(numberValue) ? numberValue : 0
+}
+
+function getIssueRowMax(item: ProductionPlanIssueDetailItem) {
+  const remaining = Math.max(safeNumber(item.availableQuantity), 0)
+  if (item.stockQuantity === undefined || item.stockQuantity === null) return remaining
+  return Math.min(remaining, Math.max(safeNumber(item.stockQuantity), 0))
+}
+
+function applyIssueForm(res: ProductionPlanIssueForm) {
+  issueData.value = {
+    ...res,
+    detailList: (res.bomList || []).map((item) => ({
+      bomUid: item.uid,
+      componentItemUid: item.componentItemUid,
+      componentName: item.componentName,
+      componentImage: item.componentImage,
+      componentSpec: item.componentSpec,
+      componentMaterial: item.componentMaterial,
+      componentTypeName: item.componentTypeName || item.componentItemBizTypeName,
+      stockQuantity: item.stockQuantity,
+      availableQuantity: item.availableQuantity,
+      requiredQuantity: item.requiredQuantity,
+      issuedQuantity: item.issuedQuantity,
+      quantity: 0
+    }))
+  }
+}
+
+function refreshOpenDetail(uid?: string) {
+  select()
+  if (showDetail.value && uid) {
+    openDetail(uid)
+  }
+}
+
 function select() {
   loading.value = true
   ProductionPlanService.select(query.value)
@@ -158,6 +208,12 @@ function reset() {
   query.value = resetRef(query.value)
   query.value.currentPage = 1
   query.value.pageSize = 50
+  select()
+}
+
+function pageChange(event: VxePagerEvents) {
+  query.value.currentPage = event.currentPage
+  query.value.pageSize = event.pageSize
   select()
 }
 
@@ -371,24 +427,7 @@ function openIssue(uid?: string) {
   showIssue.value = true
   submitting.value = true
   ProductionPlanService.issueForm(uid)
-    .then((res) => {
-      issueData.value = {
-        ...res,
-        detailList: (res.bomList || []).map((item) => ({
-          bomUid: item.uid,
-          componentItemUid: item.componentItemUid,
-          componentName: item.componentName,
-          componentImage: item.componentImage,
-          componentSpec: item.componentSpec,
-          componentMaterial: item.componentMaterial,
-          componentTypeName: item.componentTypeName || item.componentItemBizTypeName,
-          availableQuantity: item.availableQuantity,
-          requiredQuantity: item.requiredQuantity,
-          issuedQuantity: item.issuedQuantity,
-          quantity: 0
-        }))
-      }
-    })
+    .then(applyIssueForm)
     .finally(() => {
       submitting.value = false
     })
@@ -401,19 +440,26 @@ function submitIssue() {
     return
   }
   for (const item of detailList) {
-    const max = Number(item.availableQuantity) || 0
+    const max = getIssueRowMax(item)
     const qty = Number(item.quantity) || 0
+    if (!item.warehouseUid) {
+      window.$message?.error(`请选择【${item.componentName || "物料"}】领料仓库`)
+      return
+    }
     if (qty > max) {
-      window.$message?.error(`【${item.componentName || "物料"}】领料数量超出剩余可领数量`)
+      window.$message?.error(`【${item.componentName || "物料"}】领料数量超出剩余可领或可用库存数量`)
       return
     }
   }
-  issueData.value.detailList = detailList
+  const uid = issueData.value.uid
   submitting.value = true
-  ProductionPlanService.issue(issueData.value)
+  ProductionPlanService.issue({ ...issueData.value, detailList })
     .then(() => {
-      showIssue.value = false
-      select()
+      window.$message?.success("领料保存成功")
+      refreshOpenDetail(uid)
+      if (uid) {
+        return ProductionPlanService.issueForm(uid).then(applyIssueForm)
+      }
     })
     .finally(() => {
       submitting.value = false
@@ -423,12 +469,12 @@ function submitIssue() {
 function fillAllIssueQuantity() {
   issueData.value.detailList = (issueData.value.detailList || []).map((item) => ({
     ...item,
-    quantity: Number(item.availableQuantity) || 0
+    quantity: getIssueRowMax(item)
   }))
 }
 
 function fillIssueRowQuantity(item: ProductionPlanIssueDetailItem) {
-  item.quantity = Number(item.availableQuantity) || 0
+  item.quantity = getIssueRowMax(item)
 }
 
 function confirmIssue(uid?: string) {
@@ -436,8 +482,8 @@ function confirmIssue(uid?: string) {
   submitting.value = true
   ProductionPlanService.issueConfirm(uid)
     .then(() => {
-      select()
-      openDetail(uid)
+      showIssue.value = false
+      refreshOpenDetail(uid)
     })
     .finally(() => {
       submitting.value = false
@@ -666,8 +712,9 @@ function submitInbound() {
   submitting.value = true
   ProductionPlanService.finishInbound(inboundData.value)
     .then(() => {
+      window.$message?.success("完工入库成功")
       showInbound.value = false
-      select()
+      refreshOpenDetail(inboundData.value.uid)
     })
     .finally(() => {
       submitting.value = false
@@ -726,34 +773,15 @@ function stageCardType(item?: { completed?: boolean; current?: boolean }) {
   return "default"
 }
 
-const columns = [
-  { title: "计划名称", key: "name" },
-  { title: "审批状态", key: "statusName" },
-  { title: "当前阶段", key: "currentStageName" },
-  { title: "当前节点", key: "currentNodeName" },
-  {
-    title: "操作",
-    key: "actions",
-    render: (row: ProductionPlanDetail) =>
-      h("div", { class: "flex gap-2 flex-wrap" }, [
-        h(NButton, { size: "small", type: "primary", onClick: () => openDetail(row.uid) }, { default: () => "详情" }),
-        row.canEditPlan ? h(NButton, { size: "small", onClick: () => openEdit(row.uid) }, { default: () => "编辑" }) : null,
-        row.status === "completed" && !row.inboundCompleted
-          ? h(NButton, { size: "small", type: "error", tertiary: true, onClick: () => openClose(row.uid) }, { default: () => "关闭" })
-          : null,
-        row.status === "closed"
-          ? h(NButton, { size: "small", type: "error", onClick: () => deletePlan(row.uid) }, { default: () => "删除" })
-          : null,
-        row.currentStage && row.currentStage !== "approve"
-          ? h(NButton, { size: "small", type: "warning", onClick: () => openCurrentStage(row) }, { default: () => stageActionLabel(row) })
-          : null
-      ])
-  }
-]
-
 onMounted(() => {
   select()
   loadBaseOptions()
+  getCardProps()
+  const $table = VxeTableRef.value
+  const $toolbar = VxeToolbarRef.value
+  if ($table && $toolbar) {
+    $table.connect($toolbar)
+  }
 })
 </script>
 
@@ -762,7 +790,7 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <n-form label-placement="left" :size="appStore.componentSize" class="NaiveForm">
+          <n-form label-placement="left" :size="componentSize" class="NaiveForm">
             <n-grid :cols="4" x-gap="12" y-gap="12">
               <n-gi>
                 <n-form-item label="计划:">
@@ -772,15 +800,14 @@ onMounted(() => {
               <n-gi span="3">
                 <n-form-item>
                   <div class="flex gap-2">
-                    <n-button type="info" secondary strong @click="search">
+                    <n-button :size="componentSize" type="info" secondary strong @click="search">
                       <template #icon><n-icon><Search /></n-icon></template>
                       搜索
                     </n-button>
-                    <n-button type="tertiary" secondary strong @click="reset">
+                    <n-button :size="componentSize" type="tertiary" secondary strong @click="reset">
                       <template #icon><n-icon><Reset /></n-icon></template>
                       重置
                     </n-button>
-                    <n-button type="primary" @click="openEdit()">新增计划</n-button>
                   </div>
                 </n-form-item>
               </n-gi>
@@ -789,8 +816,66 @@ onMounted(() => {
         </m-card>
       </template>
       <template #default>
-        <m-card class="h-full overflow-auto">
-          <n-data-table :columns="columns" :data="data.list || []" :loading="loading" />
+        <m-card class="w-full h-full flex flex-col" padding="0">
+          <m-card padding="0" class="px-2 pt-2 flex items-center justify-between">
+            <n-button type="primary" :size="componentSize" @click="openEdit()">新增计划</n-button>
+            <vxe-toolbar ref="VxeToolbarRef" custom />
+          </m-card>
+          <m-card ref="TableCardRef" class="flex-1">
+            <vxe-table
+              ref="VxeTableRef"
+              :column-config="{ resizable: true }"
+              :data="data.list || []"
+              border
+              stripe
+              :loading="loading"
+              :row-config="{ isHover: true }"
+              :height="TableCardMaxHeight"
+              :size="componentSize"
+            >
+              <vxe-column field="name" title="计划名称" show-overflow="tooltip" align="center" min-width="180" />
+              <vxe-column field="statusName" title="审批状态" show-overflow="tooltip" align="center" width="120" />
+              <vxe-column field="currentStageName" title="当前阶段" show-overflow="tooltip" align="center" width="120" />
+              <vxe-column field="currentNodeName" title="当前节点" show-overflow="tooltip" align="center" min-width="140" />
+              <vxe-column fixed="right" title="操作" align="center" width="320">
+                <template #default="{ row }">
+                  <n-flex justify="center" :wrap="false">
+                    <n-button type="primary" text @click="openDetail(row.uid)">详情</n-button>
+                    <n-button v-if="row.canEditPlan" text @click="openEdit(row.uid)">编辑</n-button>
+                    <n-button
+                      v-if="row.status === 'completed' && !row.inboundCompleted"
+                      type="error"
+                      text
+                      @click="openClose(row.uid)"
+                    >
+                      关闭
+                    </n-button>
+                    <n-button v-if="row.status === 'closed'" type="error" text @click="deletePlan(row.uid)">删除</n-button>
+                    <n-button
+                      v-if="row.currentStage && row.currentStage !== 'approve'"
+                      type="warning"
+                      text
+                      @click="openCurrentStage(row)"
+                    >
+                      {{ stageActionLabel(row) }}
+                    </n-button>
+                  </n-flex>
+                </template>
+              </vxe-column>
+            </vxe-table>
+          </m-card>
+        </m-card>
+      </template>
+      <template #footer>
+        <m-card class="w-full h-full flex items-center justify-end">
+          <vxe-pager
+            :size="componentSize"
+            v-model:currentPage="data.currentPage"
+            v-model:pageSize="data.pageSize"
+            :total="data.count || 0"
+            :layouts="['Home', 'PrevJump', 'PrevPage', 'Number', 'NextPage', 'NextJump', 'End', 'Sizes', 'FullJump', 'Total']"
+            @page-change="pageChange"
+          />
         </m-card>
       </template>
     </l-card>
@@ -839,9 +924,15 @@ onMounted(() => {
         </div>
         <div class="flex justify-between items-center">
           <div class="text-sm text-gray-500">成品列表</div>
-          <n-button v-if="!planFormReadonly" type="primary" @click="addProduct">新增成品</n-button>
+          <n-button v-if="!planFormReadonly" :size="componentSize" type="primary" @click="addProduct">新增成品</n-button>
         </div>
-        <n-table striped size="small">
+        <n-table striped :size="componentSize" class="plan-edit-table">
+          <colgroup>
+            <col class="edit-col-product" />
+            <col class="edit-col-warehouse" />
+            <col class="edit-col-quantity" />
+            <col class="edit-col-action" />
+          </colgroup>
           <thead>
             <tr>
               <th>成品</th>
@@ -852,10 +943,26 @@ onMounted(() => {
           </thead>
           <tbody>
             <tr v-for="(item, index) in formData.productList || []" :key="index">
-              <td><n-select v-model:value="item.itemUid" :options="productOptions" filterable :disabled="planFormReadonly" @update:value="handleProductChange(item)" /></td>
-              <td><n-select v-model:value="item.warehouseUid" :options="warehouseOptions" :disabled="planFormReadonly" /></td>
-              <td><n-input-number v-model:value="item.quantity" :min="0" class="w-full" :disabled="planFormReadonly" /></td>
-              <td><n-button v-if="!planFormReadonly" type="error" tertiary @click="removeProduct(index)">删除</n-button></td>
+              <td>
+                <n-select
+                  v-model:value="item.itemUid"
+                  :options="productOptions"
+                  filterable
+                  :consistent-menu-width="false"
+                  :disabled="planFormReadonly"
+                  @update:value="handleProductChange(item)"
+                />
+              </td>
+              <td>
+                <n-select
+                  v-model:value="item.warehouseUid"
+                  :options="warehouseOptions"
+                  :consistent-menu-width="false"
+                  :disabled="planFormReadonly"
+                />
+              </td>
+              <td><n-input-number v-model:value="item.quantity" :min="0.000001" class="w-full" :disabled="planFormReadonly" /></td>
+              <td><n-button v-if="!planFormReadonly" :size="componentSize" type="error" tertiary @click="removeProduct(index)">删除</n-button></td>
             </tr>
           </tbody>
         </n-table>
@@ -885,16 +992,16 @@ onMounted(() => {
                 v-if="detailData.status === 'completed' && !detailData.inboundCompleted"
                 type="error"
                 tertiary
-                size="small"
+                :size="componentSize"
                 @click="openClose(detailData.uid)"
               >
                 关闭计划
               </n-button>
-              <n-button v-if="detailData.status === 'closed'" type="error" size="small" @click="deletePlan(detailData.uid)">删除计划</n-button>
+              <n-button v-if="detailData.status === 'closed'" type="error" :size="componentSize" @click="deletePlan(detailData.uid)">删除计划</n-button>
               <n-button
                 v-if="detailData.currentStage && detailData.currentStage !== 'approve'"
                 type="primary"
-                size="medium"
+                :size="componentSize"
                 @click="openCurrentStage(detailData)"
               >
                 {{ stageActionLabel(detailData) }}
@@ -930,7 +1037,7 @@ onMounted(() => {
         </n-collapse>
         <div>
           <div class="mb-2 font-medium">备料</div>
-          <n-table size="small" striped>
+          <n-table :size="componentSize" striped>
             <thead>
               <tr>
                 <th>成品</th>
@@ -971,9 +1078,9 @@ onMounted(() => {
                 </div>
               </div>
               <div class="flex gap-2">
-                <n-button v-if="detailData.currentStage === 'process'" size="small" @click="editProcessItem(detailData.uid!, process)">编辑</n-button>
-                <n-button v-if="detailData.currentStage === 'process'" size="small" type="error" tertiary @click="deleteProcess(detailData.uid, process.uid)">删除</n-button>
-                <n-button v-if="detailData.currentStage === 'process'" size="small" type="success" @click="confirmProcess(detailData.uid)">确认工序完成</n-button>
+                <n-button v-if="detailData.currentStage === 'process'" :size="componentSize" @click="editProcessItem(detailData.uid!, process)">编辑</n-button>
+                <n-button v-if="detailData.currentStage === 'process'" :size="componentSize" type="error" tertiary @click="deleteProcess(detailData.uid, process.uid)">删除</n-button>
+                <n-button v-if="detailData.currentStage === 'process'" :size="componentSize" type="success" @click="confirmProcess(detailData.uid)">确认工序完成</n-button>
               </div>
             </div>
             <div class="mt-3 space-y-2">
@@ -985,8 +1092,8 @@ onMounted(() => {
                 </div>
                 <div class="flex gap-2">
                   <n-tag :type="node.completed ? 'success' : 'warning'">{{ node.completed ? "已完成" : "待处理" }}</n-tag>
-                  <n-button v-if="detailData.currentStage === 'process'" size="small" type="primary" @click="openCompleteNode(process.uid, node.uid)">完工</n-button>
-                  <n-button v-if="detailData.currentStage === 'process'" size="small" type="error" tertiary @click="reworkNode(detailData.uid, process.uid, node.uid)">返工</n-button>
+                  <n-button v-if="detailData.currentStage === 'process'" :size="componentSize" type="primary" @click="openCompleteNode(process.uid, node.uid)">完工</n-button>
+                  <n-button v-if="detailData.currentStage === 'process'" :size="componentSize" type="error" tertiary @click="reworkNode(detailData.uid, process.uid, node.uid)">返工</n-button>
                 </div>
               </div>
             </div>
@@ -995,72 +1102,87 @@ onMounted(() => {
       </div>
     </n-modal>
 
-    <n-modal v-model:show="showPrepare" preset="card" title="备料" class="w-[1200px] max-w-[96vw]">
+    <n-modal v-model:show="showPrepare" preset="card" title="备料" class="w-[1200px] max-w-[96vw] prepare-modal">
       <div class="space-y-4">
         <div class="flex justify-end">
-          <n-button type="primary" @click="addPrepareBom">新增BOM</n-button>
+          <n-button :size="componentSize" type="primary" @click="addPrepareBom">新增BOM</n-button>
         </div>
-        <n-table size="small" striped>
-          <thead>
-            <tr>
-              <th>成品</th>
-              <th>成品信息</th>
-              <th>零件</th>
-              <th>零件信息</th>
-              <th>单件用量</th>
-              <th>计划需求</th>
-              <th>库存</th>
-              <th>备注</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(item, index) in prepareData.bomList || []" :key="item.uid || index">
-              <td class="min-w-[220px]">
-                <n-select
-                  v-model:value="item.productItemUid"
-                  :options="prepareProductOptions"
-                  filterable
-                  @update:value="handlePrepareProductChange(item)"
-                />
-              </td>
-              <td class="min-w-[220px]">
-                <div class="flex items-center gap-2">
-                  <n-image v-if="item.productImage" :src="item.productImage" width="42" height="42" object-fit="cover" />
-                  <div class="text-xs leading-5">
-                    <div>{{ item.productName || "-" }}</div>
-                    <div class="text-gray-500">{{ item.productSpec || "-" }}</div>
-                    <div class="text-gray-500">{{ item.productTypeName || item.productItemBizTypeName || "-" }}</div>
+        <div class="modal-table-scroll">
+          <n-table :size="componentSize" striped class="plan-modal-table prepare-modal-table">
+            <colgroup>
+              <col class="col-product" />
+              <col class="col-product-info" />
+              <col class="col-component" />
+              <col class="col-component-info" />
+              <col class="col-number" />
+              <col class="col-metric" />
+              <col class="col-metric" />
+              <col class="col-remark" />
+              <col class="col-action" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th>成品</th>
+                <th>成品信息</th>
+                <th>零件</th>
+                <th>零件信息</th>
+                <th>单件用量</th>
+                <th>计划需求</th>
+                <th>库存</th>
+                <th>备注</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(item, index) in prepareData.bomList || []" :key="item.uid || index">
+                <td>
+                  <n-select
+                    v-model:value="item.productItemUid"
+                    :options="prepareProductOptions"
+                    filterable
+                    class="compact-select"
+                    @update:value="handlePrepareProductChange(item)"
+                  />
+                </td>
+                <td>
+                  <div class="info-cell">
+                    <n-image v-if="item.productImage" :src="item.productImage" width="42" height="42" object-fit="cover" />
+                    <div class="text-xs leading-5 min-w-0">
+                      <div class="truncate">{{ item.productName || "-" }}</div>
+                      <div class="text-gray-500 truncate">{{ item.productSpec || "-" }}</div>
+                      <div class="text-gray-500 truncate">{{ item.productTypeName || item.productItemBizTypeName || "-" }}</div>
+                    </div>
                   </div>
-                </div>
-              </td>
-              <td class="min-w-[220px]">
-                <n-select
-                  v-model:value="item.componentItemUid"
-                  :options="componentOptions"
-                  filterable
-                  @update:value="handlePrepareComponentChange(item)"
-                />
-              </td>
-              <td class="min-w-[260px]">
-                <div class="flex items-center gap-2">
-                  <n-image v-if="item.componentImage" :src="item.componentImage" width="42" height="42" object-fit="cover" />
-                  <div class="text-xs leading-5">
-                    <div>{{ item.componentName || "-" }}</div>
-                    <div class="text-gray-500">规格：{{ item.componentSpec || "-" }}</div>
-                    <div class="text-gray-500">类型：{{ item.componentTypeName || item.componentItemBizTypeName || "-" }}</div>
-                    <div class="text-gray-500">材质：{{ item.componentMaterial || "-" }}</div>
+                </td>
+                <td>
+                  <n-select
+                    v-model:value="item.componentItemUid"
+                    :options="componentOptions"
+                    filterable
+                    class="compact-select"
+                    @update:value="handlePrepareComponentChange(item)"
+                  />
+                </td>
+                <td>
+                  <div class="info-cell">
+                    <n-image v-if="item.componentImage" :src="item.componentImage" width="42" height="42" object-fit="cover" />
+                    <div class="text-xs leading-5 min-w-0">
+                      <div class="truncate">{{ item.componentName || "-" }}</div>
+                      <div class="text-gray-500 truncate">规格：{{ item.componentSpec || "-" }}</div>
+                      <div class="text-gray-500 truncate">类型：{{ item.componentTypeName || item.componentItemBizTypeName || "-" }}</div>
+                      <div class="text-gray-500 truncate">材质：{{ item.componentMaterial || "-" }}</div>
+                    </div>
                   </div>
-                </div>
-              </td>
-              <td class="min-w-[120px]"><n-input-number v-model:value="item.perQuantity" :min="0" class="w-full" @update:value="handlePreparePerQuantityChange(item)" /></td>
-              <td>{{ item.requiredQuantity || 0 }}</td>
-              <td>{{ item.stockQuantity || 0 }}</td>
-              <td><n-input v-model:value="item.remark" /></td>
-              <td><n-button type="error" tertiary @click="removePrepareBom(index)">删除</n-button></td>
-            </tr>
-          </tbody>
-        </n-table>
+                </td>
+                <td><n-input-number v-model:value="item.perQuantity" :min="0.000001" class="w-full compact-number" @update:value="handlePreparePerQuantityChange(item)" /></td>
+                <td class="text-center whitespace-nowrap">{{ item.requiredQuantity || 0 }}</td>
+                <td class="text-center whitespace-nowrap">{{ item.stockQuantity || 0 }}</td>
+                <td><n-input v-model:value="item.remark" class="compact-input" /></td>
+                <td class="text-center"><n-button :size="componentSize" type="error" tertiary @click="removePrepareBom(index)">删除</n-button></td>
+              </tr>
+            </tbody>
+          </n-table>
+        </div>
       </div>
       <template #footer>
         <div class="flex justify-end gap-2">
@@ -1073,43 +1195,58 @@ onMounted(() => {
 
     <n-modal v-model:show="showIssue" preset="card" title="领料" class="w-[1200px] max-w-[96vw]">
       <div class="mb-3 flex justify-end">
-        <n-button type="primary" tertiary @click="fillAllIssueQuantity">全部领料</n-button>
+        <n-button :size="componentSize" type="primary" tertiary @click="fillAllIssueQuantity">全部领料</n-button>
       </div>
-      <n-table size="small" striped>
-        <thead>
-          <tr>
-            <th>零件</th>
-            <th>详情</th>
-            <th>仓库</th>
-            <th>可领料</th>
-            <th>计划需求</th>
-            <th>已领料</th>
-            <th>本次领料</th>
-            <th>快捷</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="(item, index) in issueData.detailList || []" :key="index">
-            <td>{{ item.componentName }}</td>
-            <td class="min-w-[260px]">
-              <div class="flex items-center gap-2">
-                <n-image v-if="item.componentImage" :src="item.componentImage" width="42" height="42" object-fit="cover" />
-                <div class="text-xs leading-5">
-                  <div>规格：{{ item.componentSpec || "-" }}</div>
-                  <div>材质：{{ item.componentMaterial || "-" }}</div>
-                  <div>类型：{{ item.componentTypeName || "-" }}</div>
+      <div class="modal-table-scroll">
+        <n-table :size="componentSize" striped class="plan-modal-table">
+          <colgroup>
+            <col class="col-component-name" />
+            <col class="col-component-info" />
+            <col class="col-warehouse" />
+            <col class="col-metric" />
+            <col class="col-metric" />
+            <col class="col-metric" />
+            <col class="col-metric" />
+            <col class="col-number" />
+            <col class="col-short-action" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th>零件</th>
+              <th>详情</th>
+              <th>仓库</th>
+              <th>可领料</th>
+              <th>总库存</th>
+              <th>计划需求</th>
+              <th>已领料</th>
+              <th>本次领料</th>
+              <th>快捷</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(item, index) in issueData.detailList || []" :key="index">
+              <td class="truncate">{{ item.componentName }}</td>
+              <td>
+                <div class="info-cell">
+                  <n-image v-if="item.componentImage" :src="item.componentImage" width="42" height="42" object-fit="cover" />
+                  <div class="text-xs leading-5 min-w-0">
+                    <div class="text-gray-500 truncate">规格：{{ item.componentSpec || "-" }}</div>
+                    <div class="text-gray-500 truncate">材质：{{ item.componentMaterial || "-" }}</div>
+                    <div class="text-gray-500 truncate">类型：{{ item.componentTypeName || "-" }}</div>
+                  </div>
                 </div>
-              </div>
-            </td>
-            <td><n-select v-model:value="item.warehouseUid" :options="warehouseOptions" /></td>
-            <td>{{ item.availableQuantity || 0 }}</td>
-            <td>{{ item.requiredQuantity || 0 }}</td>
-            <td>{{ item.issuedQuantity || 0 }}</td>
-            <td><n-input-number v-model:value="item.quantity" :min="0" :max="Number(item.availableQuantity) || 0" class="w-full" /></td>
-            <td><n-button size="small" tertiary @click="fillIssueRowQuantity(item)">全部</n-button></td>
-          </tr>
-        </tbody>
-      </n-table>
+              </td>
+              <td><n-select v-model:value="item.warehouseUid" :options="warehouseOptions" class="compact-select" /></td>
+              <td class="text-center whitespace-nowrap">{{ item.availableQuantity || 0 }}</td>
+              <td class="text-center whitespace-nowrap">{{ item.stockQuantity ?? "-" }}</td>
+              <td class="text-center whitespace-nowrap">{{ item.requiredQuantity || 0 }}</td>
+              <td class="text-center whitespace-nowrap">{{ item.issuedQuantity || 0 }}</td>
+              <td><n-input-number v-model:value="item.quantity" :min="0" :max="getIssueRowMax(item)" class="w-full compact-number" /></td>
+              <td class="text-center"><n-button :size="componentSize" tertiary @click="fillIssueRowQuantity(item)">全部</n-button></td>
+            </tr>
+          </tbody>
+        </n-table>
+      </div>
       <template #footer>
         <div class="flex justify-end gap-2">
           <n-button @click="showIssue = false">关闭</n-button>
@@ -1140,7 +1277,7 @@ onMounted(() => {
           <n-form-item label="数量">
             <n-input-number
               v-model:value="processData.quantity"
-              :min="0"
+              :min="0.000001"
               :max="Number(processData.remainingQuantityMap?.[processData.productItemUid || ''] || 0)"
               class="w-full"
             />
@@ -1179,43 +1316,55 @@ onMounted(() => {
 
     <n-modal v-model:show="showInbound" preset="card" title="完工入库" class="w-[1100px] max-w-[96vw]">
       <div class="mb-3 flex justify-end">
-        <n-button type="primary" tertiary @click="fillAllInboundQuantity">全部入库</n-button>
+        <n-button :size="componentSize" type="primary" tertiary @click="fillAllInboundQuantity">全部入库</n-button>
       </div>
-      <n-table size="small" striped>
-        <thead>
-          <tr>
-            <th>成品</th>
-            <th>详情</th>
-            <th>仓库</th>
-            <th>生产数量</th>
-            <th>已入库</th>
-            <th>剩余可入库</th>
-            <th>本次入库</th>
-            <th>快捷</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="(item, index) in inboundData.detailList || []" :key="index">
-            <td>{{ item.productName }}</td>
-            <td class="min-w-[260px]">
-              <div class="flex items-center gap-2">
-                <n-image v-if="item.productImage" :src="item.productImage" width="42" height="42" object-fit="cover" />
-                <div class="text-xs leading-5">
-                  <div>规格：{{ item.productSpec || "-" }}</div>
-                  <div>材质：{{ item.productMaterial || "-" }}</div>
-                  <div>类型：{{ item.productTypeName || "-" }}</div>
+      <div class="modal-table-scroll">
+        <n-table :size="componentSize" striped class="plan-modal-table">
+          <colgroup>
+            <col class="col-component-name" />
+            <col class="col-component-info" />
+            <col class="col-warehouse" />
+            <col class="col-metric" />
+            <col class="col-metric" />
+            <col class="col-metric" />
+            <col class="col-number" />
+            <col class="col-short-action" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th>成品</th>
+              <th>详情</th>
+              <th>仓库</th>
+              <th>生产数量</th>
+              <th>已入库</th>
+              <th>剩余可入库</th>
+              <th>本次入库</th>
+              <th>快捷</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(item, index) in inboundData.detailList || []" :key="index">
+              <td class="truncate">{{ item.productName }}</td>
+              <td>
+                <div class="info-cell">
+                  <n-image v-if="item.productImage" :src="item.productImage" width="42" height="42" object-fit="cover" />
+                  <div class="text-xs leading-5 min-w-0">
+                    <div class="text-gray-500 truncate">规格：{{ item.productSpec || "-" }}</div>
+                    <div class="text-gray-500 truncate">材质：{{ item.productMaterial || "-" }}</div>
+                    <div class="text-gray-500 truncate">类型：{{ item.productTypeName || "-" }}</div>
+                  </div>
                 </div>
-              </div>
-            </td>
-            <td><n-select v-model:value="item.warehouseUid" :options="warehouseOptions" /></td>
-            <td>{{ item.planQuantity || 0 }}</td>
-            <td>{{ item.inboundQuantity || 0 }}</td>
-            <td>{{ item.availableInboundQuantity || 0 }}</td>
-            <td><n-input-number v-model:value="item.quantity" :min="0" :max="Number(item.availableInboundQuantity) || 0" class="w-full" /></td>
-            <td><n-button size="small" tertiary @click="fillInboundRowQuantity(item)">全部</n-button></td>
-          </tr>
-        </tbody>
-      </n-table>
+              </td>
+              <td><n-select v-model:value="item.warehouseUid" :options="warehouseOptions" class="compact-select" /></td>
+              <td class="text-center whitespace-nowrap">{{ item.planQuantity || 0 }}</td>
+              <td class="text-center whitespace-nowrap">{{ item.inboundQuantity || 0 }}</td>
+              <td class="text-center whitespace-nowrap">{{ item.availableInboundQuantity || 0 }}</td>
+              <td><n-input-number v-model:value="item.quantity" :min="0" :max="Number(item.availableInboundQuantity) || 0" class="w-full compact-number" /></td>
+              <td class="text-center"><n-button :size="componentSize" tertiary @click="fillInboundRowQuantity(item)">全部</n-button></td>
+            </tr>
+          </tbody>
+        </n-table>
+      </div>
       <template #footer>
         <div class="flex justify-end gap-2">
           <n-button @click="showInbound = false">关闭</n-button>
@@ -1242,3 +1391,134 @@ onMounted(() => {
     </n-modal>
   </div>
 </template>
+
+<style scoped>
+.modal-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.plan-edit-table :deep(table) {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.plan-edit-table :deep(th),
+.plan-edit-table :deep(td) {
+  vertical-align: middle;
+}
+
+.plan-modal-table {
+  min-width: 100%;
+}
+
+.plan-modal-table :deep(table) {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.plan-modal-table :deep(th),
+.plan-modal-table :deep(td) {
+  padding: 12px 10px;
+  vertical-align: middle;
+}
+
+.plan-modal-table :deep(th) {
+  white-space: nowrap;
+}
+
+.info-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.compact-select,
+.compact-input,
+.compact-number {
+  width: 100%;
+}
+
+.compact-select :deep(.n-base-selection),
+.compact-input :deep(.n-input__border),
+.compact-input :deep(.n-input__state-border),
+.compact-number :deep(.n-input-wrapper) {
+  min-height: 38px;
+}
+
+.compact-select :deep(.n-base-selection-label) {
+  min-height: 38px;
+  padding-right: 28px;
+}
+
+.compact-select :deep(.n-base-selection-input),
+.compact-select :deep(.n-base-selection-placeholder),
+.compact-select :deep(.n-base-selection__render-label) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compact-number :deep(.n-input__input-el),
+.compact-input :deep(.n-input__input-el) {
+  height: 38px;
+}
+
+.col-product,
+.col-component {
+  width: 18%;
+}
+
+.col-product-info {
+  width: 18%;
+}
+
+.col-component-info {
+  width: 22%;
+}
+
+.col-number {
+  width: 10%;
+}
+
+.col-metric {
+  width: 7%;
+}
+
+.col-remark {
+  width: 14%;
+}
+
+.col-action {
+  width: 8%;
+}
+
+.col-component-name {
+  width: 12%;
+}
+
+.col-warehouse {
+  width: 14%;
+}
+
+.col-short-action {
+  width: 8%;
+}
+
+.edit-col-product {
+  width: 38%;
+}
+
+.edit-col-warehouse {
+  width: 28%;
+}
+
+.edit-col-quantity {
+  width: 18%;
+}
+
+.edit-col-action {
+  width: 16%;
+}
+</style>

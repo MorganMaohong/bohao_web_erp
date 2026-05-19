@@ -1,6 +1,7 @@
 export interface PurchasePriceRow {
   uid?: string
   name?: string
+  quantity?: number | null
   vatTaxRate?: number | null
   purchasePriceWithTax?: number | null
   purchasePriceWithoutTax?: number | null
@@ -35,6 +36,23 @@ export function syncPurchasePriceRows<T extends PurchasePriceRow>(rows: T[] = []
   return rows
 }
 
+export function calcTaxAmount(priceWithTax: unknown, vatTaxRate: unknown, quantity: unknown = 1) {
+  const priceWithoutTax = calcPriceWithoutTax(priceWithTax, vatTaxRate)
+  if (priceWithoutTax === null || !isPositiveQuantity(quantity)) return null
+  return roundMoney((Number(priceWithTax) - priceWithoutTax) * Number(quantity), 4)
+}
+
+export function calcAmountWithTax(priceWithTax: unknown, quantity: unknown) {
+  if (!isPositivePrice(priceWithTax) || !isPositiveQuantity(quantity)) return null
+  return roundMoney(Number(priceWithTax) * Number(quantity), 4)
+}
+
+export function calcAmountWithoutTax(priceWithTax: unknown, vatTaxRate: unknown, quantity: unknown) {
+  const priceWithoutTax = calcPriceWithoutTax(priceWithTax, vatTaxRate)
+  if (priceWithoutTax === null || !isPositiveQuantity(quantity)) return null
+  return roundMoney(priceWithoutTax * Number(quantity), 4)
+}
+
 export function validatePurchasePriceRows(rows: PurchasePriceRow[] = [], notify: (message: string) => void) {
   for (const row of rows) {
     const name = row.name || "物料"
@@ -64,6 +82,12 @@ export function formatMoney(value: unknown, precision = 4) {
   const numberValue = Number(value)
   if (!Number.isFinite(numberValue)) return "-"
   return numberValue.toFixed(precision)
+}
+
+function isPositiveQuantity(value: unknown) {
+  if (value === null || value === undefined || value === "") return false
+  const quantity = Number(value)
+  return Number.isFinite(quantity) && quantity > 0
 }
 
 function roundMoney(value: number, precision: number) {

@@ -1,5 +1,6 @@
 <script lang="ts" setup>
-import { onMounted, ref } from "vue"
+import { onMounted, ref, watch } from "vue"
+import { useRoute } from "vue-router"
 import LCard from "@/components/LCard/index.vue"
 import MCard from "@/components/MCard/index.vue"
 import { useAppStore } from "@/store/modules/app"
@@ -15,7 +16,9 @@ import {
   PurchaseApplyOrderForm,
   PurchaseApplyOrderQuery,
   PurchaseApplyOrderQueryData,
-  PurchaseApplyOrderVo
+  PurchaseApplyOrderVo,
+  PurchaseOrderQueryData,
+  PurchaseOrderVo
 } from "@/model/purchase"
 import { InventoryQueryData, InventoryVo } from "@/model/inventory"
 import { ItemsService } from "@/services/template/ItemsService"
@@ -23,8 +26,18 @@ import { ItemsQuery } from "@/model/template/items"
 import FlowSchemaPreview from "@/components/FlowSchemaPreview/index.vue"
 import { FlowDefinitionTypeOptions } from "@/constants/flow"
 import { VxePagerEvents } from "vxe-pc-ui"
+import { PurchaseOrderService } from "@/services/purchase/PurchaseOrderService"
+import PurchaseOrderRelatedModal from "@/views/purchase/components/PurchaseOrderRelatedModal.vue"
+import {
+  calcAmountWithTax,
+  calcAmountWithoutTax,
+  calcPriceWithoutTax,
+  calcTaxAmount,
+  formatMoney
+} from "@/utils/purchasePrice"
 
 const appStore = useAppStore()
+const route = useRoute()
 const TableCardRef = ref()
 const TableCardMaxHeight = ref(0)
 const isSubmitting = ref(false)
@@ -32,6 +45,8 @@ const showUpdate = ref(false)
 const showDetail = ref(false)
 const showDelete = ref(false)
 const showItems = ref(false)
+const showRelatedOrderList = ref(false)
+const showRelatedOrder = ref(false)
 const formData = ref<PurchaseApplyOrderForm>({
   address: "",
   applyTime: 0,
@@ -76,20 +91,83 @@ const data = ref<PageVo<PurchaseApplyOrderVo, PurchaseApplyOrderQueryData>>({})
 const VxeTableRef = ref<VxeTableInstance>()
 const VxeTableItemsRef = ref<VxeTableInstance>()
 const detailData = ref<PurchaseApplyDetail>({ detailList: [] })
+const relatedOrderList = ref<PageVo<PurchaseOrderVo, PurchaseOrderQueryData>>({
+  currentPage: 1,
+  pageSize: 20,
+  count: 0,
+  list: [],
+  extraData: {} as PurchaseOrderQueryData
+})
+const relatedOrder = ref<{ uid?: string; code?: string }>({})
 
 function getCardProps() {
   TableCardMaxHeight.value = TableCardRef.value.$el.clientHeight - 20
 }
 
+function getQueryString(value: unknown) {
+  return Array.isArray(value) ? value[0] : (value as string | undefined)
+}
+
 function select() {
   loading.value = true
-  PurchaseApplyOrderService.select(query.value)
+  return PurchaseApplyOrderService.select(query.value)
     .then((res) => {
       data.value = res
     })
     .finally(() => {
       loading.value = false
       VxeTableRef.value?.setAllTreeExpand(true)
+    })
+}
+
+function openMatchedDetailByCode(code?: string) {
+  if (!code) return
+  const matched = (data.value.list || []).find((item) => item.code === code)
+  if (matched?.uid) {
+    showDetailModal(matched.uid)
+  }
+}
+
+function applyRouteOpen() {
+  const openUid = getQueryString(route.query.openUid)
+  const openCode = getQueryString(route.query.openCode)
+  if (!openUid && !openCode) {
+    return select()
+  }
+
+  if (openCode) {
+    query.value.name = openCode
+    query.value.currentPage = 1
+  }
+
+  const request = select()
+  if (openUid) {
+    showDetailModal(openUid)
+  } else {
+    request.then(() => openMatchedDetailByCode(openCode))
+  }
+  return request
+}
+
+function openRelatedPurchaseOrder(uid?: string, code?: string) {
+  if (!uid && !code) return
+  relatedOrder.value = { uid, code }
+  showRelatedOrder.value = true
+}
+
+function openRelatedPurchaseOrderList(code?: string) {
+  if (!code) return
+  showRelatedOrderList.value = true
+  loading.value = true
+  PurchaseOrderService.select({ currentPage: 1, pageSize: 50, key: code })
+    .then((res) => {
+      relatedOrderList.value = {
+        ...res,
+        list: (res.list || []).filter((item) => !item.applyOrderCode || item.applyOrderCode === code)
+      }
+    })
+    .finally(() => {
+      loading.value = false
     })
 }
 
@@ -235,8 +313,15 @@ function reset() {
   select()
 }
 
+watch(
+  () => [route.query.openUid, route.query.openCode],
+  () => {
+    applyRouteOpen()
+  }
+)
+
 onMounted(() => {
-  select()
+  applyRouteOpen()
   getCardProps()
 })
 </script>
@@ -296,7 +381,11 @@ onMounted(() => {
               :height="TableCardMaxHeight"
               ref="VxeTableRef"
             >
-              <vxe-column field="code" title="名称" show-overflow="tooltip" align="center" />
+              <vxe-column field="code" title="申请编号" show-overflow="tooltip" align="center">
+                <template #default="{ row }">
+                  <n-button text type="info" @click="showDetailModal(row.uid)">{{ row.code || "-" }}</n-button>
+                </template>
+              </vxe-column>
               <vxe-column field="sourceTypeName" title="类型" show-overflow="tooltip" align="center" />
               <vxe-column field="applyTimeName" title="申请时间" show-overflow="tooltip" align="center" />
               <vxe-column field="expectTimeName" title="到货时间" show-overflow="tooltip" align="center" />
@@ -342,151 +431,156 @@ onMounted(() => {
     </l-card>
   </div>
   <!-- 弹窗 -->
-  <n-modal v-model:show="showUpdate" preset="card" class="w-[1400px] h-[100vh]" title="采购申请">
-    <div class="flex h-[calc(100vh-150px)] gap-4 overflow-hidden">
-      <n-form
-        style="
-          border-radius: 18px;
-          padding: 16px 18px;
-          /*background: radial-gradient(circle at top right, rgba(59, 130, 246, 0.16), transparent 30%),
+  <n-modal
+    v-model:show="showUpdate"
+    preset="card"
+    class="w-[1400px] h-screen overflow-auto flex flex-col"
+    title="采购申请"
+  >
+    <div class="flex flex-1 min-h-0">
+      <div class="basis-2/3 flex flex-col gap-2 overflow-auto pr-2">
+        <n-form
+          style="
+            border-radius: 18px;
+            padding: 16px 18px;
+            /*background: radial-gradient(circle at top right, rgba(59, 130, 246, 0.16), transparent 30%),
             linear-gradient(180deg, #f8fbff 0%, #f1f5f9 100%);*/
-          border: 1px solid rgba(148, 163, 184, 0.18);
-        "
-        :model="formData"
-        ref="formRef"
-        :rules="formRule"
-        class="basis-2/3 min-h-0 overflow-y-auto"
-      >
-        <div class="flex items-center mb-4">
-          <div class="w-1 h-4 bg-blue-500 mr-2 rounded" />
-          <div class="text-base font-semibold text-gray-700">采购申请信息</div>
-        </div>
-        <n-grid cols="2" x-gap="12">
-          <n-gi>
-            <n-form-item label="编码">
-              <n-input disabled placeholder="自动生成编码" v-model:value="formData.code" />
-            </n-form-item>
-          </n-gi>
-          <n-gi>
-            <n-form-item label="申请日期" class="w-full">
-              <n-date-picker
-                type="date"
-                placeholder="请输入申请日期"
-                v-model:value="formData.applyTime"
-                class="w-full"
-              />
-            </n-form-item>
-          </n-gi>
-          <n-gi>
-            <n-form-item label="到货需求日期" class="w-full">
-              <n-date-picker
-                type="date"
-                placeholder="请输入需求日期"
-                v-model:value="formData.expectTime"
-                class="w-full"
-              />
-            </n-form-item>
-          </n-gi>
-          <n-gi>
-            <n-form-item label="需求来源" path="sourceType">
-              <n-select
-                placeholder="请输入需求来源"
-                v-model:value="formData.sourceType"
-                :options="formData.sourceTypeOptions"
-              />
-            </n-form-item>
-          </n-gi>
-          <n-gi span="2">
-            <n-form-item label="到货地址">
-              <n-input placeholder="请输入到货地址" v-model:value="formData.address" />
-            </n-form-item>
-          </n-gi>
-        </n-grid>
-        <div class="flex items-center mb-4">
-          <div class="w-1 h-4 bg-blue-500 mr-2 rounded" />
-          <div class="text-base font-semibold text-gray-700">采购物料明细</div>
-        </div>
-        <n-grid cols="3" x-gap="24">
-          <n-gi span="3">
-            <n-form-item label="出库明细" path="detailList" required>
-              <m-card class="w-full h-full flex flex-col" padding="0">
-                <m-card padding="0" style="position: absolute; right: 0; top: -30px">
-                  <n-button :size="appStore.componentSize" type="info" @click="showItemsModal" class="w-20">
-                    添加物料
-                  </n-button>
-                </m-card>
-                <m-card ref="TableCardRef" class="flex-1" padding="0">
-                  <vxe-table
-                    v-if="formData.detailList && formData.detailList.length > 0"
-                    class="w-full"
-                    :data="formData.detailList"
-                    border
-                    stripe
-                    :row-config="{ isHover: true }"
-                    max-height="400"
-                    :size="appStore.componentSize"
-                  >
-                    <vxe-column field="name" title="名称" show-overflow="tooltip" align="center" width="15%" />
-                    <vxe-column
-                      field="supplierName"
-                      title="预期供应商"
-                      show-overflow="tooltip"
-                      align="center"
-                      width="20%"
+            border: 1px solid rgba(148, 163, 184, 0.18);
+          "
+          :model="formData"
+          ref="formRef"
+          :rules="formRule"
+        >
+          <div class="flex items-center mb-4">
+            <div class="w-1 h-4 bg-blue-500 mr-2 rounded" />
+            <div class="text-base font-semibold text-gray-700">采购申请信息</div>
+          </div>
+          <n-grid cols="2" x-gap="12">
+            <n-gi>
+              <n-form-item label="编码">
+                <n-input disabled placeholder="自动生成编码" v-model:value="formData.code" />
+              </n-form-item>
+            </n-gi>
+            <n-gi>
+              <n-form-item label="申请日期" class="w-full">
+                <n-date-picker
+                  type="date"
+                  placeholder="请输入申请日期"
+                  v-model:value="formData.applyTime"
+                  class="w-full"
+                />
+              </n-form-item>
+            </n-gi>
+            <n-gi>
+              <n-form-item label="到货需求日期" class="w-full">
+                <n-date-picker
+                  type="date"
+                  placeholder="请输入需求日期"
+                  v-model:value="formData.expectTime"
+                  class="w-full"
+                />
+              </n-form-item>
+            </n-gi>
+            <n-gi>
+              <n-form-item label="需求来源" path="sourceType">
+                <n-select
+                  placeholder="请输入需求来源"
+                  v-model:value="formData.sourceType"
+                  :options="formData.sourceTypeOptions"
+                />
+              </n-form-item>
+            </n-gi>
+            <n-gi span="2">
+              <n-form-item label="到货地址">
+                <n-input placeholder="请输入到货地址" v-model:value="formData.address" />
+              </n-form-item>
+            </n-gi>
+          </n-grid>
+          <div class="flex items-center mb-4">
+            <div class="w-1 h-4 bg-blue-500 mr-2 rounded" />
+            <div class="text-base font-semibold text-gray-700">采购物料明细</div>
+          </div>
+          <n-grid cols="3" x-gap="24">
+            <n-gi span="3">
+              <n-form-item label="采购明细" path="detailList" required>
+                <m-card class="w-full h-full flex flex-col" padding="0">
+                  <m-card padding="0" style="position: absolute; right: 0; top: -30px">
+                    <n-button :size="appStore.componentSize" type="info" @click="showItemsModal" class="w-20">
+                      添加物料
+                    </n-button>
+                  </m-card>
+                  <m-card ref="TableCardRef" class="flex-1" padding="0">
+                    <vxe-table
+                      v-if="formData.detailList && formData.detailList.length > 0"
+                      class="w-full"
+                      :data="formData.detailList"
+                      border
+                      stripe
+                      :row-config="{ isHover: true }"
+                      :size="appStore.componentSize"
                     >
-                      <template #default="{ row }">
-                        <n-select
-                          :size="appStore.componentSize"
-                          :options="formData.supplierOptions"
-                          v-model:value="row.supplierUid"
-                        />
-                      </template>
-                    </vxe-column>
-                    <vxe-column
-                      field="availableQuantity"
-                      title="可用库存"
-                      align="center"
-                      show-overflow="tooltip"
-                      width="10%"
-                    />
-                    <vxe-column title="采购数量" align="center" show-overflow="tooltip" width="15%">
-                      <template #default="{ row }">
-                        <vxe-number-input v-model="row.quantity" :min="1" />
-                      </template>
-                    </vxe-column>
-                    <vxe-column field="typeName" title="类型" show-overflow="tooltip" align="center" width="15%" />
-                    <vxe-column field="unitName" title="单位" show-overflow="tooltip" align="center" width="15%" />
-                    <vxe-column field="spec" title="规格" show-overflow="tooltip" align="center" width="15%" />
-                    <vxe-column field="material" title="材质" show-overflow="tooltip" align="center" width="15%" />
-
-                    <vxe-column field="remark" title="备注" show-overflow="tooltip" align="center" width="30%" />
-
-                    <vxe-column fixed="right" title="操作" align="center" show-overflow="tooltip" width="80">
-                      <template #default="{ row, rowIndex }">
-                        <n-flex justify="center">
-                          <n-button
-                            type="error"
-                            text
-                            @click="confirmDeleteItems(row, rowIndex)"
+                      <vxe-column field="name" title="名称" show-overflow="tooltip" align="center" width="15%" />
+                      <vxe-column
+                        field="supplierName"
+                        title="预期供应商"
+                        show-overflow="tooltip"
+                        align="center"
+                        width="20%"
+                      >
+                        <template #default="{ row }">
+                          <n-select
                             :size="appStore.componentSize"
-                            >删除
-                          </n-button>
-                        </n-flex>
-                      </template>
-                    </vxe-column>
-                  </vxe-table>
-                  <el-empty :image-size="80" style="height: 140px" description="无数据" v-else />
-                </m-card>
-              </m-card>
-            </n-form-item>
-          </n-gi>
-        </n-grid>
-        <n-form-item label="备注">
-          <n-input type="textarea" placeholder="" />
-        </n-form-item>
-      </n-form>
+                            :options="formData.supplierOptions"
+                            v-model:value="row.supplierUid"
+                          />
+                        </template>
+                      </vxe-column>
+                      <vxe-column
+                        field="availableQuantity"
+                        title="可用库存"
+                        align="center"
+                        show-overflow="tooltip"
+                        width="10%"
+                      />
+                      <vxe-column title="采购数量" align="center" show-overflow="tooltip" width="15%">
+                        <template #default="{ row }">
+                          <vxe-number-input v-model="row.quantity" :min="1" />
+                        </template>
+                      </vxe-column>
+                      <vxe-column field="typeName" title="类型" show-overflow="tooltip" align="center" width="15%" />
+                      <vxe-column field="unitName" title="单位" show-overflow="tooltip" align="center" width="15%" />
+                      <vxe-column field="spec" title="规格" show-overflow="tooltip" align="center" width="15%" />
+                      <vxe-column field="material" title="材质" show-overflow="tooltip" align="center" width="15%" />
 
-      <div class="basis-1/3 min-h-0 overflow-y-auto">
+                      <vxe-column field="remark" title="备注" show-overflow="tooltip" align="center" width="30%" />
+
+                      <vxe-column fixed="right" title="操作" align="center" show-overflow="tooltip" width="80">
+                        <template #default="{ row, rowIndex }">
+                          <n-flex justify="center">
+                            <n-button
+                              type="error"
+                              text
+                              @click="confirmDeleteItems(row, rowIndex)"
+                              :size="appStore.componentSize"
+                              >删除
+                            </n-button>
+                          </n-flex>
+                        </template>
+                      </vxe-column>
+                    </vxe-table>
+                    <el-empty :image-size="80" style="height: 140px" description="无数据" v-else />
+                  </m-card>
+                </m-card>
+              </n-form-item>
+            </n-gi>
+          </n-grid>
+          <n-form-item label="备注">
+            <n-input type="textarea" placeholder="" />
+          </n-form-item>
+        </n-form>
+      </div>
+
+      <div class="basis-1/3 overflow-auto">
         <FlowSchemaPreview
           class="h-full"
           :flow-type="FlowDefinitionTypeOptions.PURCHASE_APPLY_FLOW"
@@ -494,9 +588,12 @@ onMounted(() => {
         />
       </div>
     </div>
+
     <template #footer>
       <n-flex justify="end">
-        <n-button type="primary" @click="confirmUpdate" :loading="isSubmitting" :disabled="isSubmitting">确定</n-button>
+        <n-button type="primary" @click="confirmUpdate" :loading="isSubmitting" :disabled="isSubmitting"
+          >确定
+        </n-button>
       </n-flex>
     </template>
   </n-modal>
@@ -511,7 +608,7 @@ onMounted(() => {
             <n-form-item>
               <div class="flex gap-2">
                 <n-button type="info" secondary strong @click="selectItems">查询</n-button>
-                <n-button secondary strong @click="selectItems()"> 重置 </n-button>
+                <n-button secondary strong @click="selectItems()"> 重置</n-button>
               </div>
             </n-form-item>
           </n-form>
@@ -540,6 +637,11 @@ onMounted(() => {
           align="center"
           width="15%"
         />
+        <vxe-column title="参考税额/元" show-overflow="tooltip" align="center" width="15%">
+          <template #default="{ row }">
+            {{ formatMoney(calcTaxAmount(row.purchasePriceWithTax, row.vatTaxRate, 1)) }}
+          </template>
+        </vxe-column>
         <vxe-column
           field="purchasePriceWithoutTax"
           title="采购单价（不含税）/元"
@@ -607,9 +709,15 @@ onMounted(() => {
     @positive-click="confirmDelete"
     :size="appStore.componentSize"
   />
-  <n-modal v-model:show="showDetail" preset="card" class="w-[1200px] h-[100vh]" title="采购申请">
-    <div class="flex h-[calc(100vh-150px)] gap-4 overflow-hidden">
-      <div class="basis-2/3 min-h-0 overflow-y-auto flex flex-col gap-4">
+  <n-modal
+    v-model:show="showDetail"
+    preset="card"
+    class="w-[1400px] h-screen overflow-auto flex flex-col"
+    title="采购申请"
+  >
+    <!-- 内容区域 -->
+    <div class="flex flex-1 min-h-0">
+      <div class="basis-2/3 flex flex-col gap-2 overflow-auto pr-2">
         <n-card title="采购申请信息" :bordered="false" class="detail-card">
           <n-descriptions :column="2" label-placement="left" bordered>
             <n-descriptions-item label="申请单号">{{ detailData.code || "-" }}</n-descriptions-item>
@@ -639,6 +747,12 @@ onMounted(() => {
           <div class="mt-3 text-xs text-gray-400">
             仅流程已完成的采购申请可生成采购订单，系统会按供应商自动拆单并跳过已生成部分。
           </div>
+          <div v-if="detailData.purchaseOrderCount" class="mt-3 text-xs text-gray-500">
+            可在当前弹窗中继续查看该申请生成的采购订单。
+            <n-button text type="info" size="tiny" @click="openRelatedPurchaseOrderList(detailData.code)">
+              查看相关采购订单
+            </n-button>
+          </div>
         </n-card>
 
         <n-card title="采购物料信息" :bordered="false" class="detail-card">
@@ -647,7 +761,6 @@ onMounted(() => {
             border
             stripe
             :loading="detailLoading"
-            max-height="420"
             :row-config="{ isHover: true }"
           >
             <vxe-column field="name" title="名称" show-overflow="tooltip" align="center" width="140" />
@@ -657,17 +770,69 @@ onMounted(() => {
             <vxe-column field="spec" title="规格" show-overflow="tooltip" align="center" width="140" />
             <vxe-column field="material" title="材质" show-overflow="tooltip" align="center" width="120" />
             <vxe-column field="quantity" title="采购数量" show-overflow="tooltip" align="center" width="100" />
+            <vxe-column field="purchasePriceWithTax" title="含税单价" show-overflow="tooltip" align="center" width="110" />
+            <vxe-column field="vatTaxRate" title="税率(%)" show-overflow="tooltip" align="center" width="90" />
+            <vxe-column title="不含税单价" show-overflow="tooltip" align="center" width="110">
+              <template #default="{ row }">
+                {{ formatMoney(row.purchasePriceWithoutTax || calcPriceWithoutTax(row.purchasePriceWithTax, row.vatTaxRate)) }}
+              </template>
+            </vxe-column>
+            <vxe-column title="税额" show-overflow="tooltip" align="center" width="110">
+              <template #default="{ row }">
+                {{ formatMoney(calcTaxAmount(row.purchasePriceWithTax, row.vatTaxRate, row.quantity)) }}
+              </template>
+            </vxe-column>
+            <vxe-column title="含税小计" show-overflow="tooltip" align="center" width="120">
+              <template #default="{ row }">
+                {{ formatMoney(calcAmountWithTax(row.purchasePriceWithTax, row.quantity)) }}
+              </template>
+            </vxe-column>
+            <vxe-column title="不含税小计" show-overflow="tooltip" align="center" width="120">
+              <template #default="{ row }">
+                {{ formatMoney(calcAmountWithoutTax(row.purchasePriceWithTax, row.vatTaxRate, row.quantity)) }}
+              </template>
+            </vxe-column>
             <vxe-column field="availableQuantity" title="可用库存" show-overflow="tooltip" align="center" width="100" />
             <vxe-column field="remark" title="备注" show-overflow="tooltip" align="center" min-width="180" />
           </vxe-table>
         </n-card>
       </div>
 
-      <div class="basis-1/3 min-h-0 overflow-y-auto">
+      <div class="basis-1/3 overflow-auto">
         <FlowSchemaPreview title="流程进度" :schema-data="detailData.flowSchema" />
       </div>
     </div>
   </n-modal>
+
+  <n-modal
+    v-model:show="showRelatedOrderList"
+    preset="card"
+    class="w-[1000px] max-h-[88vh] overflow-auto"
+    title="相关采购订单"
+  >
+    <n-spin :show="loading">
+      <vxe-table border stripe show-overflow align="center" :data="relatedOrderList.list || []" max-height="520">
+        <vxe-column field="code" title="订单编号" min-width="170">
+          <template #default="{ row }">
+            <n-button text type="info" @click="openRelatedPurchaseOrder(row.uid, row.code)">
+              {{ row.code || "-" }}
+            </n-button>
+          </template>
+        </vxe-column>
+        <vxe-column field="orderTypeName" title="订单类型" min-width="110" />
+        <vxe-column field="supplierName" title="供应商" min-width="140" />
+        <vxe-column field="totalAmount" title="含税金额" min-width="120" />
+        <vxe-column field="statusName" title="状态" min-width="110" />
+        <vxe-column field="expectTimeName" title="预计到货" min-width="120" />
+      </vxe-table>
+    </n-spin>
+  </n-modal>
+
+  <PurchaseOrderRelatedModal
+    v-model:show="showRelatedOrder"
+    :uid="relatedOrder.uid"
+    :code="relatedOrder.code"
+  />
 </template>
 
 <style lang="scss" scoped>

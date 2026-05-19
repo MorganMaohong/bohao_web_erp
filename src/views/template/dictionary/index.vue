@@ -182,8 +182,7 @@ onMounted(() => {
               border
               stripe
               :loading="loading"
-              
-              
+              :size="appStore.componentSize"
               :tree-config="{ transform: true, rowField: 'uid', parentField: 'parentUid' }"
               :row-config="{ drag: true, isHover: true }"
               :height="TableCardMaxHeight"

@@ -16,6 +16,14 @@ export interface InventoryCheckOrder extends BaseEntityLd {
 export interface InventoryCheckDetail extends InventoryCheckOrder {
   detailList?: InventoryCheckOrderDetailVo[]
   imageList?: string[]
+  warehouseName?: string
+  typeName?: string
+  statusName?: string
+  startTimeName?: string
+  endTimeName?: string
+  totalQuantity?: number
+  totalProfitQuantity?: number
+  totalLossQuantity?: number
 }
 
 export interface InventoryCheckOrderForm extends InventoryCheckOrder {
@@ -43,6 +51,8 @@ export interface InventoryCheckOrderDetail extends BaseEntityLd {
   code?: string
   itemUid?: string
   quantity?: number
+  profitQuantity?: number
+  lossQuantity?: number
   orderUid?: string
 }
 

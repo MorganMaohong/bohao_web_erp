@@ -2,21 +2,17 @@ export const apiPrefix = {
   user: "/user",
   role: "/role",
   project: "/project",
-  projectGroup: "/projectGroup",
   post: "/post",
   permission: "/permission",
   menu: "/menu",
   gateway: "/gateway",
   gatewayGroup: "/gatewayGroup",
   file: "/file",
-  dict: "/dict",
   dept: "/dept",
   comport: "/gateway/comport",
-  variableGroup: "/comport/variableGroup",
   variable: "/comport/variable",
   warnRecord: "/gateway/warnRecord",
   warn: "/gateway/warn",
-  warnGroup: "/gateway/warnGroup",
   sysConfig: "/sysConfig",
   repairWorkOrderPermission: "/operations/repair/permission",
   repairWorkOrder: "/operations/repair/workOrder",
@@ -30,9 +26,11 @@ export const apiPrefix = {
   flowInstance: "/flowInstance",
   templateDictionary: "/template/dictionary",
   templateProduct: "/template/product",
+  templateCustomer: "/template/customer",
   templateSupplier: "/template/supplier",
   templateItems: "/template/items",
   templateWarehouse: "/template/warehouse",
+  templateUnit: "/template/unit",
   inventoryInbound: "/inventory/inbound",
   inventoryOutbound: "/inventory/outbound",
   inventoryOverview: "/inventory/overview",
@@ -43,6 +41,8 @@ export const apiPrefix = {
   inventoryCheckOrder: "/inventory/check",
   purchaseApplyOrder: "/purchase/apply",
   purchaseOrder: "/purchase/order",
+  purchasePrice: "/purchase/price",
+  salesOrder: "/sales/order",
   productionBom: "/production/bom",
   productionProcessTemplate: "/production/process-template",
   productionPlan: "/production/plan",
@@ -121,13 +121,6 @@ export const projectApi = {
   deleteGroup: { url: `${apiPrefix.project}/deleteGroup`, permission: "project:deleteGroup" }
 }
 
-export const projectGroupApi = {
-  form: { url: `${apiPrefix.projectGroup}/form`, permission: "" },
-  update: { url: `${apiPrefix.projectGroup}/update`, permission: "projectGroup:update" },
-  add: { url: `${apiPrefix.projectGroup}/add`, permission: "projectGroup:add" },
-  delete: { url: `${apiPrefix.projectGroup}/delete`, permission: "projectGroup:delete:uid" }
-}
-
 export const postApi = {
   select: { url: `${apiPrefix.post}/select`, permission: "company:post:select" },
   form: { url: `${apiPrefix.post}/form`, permission: "" },
@@ -203,11 +196,6 @@ export const fileApi = {
   uploadTimeWatermark: { url: `${apiPrefix.file}/uploadTimeWatermark`, permission: "" }
 }
 
-/*export const dictApi = {
-  getOptions: { url: `${apiPrefix.dict}/getOptions`, permission: "" },
-  getOptionsList: { url: `${apiPrefix.dict}/getOptionsList`, permission: "" }
-}*/
-
 export const deptApi = {
   select: { url: `${apiPrefix.dept}/select`, permission: "company:dept:select" },
   form: { url: `${apiPrefix.dept}/form`, permission: "" },
@@ -279,16 +267,6 @@ export const dashboardApi = {
   }
 }
 
-export const variableGroupApi = {
-  updateVarByGroup: {
-    url: `${apiPrefix.variableGroup}/updateVarByGroup`,
-    permission: "comport:variableGroup:updateVarByGroup"
-  },
-  add: { url: `${apiPrefix.variableGroup}/add`, permission: "comport:variableGroup:add" },
-  delete: { url: `${apiPrefix.variableGroup}/delete`, permission: "comport:variableGroup:delete:uid" },
-  update: { url: `${apiPrefix.variableGroup}/update`, permission: "comport:variableGroup:update" }
-}
-
 export const variableApi = {
   updateVarByGroup: {
     url: `${apiPrefix.variable}/updateVarByGroup`,
@@ -355,16 +333,6 @@ export const warnApi = {
   addGroup: { url: `${apiPrefix.warn}/addGroup`, permission: "gateway:warn:editGroup" },
   deleteGroup: { url: `${apiPrefix.warn}/deleteGroup`, permission: "gateway:warnGroup:deleteGroup" },
   updateGroup: { url: `${apiPrefix.warn}/updateGroup`, permission: "gateway:warnGroup:editGroup" }
-}
-
-export const warnGroupApi = {
-  updateWarnByGroup: {
-    url: `${apiPrefix.warnGroup}/updateWarnByGroup`,
-    permission: "gateway:warnGroup:updateWarnByGroup"
-  },
-  add: { url: `${apiPrefix.warnGroup}/add`, permission: "gateway:warnGroup:add" },
-  delete: { url: `${apiPrefix.warnGroup}/delete`, permission: "gateway:warnGroup:delete:uid" },
-  update: { url: `${apiPrefix.warnGroup}/update`, permission: "gateway:warnGroup:update" }
 }
 
 export const sysConfigApi = {
@@ -820,6 +788,14 @@ export const templateSupplierApi = {
   form: { url: `${apiPrefix.templateSupplier}/form`, permission: "" }
 }
 
+export const templateCustomerApi = {
+  add: { url: `${apiPrefix.templateCustomer}/add`, permission: "template:customer:edit" },
+  update: { url: `${apiPrefix.templateCustomer}/update`, permission: "template:customer:edit" },
+  delete: { url: `${apiPrefix.templateCustomer}/delete`, permission: "template:customer:delete" },
+  select: { url: `${apiPrefix.templateCustomer}/select`, permission: "template:customer:select" },
+  form: { url: `${apiPrefix.templateCustomer}/form`, permission: "" }
+}
+
 export const templateItemsApi = {
   add: { url: `${apiPrefix.templateItems}/add`, permission: "template:items:edit" },
   update: { url: `${apiPrefix.templateItems}/update`, permission: "template:items:edit" },
@@ -836,6 +812,15 @@ export const templateWarehouseApi = {
   form: { url: `${apiPrefix.templateWarehouse}/form`, permission: "" }
 }
 
+export const templateUnitApi = {
+  add: { url: `${apiPrefix.templateUnit}/add`, permission: "template:unit:edit" },
+  update: { url: `${apiPrefix.templateUnit}/update`, permission: "template:unit:edit" },
+  delete: { url: `${apiPrefix.templateUnit}/delete`, permission: "template:unit:delete" },
+  select: { url: `${apiPrefix.templateUnit}/select`, permission: "template:unit:select" },
+  form: { url: `${apiPrefix.templateUnit}/form`, permission: "" },
+  options: { url: `${apiPrefix.templateUnit}/options`, permission: "" }
+}
+
 export const inventoryFlowApi = {
   select: { url: `${apiPrefix.inventoryFlow}/select`, permission: "inventory:flow:select" },
   detail: { url: `${apiPrefix.inventoryFlow}/detail`, permission: "inventory:flow:select" }
@@ -850,14 +835,32 @@ export const inventoryCommonApi = {
 export const inventoryMaterialRequestApi = {
   add: { url: `${apiPrefix.inventoryMaterialRequest}/add`, permission: "inventory:materialRequest:edit" },
   update: { url: `${apiPrefix.inventoryMaterialRequest}/update`, permission: "inventory:materialRequest:edit" },
-  deleteDetail: { url: `${apiPrefix.inventoryMaterialRequest}/deleteDetail`, permission: "inventory:materialRequest:edit" },
+  deleteDetail: {
+    url: `${apiPrefix.inventoryMaterialRequest}/deleteDetail`,
+    permission: "inventory:materialRequest:edit"
+  },
   delete: { url: `${apiPrefix.inventoryMaterialRequest}/delete`, permission: "inventory:materialRequest:delete" },
   select: { url: `${apiPrefix.inventoryMaterialRequest}/select`, permission: "inventory:materialRequest:select" },
-  issueSelect: { url: `${apiPrefix.inventoryMaterialRequest}/issue-select`, permission: "inventory:materialRequestIssue:select" },
-  issueDetail: { url: `${apiPrefix.inventoryMaterialRequest}/issue-detail`, permission: "inventory:materialRequestIssue:select" },
-  issuePartial: { url: `${apiPrefix.inventoryMaterialRequest}/issue/partial`, permission: "inventory:materialRequestIssue:execute" },
-  issueAll: { url: `${apiPrefix.inventoryMaterialRequest}/issue/all`, permission: "inventory:materialRequestIssue:execute" },
-  unableIssue: { url: `${apiPrefix.inventoryMaterialRequest}/issue/unable`, permission: "inventory:materialRequestIssue:execute" },
+  issueSelect: {
+    url: `${apiPrefix.inventoryMaterialRequest}/issue-select`,
+    permission: "inventory:materialRequestIssue:select"
+  },
+  issueDetail: {
+    url: `${apiPrefix.inventoryMaterialRequest}/issue-detail`,
+    permission: "inventory:materialRequestIssue:select"
+  },
+  issuePartial: {
+    url: `${apiPrefix.inventoryMaterialRequest}/issue/partial`,
+    permission: "inventory:materialRequestIssue:execute"
+  },
+  issueAll: {
+    url: `${apiPrefix.inventoryMaterialRequest}/issue/all`,
+    permission: "inventory:materialRequestIssue:execute"
+  },
+  unableIssue: {
+    url: `${apiPrefix.inventoryMaterialRequest}/issue/unable`,
+    permission: "inventory:materialRequestIssue:execute"
+  },
   form: { url: `${apiPrefix.inventoryMaterialRequest}/form`, permission: "" },
   detail: { url: `${apiPrefix.inventoryMaterialRequest}/detail`, permission: "inventory:materialRequest:select" }
 }
@@ -938,6 +941,25 @@ export const purchaserOrderApi = {
   returnForm: { url: `${apiPrefix.purchaseOrder}/return/form`, permission: "purchase:order:select" },
   returns: { url: `${apiPrefix.purchaseOrder}/return`, permission: "purchase:order:edit" },
   close: { url: `${apiPrefix.purchaseOrder}/close`, permission: "purchase:order:edit" }
+}
+
+export const purchasePriceApi = {
+  compare: { url: `${apiPrefix.purchasePrice}/compare`, permission: "purchase:order:select" },
+  history: { url: `${apiPrefix.purchasePrice}/history`, permission: "purchase:order:select" }
+}
+
+export const salesOrderApi = {
+  add: { url: `${apiPrefix.salesOrder}/add`, permission: "sales:order:edit" },
+  update: { url: `${apiPrefix.salesOrder}/update`, permission: "sales:order:edit" },
+  delete: { url: `${apiPrefix.salesOrder}/delete`, permission: "sales:order:delete" },
+  select: { url: `${apiPrefix.salesOrder}/select`, permission: "sales:order:select" },
+  form: { url: `${apiPrefix.salesOrder}/form`, permission: "" },
+  detail: { url: `${apiPrefix.salesOrder}/detail`, permission: "sales:order:select" },
+  confirm: { url: `${apiPrefix.salesOrder}/confirm`, permission: "sales:order:edit" },
+  outboundForm: { url: `${apiPrefix.salesOrder}/outbound/form`, permission: "sales:order:select" },
+  outbound: { url: `${apiPrefix.salesOrder}/outbound`, permission: "sales:order:edit" },
+  close: { url: `${apiPrefix.salesOrder}/close`, permission: "sales:order:edit" },
+  cancel: { url: `${apiPrefix.salesOrder}/cancel`, permission: "sales:order:edit" }
 }
 
 export const productionBomApi = {

@@ -5,6 +5,7 @@ import store from "@/store"
 import router from "@/router"
 import "@/router/permission"
 import { Permission } from "@/directives/permission"
+import { bootstrapTokenFromUrl } from "@/utils/cache/cookies"
 // load
 import { loadSvg } from "@/icons"
 import { loadPlugins } from "@/plugins"
@@ -29,6 +30,8 @@ import "vxe-table/lib/style.css"
 import * as ElementPlusIconsVue from "@element-plus/icons-vue"
 
 import naive from "naive-ui"
+
+bootstrapTokenFromUrl()
 
 const app = createApp(App)
 

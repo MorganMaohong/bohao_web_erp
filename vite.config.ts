@@ -7,6 +7,44 @@ import vueJsx from "@vitejs/plugin-vue-jsx"
 import { createSvgIconsPlugin } from "vite-plugin-svg-icons"
 import svgLoader from "vite-svg-loader"
 import UnoCSS from "unocss/vite"
+
+const packageChunkGroups: Record<string, string[]> = {
+  charts: ["echarts", "echarts-gl", "zrender"],
+  mqtt: ["mqtt"],
+  amap: ["@amap"]
+}
+
+function resolveChunkGroup(id: string) {
+  const normalizedId = id.replace(/\\/g, "/")
+  if (!normalizedId.includes("/node_modules/")) return undefined
+  for (const [groupName, packages] of Object.entries(packageChunkGroups)) {
+    if (
+      packages.some((pkg) => {
+        const pnpmPackageName = pkg.replace("/", "+")
+        return (
+          normalizedId.includes(`/node_modules/${pkg}/`) ||
+          normalizedId.includes(`/node_modules/.pnpm/${pnpmPackageName}@`)
+        )
+      })
+    ) {
+      return `vendor-${groupName}`
+    }
+  }
+  return "vendor-misc"
+}
+
+function resolveAssetFileNames(assetName?: string) {
+  const normalizedName = assetName?.replace(/\\/g, "/") ?? ""
+  const ext = path.extname(normalizedName).toLowerCase()
+  if (ext === ".css") return "static/css/[name]-[hash][extname]"
+  if ([".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".avif", ".ico"].includes(ext)) {
+    return "static/img/[name]-[hash][extname]"
+  }
+  if ([".woff", ".woff2", ".ttf", ".otf", ".eot"].includes(ext)) {
+    return "static/fonts/[name]-[hash][extname]"
+  }
+  return "static/assets/[name]-[hash][extname]"
+}
 /** 配置项文档：https://cn.vitejs.dev/config */
 export default ({ mode }: ConfigEnv): UserConfigExport => {
   const viteEnv = loadEnv(mode, process.cwd()) as unknown as ImportMetaEnv
@@ -47,13 +85,23 @@ export default ({ mode }: ConfigEnv): UserConfigExport => {
       }
     },
     build: {
-      /** 单个 chunk 文件的大小超过 2048KB 时发出警告 */
-      chunkSizeWarningLimit: 2048,
+      /** 单个 chunk 文件的大小超过 1024KB 时发出警告 */
+      chunkSizeWarningLimit: 1024,
       /** 禁用 gzip 压缩大小报告 */
       reportCompressedSize: false,
       /** 打包后静态资源目录 */
       assetsDir: "static",
-      outDir: "bherp"
+      outDir: "bherp",
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            return resolveChunkGroup(id)
+          },
+          entryFileNames: "static/js/[name]-[hash].js",
+          chunkFileNames: "static/js/[name]-[hash].js",
+          assetFileNames: ({ name }) => resolveAssetFileNames(name)
+        }
+      }
     },
     /** 混淆器 */
     esbuild:

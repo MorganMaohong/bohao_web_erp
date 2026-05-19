@@ -419,6 +419,9 @@ onMounted(() => {
             >
               <vxe-column field="code" title="编号" show-overflow="tooltip" align="center" width="10%" />
               <vxe-column field="warehouseName" title="仓库名称" show-overflow="tooltip" align="center" width="15%" />
+              <vxe-column field="projectName" title="项目" show-overflow="tooltip" align="center" width="15%" />
+              <vxe-column field="customerName" title="客户/来货方" show-overflow="tooltip" align="center" width="16%" />
+              <vxe-column field="handlerName" title="经手人" show-overflow="tooltip" align="center" width="12%" />
               <vxe-column field="typeName" title="类型" show-overflow="tooltip" align="center" width="15%" />
               <vxe-column title="状态" show-overflow="tooltip" align="center" width="15%">
                 <template #default="{ row }">
@@ -596,6 +599,44 @@ onMounted(() => {
               <n-input class="w-full" disabled placeholder="暂无内容" v-model:value="formData.warehouse.name" />
             </n-form-item>
           </n-gi>
+          <n-gi>
+            <n-form-item label="关联项目" class="w-full">
+              <n-select
+                filterable
+                clearable
+                placeholder="请选择项目"
+                :options="formData.projectOptions"
+                v-model:value="formData.projectUid"
+              />
+            </n-form-item>
+          </n-gi>
+          <n-gi>
+            <n-form-item label="客户/来货方">
+              <n-input v-model:value="formData.customerName" placeholder="如退货客户或赠品供应商" />
+            </n-form-item>
+          </n-gi>
+          <n-gi>
+            <n-form-item label="经手人">
+              <n-input v-model:value="formData.handlerName" placeholder="请输入经手人" />
+            </n-form-item>
+          </n-gi>
+          <n-gi span="3">
+            <n-form-item label="业务说明">
+              <n-input
+                v-model:value="formData.sourcePartyName"
+                placeholder="说明退货、换货、借货、赠品等来源和场景"
+              />
+            </n-form-item>
+          </n-gi>
+          <n-gi span="3">
+            <n-form-item label="审批说明">
+              <n-input
+                v-model:value="formData.approvalRemark"
+                type="textarea"
+                placeholder="特殊入库、换货、借货等审批情况说明"
+              />
+            </n-form-item>
+          </n-gi>
           <n-gi span="3">
             <n-form-item label="照片">
               <div class="flex flex-col">
@@ -627,6 +668,15 @@ onMounted(() => {
                   </n-gi>
                 </n-grid>
               </div>
+            </n-form-item>
+          </n-gi>
+          <n-gi span="3">
+            <n-form-item label="验收说明">
+              <n-input
+                type="textarea"
+                v-model:value="formData.inspectionRemark"
+                placeholder="可记录退换货验收、品质核验结果，辅助防止次品调换"
+              />
             </n-form-item>
           </n-gi>
           <n-gi span="3">
@@ -936,8 +986,14 @@ onMounted(() => {
           <n-descriptions-item label="入库类型">{{ detailData.typeName }}</n-descriptions-item>
           <n-descriptions-item label="入库时间">{{ detailData.timeName }}</n-descriptions-item>
           <n-descriptions-item label="仓库名称">{{ detailData.warehouseName }}</n-descriptions-item>
+          <n-descriptions-item label="关联项目">{{ detailData.projectName || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="客户/来货方">{{ detailData.customerName || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="经手人">{{ detailData.handlerName || "-" }}</n-descriptions-item>
           <n-descriptions-item label="状态">{{ detailData.statusName }}</n-descriptions-item>
-          <n-descriptions-item label="备注" :span="3">{{ detailData.remark }}</n-descriptions-item>
+          <n-descriptions-item label="业务说明" :span="4">{{ detailData.sourcePartyName || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="审批说明" :span="4">{{ detailData.approvalRemark || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="验收说明" :span="4">{{ detailData.inspectionRemark || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="备注" :span="4">{{ detailData.remark }}</n-descriptions-item>
           <n-descriptions-item label="照片" :span="4">
             <n-grid x-gap="12" y-gap="12" cols="8">
               <n-gi v-for="(url, index) in detailData.imageList">

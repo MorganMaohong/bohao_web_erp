@@ -32,7 +32,9 @@
           </div>
 
           <n-form
+            ref="formRef"
             :model="userForm"
+            :rules="formRules"
             :show-label="false"
             size="large"
             class="login-page__form"
@@ -93,6 +95,7 @@
 <script lang="ts" setup>
 import { computed, ref } from "vue"
 import { useRouter } from "vue-router"
+import { FormInst, FormRules, useMessage } from "naive-ui"
 import { LoginService } from "@/services/AuthService"
 import { LoginData } from "@/model/auth"
 import { useUserStore } from "@/store/modules/user"
@@ -104,28 +107,39 @@ const UserIcon = User
 const LockedIcon = Locked
 
 const router = useRouter()
+const message = useMessage()
+const userStore = useUserStore()
+const permissionStore = usePermissionStore()
+const formRef = ref<FormInst | null>(null)
 const loggingIn = ref(false)
+
 const year = computed(() => new Date().getFullYear())
 
 const userForm = ref<LoginData>({
   captcha: "",
-  check: false,
+  check: true,
   password: "",
   username: "",
   dPassword: "",
   isEncrypted: false
 })
 
+const formRules: FormRules = {
+  username: [{ required: true, message: "请输入用户名", trigger: ["blur", "input"] }],
+  password: [{ required: true, message: "请输入密码", trigger: ["blur", "input"] }]
+}
+
 async function onClickLogin() {
   if (loggingIn.value) return
+  try {
+    await formRef.value?.validate()
+  } catch {
+    return
+  }
   loggingIn.value = true
   try {
     const res = await LoginService.login(userForm.value)
-    /*const userStore = useUserStore()
-    const permissionStore = usePermissionStore()
-
     userStore.loginInfo = res
-
     await userStore.getUserInfo()
     if (routeSettings.dynamic) {
       permissionStore.setRoutes(userStore.userInfo.menuList)
@@ -133,14 +147,18 @@ async function onClickLogin() {
       permissionStore.setAllRoutes()
     }
     for (const route of permissionStore.routes) {
-      router.addRoute(route)
+      if (route.name && !router.hasRoute(route.name)) {
+        router.addRoute(route)
+      }
     }
-
     const homePath = res.sysHomePageRouter || permissionStore.rootPath || "/"
-    await router.push({ path: homePath })*/
-    await router.push("/")
+    await router.replace({ path: homePath })
   } catch (err) {
     console.error("登录失败：", err)
+    LoginService.resetToken()
+    permissionStore.cleanRoutes()
+    userStore.clean()
+    message.error(typeof err === "string" ? err : err instanceof Error ? err.message : "登录失败，请重试")
   } finally {
     loggingIn.value = false
   }
