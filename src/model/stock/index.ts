@@ -5,6 +5,7 @@ export interface Warehouse extends BaseEntityLd {
   name?: string
   address?: string
   area?: string
+  remark?: string
 }
 
 export interface WarehouseForm extends Warehouse {}

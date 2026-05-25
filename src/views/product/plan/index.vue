@@ -59,6 +59,18 @@ const issueData = ref<ProductionPlanIssueForm>({ detailList: [], bomList: [] })
 const processData = ref<ProductionPlanProcessForm>({ processList: [] })
 const completeNodeForm = ref<ProductionPlanProcessNodeCompleteForm>({ imageList: [] })
 const inboundData = ref<ProductionPlanFinishInboundForm>({ detailList: [], productList: [] })
+const inboundPlanMeta = ref({
+  inboundStatus: "",
+  inboundStatusName: "",
+  inboundCompleted: false
+})
+
+const inboundFormReadonly = computed(() => inboundPlanMeta.value.inboundStatus === "approving" || inboundPlanMeta.value.inboundCompleted)
+
+const inboundCanSubmit = computed(() => {
+  if (inboundFormReadonly.value) return false
+  return (inboundData.value.detailList || []).some((item) => Number(item.availableInboundQuantity) > 0)
+})
 const closeData = ref<ProductionPlanCloseForm>({})
 const itemsData = ref<PageVo<ItemsVo, void>>({})
 const componentData = ref<PageVo<ItemsVo, void>>({})
@@ -95,10 +107,23 @@ const warehouseOptions = computed(() =>
 
 const planFormReadonly = computed(() => Boolean(currentPlanUid.value) && formData.value.canEditPlan === false)
 
-const canConfirmIssue = computed(() =>
-  (issueData.value.detailList || []).length > 0 &&
-  (issueData.value.detailList || []).every((item) => safeNumber(item.availableQuantity) <= 0)
-)
+const issuePlanMeta = ref({
+  issueStatus: "",
+  issueStatusName: "",
+  materialRequestCode: "",
+  materialIssued: false
+})
+
+const canSubmitIssueRequest = computed(() => {
+  if (issuePlanMeta.value.materialIssued) return false
+  const status = issuePlanMeta.value.issueStatus || "none"
+  return status === "none" || status === "rejected"
+})
+
+const issueFormReadonly = computed(() => {
+  const status = issuePlanMeta.value.issueStatus || "none"
+  return status === "approving" || status === "wait_issue" || status === "part_issued"
+})
 
 const componentMap = computed<Record<string, ItemsVo>>(() =>
   Object.fromEntries((componentData.value.list || []).filter((item) => item.uid).map((item) => [item.uid as string, item]))
@@ -426,24 +451,42 @@ function openIssue(uid?: string) {
   currentPlanUid.value = uid
   showIssue.value = true
   submitting.value = true
-  ProductionPlanService.issueForm(uid)
-    .then(applyIssueForm)
+  Promise.all([ProductionPlanService.issueForm(uid), ProductionPlanService.detail(uid)])
+    .then(([res, detail]) => {
+      applyIssueForm(res)
+      issuePlanMeta.value = {
+        issueStatus: detail.issueStatus || "none",
+        issueStatusName: detail.issueStatusName || "",
+        materialRequestCode: detail.materialRequestCode || "",
+        materialIssued: Boolean(detail.materialIssued)
+      }
+    })
     .finally(() => {
       submitting.value = false
     })
 }
 
 function submitIssue() {
+  if (!canSubmitIssueRequest.value) {
+    window.$message?.warning("当前存在进行中的领料申请，请等待审批或前往领料出库处理")
+    return
+  }
   const detailList = (issueData.value.detailList || []).filter((item) => Number(item.quantity) > 0)
   if (!detailList.length) {
     window.$message?.error("请至少填写一条领料数量")
     return
   }
+  const warehouseSet = new Set<string>()
   for (const item of detailList) {
     const max = getIssueRowMax(item)
     const qty = Number(item.quantity) || 0
     if (!item.warehouseUid) {
       window.$message?.error(`请选择【${item.componentName || "物料"}】领料仓库`)
+      return
+    }
+    warehouseSet.add(item.warehouseUid)
+    if (warehouseSet.size > 1) {
+      window.$message?.error("生产计划领料仅支持单一仓库，请统一领料仓库后提交")
       return
     }
     if (qty > max) {
@@ -455,11 +498,9 @@ function submitIssue() {
   submitting.value = true
   ProductionPlanService.issue({ ...issueData.value, detailList })
     .then(() => {
-      window.$message?.success("领料保存成功")
+      window.$message?.success("领料申请已提交")
+      showIssue.value = false
       refreshOpenDetail(uid)
-      if (uid) {
-        return ProductionPlanService.issueForm(uid).then(applyIssueForm)
-      }
     })
     .finally(() => {
       submitting.value = false
@@ -475,19 +516,6 @@ function fillAllIssueQuantity() {
 
 function fillIssueRowQuantity(item: ProductionPlanIssueDetailItem) {
   item.quantity = getIssueRowMax(item)
-}
-
-function confirmIssue(uid?: string) {
-  if (!uid) return
-  submitting.value = true
-  ProductionPlanService.issueConfirm(uid)
-    .then(() => {
-      showIssue.value = false
-      refreshOpenDetail(uid)
-    })
-    .finally(() => {
-      submitting.value = false
-    })
 }
 
 function openProcess(uid?: string, processItem?: ProductionPlanProcessForm) {
@@ -669,8 +697,13 @@ function openInbound(uid?: string) {
   currentPlanUid.value = uid
   showInbound.value = true
   submitting.value = true
-  Promise.all([ProductionPlanService.finishInboundForm(uid), loadBaseOptions()])
-    .then(([res]) => {
+  Promise.all([ProductionPlanService.finishInboundForm(uid), ProductionPlanService.detail(uid), loadBaseOptions()])
+    .then(([res, detail]) => {
+      inboundPlanMeta.value = {
+        inboundStatus: detail.inboundStatus || "none",
+        inboundStatusName: detail.inboundStatusName || "",
+        inboundCompleted: Boolean(detail.inboundCompleted)
+      }
       inboundData.value = {
         ...res,
         detailList: (res.productList || []).map((item) => ({
@@ -695,6 +728,11 @@ function openInbound(uid?: string) {
 }
 
 function submitInbound() {
+  const hasAvailable = (inboundData.value.detailList || []).some((item) => Number(item.availableInboundQuantity) > 0)
+  if (!hasAvailable) {
+    window.$message?.warning("当前没有可入库数量，如需继续入库请确认计划产量与已入库数量")
+    return
+  }
   const detailList = (inboundData.value.detailList || []).filter((item) => Number(item.quantity) > 0)
   if (!detailList.length) {
     window.$message?.error("请至少填写一条入库数量")
@@ -712,7 +750,7 @@ function submitInbound() {
   submitting.value = true
   ProductionPlanService.finishInbound(inboundData.value)
     .then(() => {
-      window.$message?.success("完工入库成功")
+      window.$message?.success("生产入库申请已提交")
       showInbound.value = false
       refreshOpenDetail(inboundData.value.uid)
     })
@@ -732,6 +770,20 @@ function fillInboundRowQuantity(item: ProductionPlanFinishDetailItem) {
   item.quantity = Number(item.availableInboundQuantity) || 0
 }
 
+function canOpenInbound(plan?: ProductionPlanDetail) {
+  if (!plan || plan.inboundCompleted) return false
+  if (plan.inboundStatus === "approving") return false
+  return (plan.productList || []).some(
+    (item) => Math.max(Number(item.quantity || 0) - Number(item.inboundQuantity || 0), 0) > 0
+  )
+}
+
+function canOpenCurrentStage(plan?: ProductionPlanDetail) {
+  if (!plan?.currentStage || plan.currentStage === "approve") return false
+  if (plan.currentStage === "inbound") return canOpenInbound(plan)
+  return true
+}
+
 function stageActionLabel(plan?: ProductionPlanDetail) {
   switch (plan?.currentStage) {
     case "prepare":
@@ -741,6 +793,8 @@ function stageActionLabel(plan?: ProductionPlanDetail) {
     case "process":
       return "进入工序"
     case "inbound":
+      if (plan?.inboundStatus === "approving") return "入库审批中"
+      if (!canOpenInbound(plan)) return ""
       return "进入入库"
     default:
       return ""
@@ -749,6 +803,16 @@ function stageActionLabel(plan?: ProductionPlanDetail) {
 
 function openCurrentStage(plan?: ProductionPlanDetail) {
   if (!plan?.uid) return
+  if (plan.currentStage === "inbound" && !canOpenInbound(plan)) {
+    if (plan.inboundStatus === "approving") {
+      window.$message?.warning("生产入库审批进行中，请等待审批完成")
+    } else if (plan.inboundCompleted) {
+      window.$message?.success("生产入库已全部完成")
+    } else {
+      window.$message?.warning("当前没有可入库数量")
+    }
+    return
+  }
   switch (plan.currentStage) {
     case "prepare":
       openPrepare(plan.uid)
@@ -836,7 +900,7 @@ onMounted(() => {
               <vxe-column field="name" title="计划名称" show-overflow="tooltip" align="center" min-width="180" />
               <vxe-column field="statusName" title="审批状态" show-overflow="tooltip" align="center" width="120" />
               <vxe-column field="currentStageName" title="当前阶段" show-overflow="tooltip" align="center" width="120" />
-              <vxe-column field="currentNodeName" title="当前节点" show-overflow="tooltip" align="center" min-width="140" />
+              <vxe-column field="currentNodeName" title="当前进度" show-overflow="tooltip" align="center" min-width="140" />
               <vxe-column fixed="right" title="操作" align="center" width="320">
                 <template #default="{ row }">
                   <n-flex justify="center" :wrap="false">
@@ -852,7 +916,7 @@ onMounted(() => {
                     </n-button>
                     <n-button v-if="row.status === 'closed'" type="error" text @click="deletePlan(row.uid)">删除</n-button>
                     <n-button
-                      v-if="row.currentStage && row.currentStage !== 'approve'"
+                      v-if="canOpenCurrentStage(row)"
                       type="warning"
                       text
                       @click="openCurrentStage(row)"
@@ -982,6 +1046,8 @@ onMounted(() => {
           <n-descriptions-item label="审批状态">{{ detailData.statusName || "-" }}</n-descriptions-item>
           <n-descriptions-item label="当前阶段">{{ detailData.currentStageName || "-" }}</n-descriptions-item>
           <n-descriptions-item label="当前节点">{{ detailData.currentNodeName || "-" }}</n-descriptions-item>
+          <n-descriptions-item v-if="detailData.inboundStatusName" label="入库状态">{{ detailData.inboundStatusName }}</n-descriptions-item>
+          <n-descriptions-item v-if="detailData.inboundCompleted" label="入库完成">是</n-descriptions-item>
           <n-descriptions-item v-if="detailData.closeReason" label="关闭原因">{{ detailData.closeReason }}</n-descriptions-item>
         </n-descriptions>
         <div class="rounded-xl bg-slate-50 p-4">
@@ -999,7 +1065,7 @@ onMounted(() => {
               </n-button>
               <n-button v-if="detailData.status === 'closed'" type="error" :size="componentSize" @click="deletePlan(detailData.uid)">删除计划</n-button>
               <n-button
-                v-if="detailData.currentStage && detailData.currentStage !== 'approve'"
+                v-if="canOpenCurrentStage(detailData)"
                 type="primary"
                 :size="componentSize"
                 @click="openCurrentStage(detailData)"
@@ -1194,8 +1260,17 @@ onMounted(() => {
     </n-modal>
 
     <n-modal v-model:show="showIssue" preset="card" title="领料" class="w-[1200px] max-w-[96vw]">
+      <n-alert
+        v-if="issuePlanMeta.issueStatusName"
+        class="mb-3"
+        :type="issuePlanMeta.materialIssued ? 'success' : issuePlanMeta.issueStatus === 'rejected' ? 'error' : 'info'"
+        show-icon
+      >
+        领料状态：{{ issuePlanMeta.issueStatusName }}
+        <template v-if="issuePlanMeta.materialRequestCode">（申请单：{{ issuePlanMeta.materialRequestCode }}）</template>
+      </n-alert>
       <div class="mb-3 flex justify-end">
-        <n-button :size="componentSize" type="primary" tertiary @click="fillAllIssueQuantity">全部领料</n-button>
+        <n-button :size="componentSize" type="primary" tertiary :disabled="issueFormReadonly" @click="fillAllIssueQuantity">全部领料</n-button>
       </div>
       <div class="modal-table-scroll">
         <n-table :size="componentSize" striped class="plan-modal-table">
@@ -1236,13 +1311,13 @@ onMounted(() => {
                   </div>
                 </div>
               </td>
-              <td><n-select v-model:value="item.warehouseUid" :options="warehouseOptions" class="compact-select" /></td>
+              <td><n-select v-model:value="item.warehouseUid" :options="warehouseOptions" :disabled="issueFormReadonly" class="compact-select" /></td>
               <td class="text-center whitespace-nowrap">{{ item.availableQuantity || 0 }}</td>
               <td class="text-center whitespace-nowrap">{{ item.stockQuantity ?? "-" }}</td>
               <td class="text-center whitespace-nowrap">{{ item.requiredQuantity || 0 }}</td>
               <td class="text-center whitespace-nowrap">{{ item.issuedQuantity || 0 }}</td>
-              <td><n-input-number v-model:value="item.quantity" :min="0" :max="getIssueRowMax(item)" class="w-full compact-number" /></td>
-              <td class="text-center"><n-button :size="componentSize" tertiary @click="fillIssueRowQuantity(item)">全部</n-button></td>
+              <td><n-input-number v-model:value="item.quantity" :min="0" :max="getIssueRowMax(item)" :disabled="issueFormReadonly" class="w-full compact-number" /></td>
+              <td class="text-center"><n-button :size="componentSize" tertiary :disabled="issueFormReadonly" @click="fillIssueRowQuantity(item)">全部</n-button></td>
             </tr>
           </tbody>
         </n-table>
@@ -1250,8 +1325,7 @@ onMounted(() => {
       <template #footer>
         <div class="flex justify-end gap-2">
           <n-button @click="showIssue = false">关闭</n-button>
-          <n-button :loading="submitting" @click="submitIssue">保存领料</n-button>
-          <n-button v-if="canConfirmIssue" type="primary" :loading="submitting" @click="confirmIssue(issueData.uid)">确认领料</n-button>
+          <n-button v-if="canSubmitIssueRequest" type="primary" :loading="submitting" @click="submitIssue">提交领料申请</n-button>
         </div>
       </template>
     </n-modal>
@@ -1315,8 +1389,25 @@ onMounted(() => {
     </n-modal>
 
     <n-modal v-model:show="showInbound" preset="card" title="完工入库" class="w-[1100px] max-w-[96vw]">
+      <n-alert
+        v-if="inboundPlanMeta.inboundStatusName"
+        class="mb-3"
+        :type="inboundPlanMeta.inboundCompleted ? 'success' : inboundPlanMeta.inboundStatus === 'approving' ? 'info' : 'warning'"
+        show-icon
+      >
+        入库状态：{{ inboundPlanMeta.inboundStatusName }}
+        <template v-if="inboundPlanMeta.inboundCompleted">（已全部入库完成）</template>
+      </n-alert>
       <div class="mb-3 flex justify-end">
-        <n-button :size="componentSize" type="primary" tertiary @click="fillAllInboundQuantity">全部入库</n-button>
+        <n-button
+          :size="componentSize"
+          type="primary"
+          tertiary
+          :disabled="inboundFormReadonly || !inboundCanSubmit"
+          @click="fillAllInboundQuantity"
+        >
+          全部入库
+        </n-button>
       </div>
       <div class="modal-table-scroll">
         <n-table :size="componentSize" striped class="plan-modal-table">
@@ -1359,8 +1450,18 @@ onMounted(() => {
               <td class="text-center whitespace-nowrap">{{ item.planQuantity || 0 }}</td>
               <td class="text-center whitespace-nowrap">{{ item.inboundQuantity || 0 }}</td>
               <td class="text-center whitespace-nowrap">{{ item.availableInboundQuantity || 0 }}</td>
-              <td><n-input-number v-model:value="item.quantity" :min="0" :max="Number(item.availableInboundQuantity) || 0" class="w-full compact-number" /></td>
-              <td class="text-center"><n-button :size="componentSize" tertiary @click="fillInboundRowQuantity(item)">全部</n-button></td>
+              <td>
+                <n-input-number
+                  v-model:value="item.quantity"
+                  :min="0"
+                  :max="Number(item.availableInboundQuantity) || 0"
+                  :disabled="inboundFormReadonly"
+                  class="w-full compact-number"
+                />
+              </td>
+              <td class="text-center">
+                <n-button :size="componentSize" tertiary :disabled="inboundFormReadonly" @click="fillInboundRowQuantity(item)">全部</n-button>
+              </td>
             </tr>
           </tbody>
         </n-table>
@@ -1368,7 +1469,7 @@ onMounted(() => {
       <template #footer>
         <div class="flex justify-end gap-2">
           <n-button @click="showInbound = false">关闭</n-button>
-          <n-button type="primary" :loading="submitting" @click="submitInbound">确认入库</n-button>
+          <n-button v-if="inboundCanSubmit" type="primary" :loading="submitting" @click="submitInbound">提交入库申请</n-button>
         </div>
       </template>
     </n-modal>

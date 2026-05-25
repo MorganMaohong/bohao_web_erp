@@ -16,7 +16,7 @@ import MCard from "@/components/MCard/index.vue"
 import LCard from "@/components/LCard/index.vue"
 import { TaskCenterService } from "@/services/TaskCenterService"
 import { FlowDefinitionTypeOptions, FlowTaskStatusEnum } from "@/constants/flow"
-import { resetRef } from "@/utils"
+import { formatDateTime, resetRef } from "@/utils"
 import { useTaskStore } from "@/store/modules/task"
 import FastUpload from "@/components/FastUpload/FastUpload.vue"
 import {
@@ -917,6 +917,36 @@ watch(currentTab, () => {
         <n-tag v-if="getFlowActionHint('approve')" :type="canEditPlan ? 'warning' : 'default'" size="small">
           {{ getFlowActionHint("approve") }}
         </n-tag>
+      </template>
+      <template v-else-if="isFlowTask && FlowDefinitionTypeOptions.PRODUCTION_PLAN_WAREHOUSE === detailData.flowType">
+        <n-descriptions bordered title="生产计划" column="4">
+          <n-descriptions-item label="计划名称">{{ productionPlanData.name || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="入库状态">{{ productionPlanData.inboundStatusName || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="申请入库时间">{{
+            productionPlanData.inboundApplyTime ? formatDateTime(productionPlanData.inboundApplyTime) : "-"
+          }}</n-descriptions-item>
+          <n-descriptions-item label="备注" :span="4">{{ productionPlanData.inboundApplyRemark || "-" }}</n-descriptions-item>
+        </n-descriptions>
+        <m-card />
+        <div>
+          <n-descriptions :column="4" title="入库申请明细" />
+          <m-card padding="0">
+            <vxe-table
+              :loading="loading"
+              class="w-full"
+              :data="productionPlanData.inboundApplyDetailList || []"
+              border
+              stripe
+              :row-config="{ isHover: true }"
+              max-height="420"
+            >
+              <vxe-column field="productName" title="成品" align="center" min-width="180" />
+              <vxe-column field="warehouseName" title="入库仓库" align="center" min-width="160" />
+              <vxe-column field="quantity" title="本次入库数量" align="center" width="140" />
+              <vxe-column field="remark" title="备注" align="center" min-width="180" />
+            </vxe-table>
+          </m-card>
+        </div>
       </template>
       <template v-else-if="isBizTask && bizDetailData.detailType === 'repair_work_order'">
         <n-alert v-if="bizTaskHint" type="info" :show-icon="false" class="mb-3">

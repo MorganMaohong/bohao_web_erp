@@ -286,10 +286,10 @@ watch(
         </n-popover>
         <n-popover trigger="click">
           <template #trigger>
-            <n-avatar size="small" :src="userStore.userInfo.headImage" class="cursor-pointer" />
+            <n-avatar size="small" :src="userStore.userInfo?.headImage" class="cursor-pointer" />
           </template>
           <template #header>
-            <n-text strong depth="1"> {{ userStore.userInfo.name }}</n-text>
+            <n-text strong depth="1"> {{ userStore.userInfo?.name || "" }}</n-text>
           </template>
           <div class="flex flex-col gap-2">
             <n-button text @click="enterProfile">个人中心</n-button>

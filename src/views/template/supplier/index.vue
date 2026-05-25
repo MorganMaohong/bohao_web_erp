@@ -1,18 +1,19 @@
 <script lang="ts" setup>
-import { onMounted, ref } from "vue"
+import { computed, onMounted, ref } from "vue"
 import LCard from "@/components/LCard/index.vue"
 import MCard from "@/components/MCard/index.vue"
 import { useAppStore } from "@/store/modules/app"
 import { FormInst, NButton } from "naive-ui"
 import { resetRef } from "@/utils"
 import { PageVo } from "@/model"
-import { VxeTableInstance } from "vxe-table"
+import { VxeTableInstance, VxeToolbarInstance } from "vxe-table"
 import { Reset, Search } from "@vicons/carbon"
-import { Supplier, SupplierForm, SupplierQuery } from "@/model/template/supplier"
+import { SupplierForm, SupplierQuery, SupplierVo } from "@/model/template/supplier"
 import { SupplierService } from "@/services/template/SupplierService"
 import { VxePagerEvents } from "vxe-pc-ui"
 
 const appStore = useAppStore()
+const componentSize = computed(() => appStore.componentSize as any)
 const TableCardRef = ref()
 const TableCardMaxHeight = ref(0)
 const isSubmitting = ref(false)
@@ -22,11 +23,6 @@ const formData = ref<SupplierForm>({})
 const formRef = ref<FormInst>()
 const loading = ref(false)
 const formRule = {
-  type: {
-    required: true,
-    message: "请选择类型",
-    trigger: ["input", "blur"]
-  },
   name: {
     required: true,
     message: "请输入名称",
@@ -34,7 +30,13 @@ const formRule = {
   }
 }
 const query = ref<SupplierQuery>({ currentPage: 1, pageSize: 50 })
-const data = ref<PageVo<Supplier, void>>({})
+const data = ref<PageVo<SupplierVo, void>>({
+  currentPage: 1,
+  pageSize: 50,
+  count: 0,
+  list: [],
+  extraData: undefined
+})
 const VxeTableRef = ref<VxeTableInstance>()
 const VxeToolbarRef = ref<VxeToolbarInstance>()
 
@@ -62,16 +64,6 @@ function showUpdateModal(uid?: string) {
   })
 }
 
-function showCopyModal(uid: string) {
-  showUpdate.value = true
-  formData.value = resetRef(formData.value)
-  SupplierService.form(uid).then((res) => {
-    formData.value = res
-    formData.value.uid = null
-    formData.value.id = null
-  })
-}
-
 function confirmUpdate() {
   formRef.value?.validate((err) => {
     if (err) return
@@ -94,6 +86,7 @@ function showDeleteModal(uid: string) {
 }
 
 function confirmDelete() {
+  if (!formData.value.uid) return
   isSubmitting.value = true
   SupplierService.delete(formData.value.uid)
     .then(() => {
@@ -114,17 +107,10 @@ function reset() {
   select()
 }
 
-function pageChange(event: VxePagerEvents) {
+function pageChange(event: { currentPage: number; pageSize: number }) {
   query.value.currentPage = event.currentPage
   query.value.pageSize = event.pageSize
   select()
-}
-
-function updateEndTimeValue(v) {
-  if (v <= formData.value.startTime) {
-    formData.value.endTime = 0
-    window.$message.error("结束日期不能小于开始日期")
-  }
 }
 
 onMounted(() => {
@@ -143,7 +129,7 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <n-form label-placement="left" :size="appStore.componentSize" ref="queryFormRef" class="NaiveForm">
+          <n-form label-placement="left" :size="componentSize" ref="queryFormRef" class="NaiveForm">
             <n-grid :cols="4" x-gap="12" y-gap="12">
               <n-gi>
                 <n-form-item label="名称:">
@@ -179,7 +165,7 @@ onMounted(() => {
       <template #default>
         <m-card class="w-full h-full flex flex-col" padding="0">
           <m-card padding="0" class="px-2 pt-2 flex items-center justify-between">
-            <n-button type="primary" :size="appStore.componentSize" @click="showUpdateModal()">新增供应商</n-button>
+            <n-button type="primary" :size="componentSize" @click="showUpdateModal()">新增供应商</n-button>
             <vxe-toolbar ref="VxeToolbarRef" custom />
           </m-card>
           <m-card ref="TableCardRef" class="flex-1">
@@ -189,7 +175,7 @@ onMounted(() => {
               border
               stripe
               :loading="loading"
-              :size="appStore.componentSize"
+              :size="componentSize"
               :row-config="{ isHover: true }"
               :height="TableCardMaxHeight"
               ref="VxeTableRef"
@@ -248,7 +234,7 @@ onMounted(() => {
       <template #footer>
         <m-card class="w-full h-full flex items-center justify-end">
           <vxe-pager
-            :size="appStore.componentSize"
+            :size="componentSize"
             v-model:currentPage="data.currentPage"
             v-model:pageSize="data.pageSize"
             :total="data.count"
@@ -311,7 +297,7 @@ onMounted(() => {
               placeholder=""
               type="date"
               class="w-full"
-              :is-date-disabled="(ts: number) => ts >= formData.endTime"
+              :is-date-disabled="(ts: number) => !!formData.endTime && ts >= formData.endTime"
             />
           </n-form-item>
         </n-gi>
@@ -401,7 +387,7 @@ onMounted(() => {
     content="确定删除吗?"
     positive-text="确定"
     @positive-click="confirmDelete"
-    :size="appStore.componentSize"
+    :size="componentSize"
   />
 </template>
 

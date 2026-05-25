@@ -12,14 +12,35 @@ import { LoginService } from "@/services/AuthService"
 
 const { setTitle } = useTitle()
 NProgress.configure({ showSpinner: false })
+
+function isValidToken(token?: string | null) {
+  return Boolean(token && token.trim() && token !== "undefined" && token !== "null")
+}
+
+function resolveHomePath(homePaths: Array<string | undefined>, fallbackPath: string) {
+  const candidates = [...homePaths, fallbackPath, "/"].filter((item): item is string => Boolean(item))
+
+  for (const path of candidates) {
+    const routeResolved = router.resolve(path)
+    const hasNon404Match = routeResolved.matched.some((route) => route.name !== "404")
+    if (hasNon404Match) {
+      return path
+    }
+  }
+
+  return fallbackPath || "/"
+}
+
 router.beforeEach(async (to, from, next) => {
-  // debugger
   NProgress.start()
   const userStore = useUserStore()
   const permissionStore = usePermissionStore()
   const token = getToken()
+  const hasToken = isValidToken(token)
 
-  if (!token) {
+  if (!hasToken) {
+    LoginService.resetToken()
+    userStore.clean()
     return isWhiteList(to) ? next() : next("/login")
   }
 
@@ -28,11 +49,13 @@ router.beforeEach(async (to, from, next) => {
       await userStore.getUserInfo()
     } catch {
       LoginService.resetToken()
+      userStore.clean()
       return next()
     }
     const loggedIn = userStore.userInfo
     if (!loggedIn) {
       LoginService.resetToken()
+      userStore.clean()
       return next()
     }
     if (routeSettings.dynamic) {
@@ -43,12 +66,11 @@ router.beforeEach(async (to, from, next) => {
     for (const route of permissionStore.routes) {
       router.addRoute(route)
     }
-    const homePath = userStore.loginInfo?.sysHomePageRouter || permissionStore.rootPath || "/"
-    const routeResolved = router.resolve(homePath)
-    if (routeResolved.matched.length > 0) {
-      return next({ path: homePath })
-    }
-    return next({ path: permissionStore.rootPath || "/" })
+    const homePath = resolveHomePath(
+      [userStore.loginInfo?.erpHomePageRouter, permissionStore.rootPath || "/", userStore.loginInfo?.sysHomePageRouter],
+      permissionStore.rootPath || "/"
+    )
+    return next({ path: homePath })
   }
 
   const shouldBootstrapRoutes = !userStore.userInfo
@@ -57,12 +79,14 @@ router.beforeEach(async (to, from, next) => {
       await userStore.getUserInfo()
     } catch (err) {
       LoginService.resetToken()
+      userStore.clean()
       console.error("加载用户信息或添加路由失败：", err)
       return next("/login")
     }
     const user = userStore.userInfo
     if (!user) {
       LoginService.resetToken()
+      userStore.clean()
       return next("/login")
     }
     if (routeSettings.dynamic) {

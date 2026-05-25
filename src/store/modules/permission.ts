@@ -106,12 +106,14 @@ export const usePermissionStore = defineStore("permission", () => {
     const rootFromGenerated = findFirstEnterablePath(generatedRoutes)
     if (rootFromGenerated) {
       rootPath.value = rootFromGenerated
+      isRoutesAdded.value = true
       return
     }
 
     // 兜底：从所有非 hidden 路由里找一个非 "/" 的路径
     const noHiddenRoutes = routes.value.filter((item) => !item.meta?.hidden && item.path && item.path !== "/")
     rootPath.value = noHiddenRoutes[0]?.path || ""
+    isRoutesAdded.value = true
   }
 
   /** 所有路由 = 所有常驻路由 + 所有动态路由 */

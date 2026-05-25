@@ -37,6 +37,7 @@ export enum FlowDefinitionTypeOptions {
   PURCHASE_APPLY_FLOW = "purchase_apply_flow",
   PURCHASE_ORDER_FLOW = "purchase_order_flow",
   PRODUCTION_PLAN_FLOW = "production_plan_flow",
+  PRODUCTION_PLAN_WAREHOUSE = "production_plan_warehouse",
   INVENTORY_REQUEST_FLOW = "inventory_request_flow"
 }
 

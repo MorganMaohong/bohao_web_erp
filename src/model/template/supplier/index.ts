@@ -27,6 +27,14 @@ export interface SupplierForm extends Supplier {
   settlementOptions?: OptionVo[]
 }
 
+export interface SupplierVo extends Supplier {
+  categoryName?: string
+  levelName?: string
+  settlementName?: string
+  startTimeName?: string
+  endTimeName?: string
+}
+
 export interface SupplierQuery extends PageQuery {
   name?: string
 }

@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { onMounted, ref } from "vue"
+import { computed, onMounted, ref } from "vue"
 import { FormInst } from "naive-ui"
 import { Reset, Search } from "@vicons/carbon"
 import { VxeTableInstance, VxeToolbarInstance } from "vxe-table"
@@ -12,6 +12,7 @@ import { useAppStore } from "@/store/modules/app"
 import { resetRef } from "@/utils"
 
 const appStore = useAppStore()
+const componentSize = computed(() => appStore.componentSize as any)
 const TableCardRef = ref()
 const TableCardMaxHeight = ref(0)
 const VxeTableRef = ref<VxeTableInstance>()
@@ -164,7 +165,7 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <n-form label-placement="left" :size="appStore.componentSize" class="NaiveForm">
+          <n-form label-placement="left" :size="componentSize" class="NaiveForm">
             <n-grid :cols="4" x-gap="12" y-gap="12">
               <n-gi>
                 <n-form-item label="关键词:">
@@ -211,7 +212,7 @@ onMounted(() => {
       <template #default>
         <m-card class="w-full h-full flex flex-col" padding="0">
           <m-card padding="0" class="px-2 pt-2 flex items-center justify-between">
-            <n-button type="primary" :size="appStore.componentSize" @click="showUpdateModal()">新增单位</n-button>
+            <n-button type="primary" :size="componentSize" @click="showUpdateModal()">新增单位</n-button>
             <vxe-toolbar ref="VxeToolbarRef" custom />
           </m-card>
           <m-card ref="TableCardRef" class="flex-1">
@@ -224,7 +225,7 @@ onMounted(() => {
               :loading="loading"
               :height="TableCardMaxHeight"
               :row-config="{ isHover: true }"
-              :size="appStore.componentSize"
+              :size="componentSize"
             >
               <vxe-column field="code" title="编码" align="center" show-overflow="tooltip" min-width="120" />
               <vxe-column field="name" title="名称" align="center" show-overflow="tooltip" min-width="120" />

@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { onMounted, ref } from "vue"
+import { computed, onMounted, ref } from "vue"
 import LCard from "@/components/LCard/index.vue"
 import MCard from "@/components/MCard/index.vue"
 import { useAppStore } from "@/store/modules/app"
@@ -8,10 +8,11 @@ import { DictionaryService } from "@/services/template/DictionaryService"
 import { DictionaryForm, DictionaryQuery, DictionaryVo } from "@/model/template/dictionary"
 import { resetRef } from "@/utils"
 import { UpdateDragSortForm } from "@/model"
-import { VxeTableInstance } from "vxe-table"
+import { VxeTableInstance, VxeToolbarInstance } from "vxe-table"
 import { Reset, Search } from "@vicons/carbon"
 
 const appStore = useAppStore()
+const componentSize = computed(() => appStore.componentSize as any)
 const TableCardRef = ref()
 const TableCardMaxHeight = ref(0)
 const isSubmitting = ref(false)
@@ -67,8 +68,8 @@ function showCopyModal(uid: string) {
   formData.value = resetRef(formData.value)
   DictionaryService.form(uid).then((res) => {
     formData.value = res
-    formData.value.uid = null
-    formData.value.id = null
+    formData.value.uid = undefined
+    formData.value.id = undefined
   })
 }
 
@@ -94,6 +95,7 @@ function showDeleteModal(uid: string) {
 }
 
 function confirmDelete() {
+  if (!formData.value.uid) return
   isSubmitting.value = true
   DictionaryService.delete(formData.value.uid)
     .then(() => {
@@ -136,7 +138,7 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <n-form label-placement="left" :size="appStore.componentSize" ref="queryFormRef" class="NaiveForm">
+          <n-form label-placement="left" :size="componentSize" ref="queryFormRef" class="NaiveForm">
             <n-grid :cols="4" x-gap="12" y-gap="12">
               <n-gi>
                 <n-form-item label="名称:">
@@ -172,7 +174,7 @@ onMounted(() => {
       <template #default>
         <m-card class="w-full h-full flex flex-col" padding="0">
           <m-card padding="0" class="px-2 pt-2 flex items-center justify-between">
-            <n-button type="primary" :size="appStore.componentSize" @click="showUpdateModal()">新增字典</n-button>
+            <n-button type="primary" :size="componentSize" @click="showUpdateModal()">新增字典</n-button>
             <vxe-toolbar ref="VxeToolbarRef" custom />
           </m-card>
           <m-card ref="TableCardRef" class="flex-1">
@@ -182,7 +184,7 @@ onMounted(() => {
               border
               stripe
               :loading="loading"
-              :size="appStore.componentSize"
+              :size="componentSize"
               :tree-config="{ transform: true, rowField: 'uid', parentField: 'parentUid' }"
               :row-config="{ drag: true, isHover: true }"
               :height="TableCardMaxHeight"
@@ -262,7 +264,7 @@ onMounted(() => {
     content="确定删除吗?"
     positive-text="确定"
     @positive-click="confirmDelete"
-    :size="appStore.componentSize"
+    :size="componentSize"
   />
 </template>
 

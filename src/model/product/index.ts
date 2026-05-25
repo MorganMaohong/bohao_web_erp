@@ -223,6 +223,11 @@ export interface ProductionPlan extends BaseEntityLd {
   processCompleted?: boolean
   finished?: boolean
   inboundCompleted?: boolean
+  issueMaterialRequestUid?: string
+  issueFlowInstanceUid?: string
+  issueStatus?: string
+  inboundFlowInstanceUid?: string
+  inboundStatus?: string
 }
 
 export interface ProductionPlanForm extends ProductionPlan {
@@ -237,8 +242,15 @@ export interface ProductionPlanForm extends ProductionPlan {
 export interface ProductionPlanDetail extends ProductionPlanForm {
   statusName?: string
   currentNodeName?: string
+  flowNodeName?: string
   currentStage?: string
   currentStageName?: string
+  issueStatusName?: string
+  materialRequestCode?: string
+  inboundStatusName?: string
+  inboundApplyTime?: number
+  inboundApplyRemark?: string
+  inboundApplyDetailList?: ProductionPlanFinishDetailItem[]
   bomList?: ProductionPlanBomItem[]
   processList?: ProductionPlanProcessItem[]
   issueOrderList?: ProductionPlanIssueOrderItem[]

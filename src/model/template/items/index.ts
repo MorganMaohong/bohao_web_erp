@@ -26,6 +26,8 @@ export interface ItemsVo extends Items {
   unitName?: string
   supplierName?: string
   itemBizTypeName?: string
+  totalQuantity?: number
+  availableQuantity?: number
 }
 
 export interface ItemsForm extends Items {

@@ -266,6 +266,7 @@ export enum InventInOrderTypeDict {
   BORROW = "BORROW",
   INITIAL = "initial",
   TRANSFER = "transfer",
+  PRODUCTION_INBOUND = "production_inbound",
   OTHER = "other"
 }
 

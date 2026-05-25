@@ -1,7 +1,7 @@
-import { DictionaryForm, DictionaryQuery, DictionaryVo } from "@/model/template/dictionary"
+import { PageVo } from "@/model"
 import { templateSupplierApi } from "@/services/api"
 import request from "@/utils/request"
-import { SupplierForm } from "@/model/template/supplier"
+import { SupplierForm, SupplierQuery, SupplierVo } from "@/model/template/supplier"
 
 export const SupplierService = {
   async addOrUpdate(data: SupplierForm): Promise<void> {
@@ -29,7 +29,7 @@ export const SupplierService = {
       return Promise.reject(err)
     }
   },
-  async select(data: DictionaryQuery): Promise<DictionaryVo[]> {
+  async select(data: SupplierQuery): Promise<PageVo<SupplierVo, void>> {
     try {
       const url = templateSupplierApi.select.url
       const res = await request({
@@ -42,7 +42,7 @@ export const SupplierService = {
       return Promise.reject(err)
     }
   },
-  async form(uid?: string): Promise<DictionaryForm> {
+  async form(uid?: string): Promise<SupplierForm> {
     try {
       const url = uid ? templateSupplierApi.form.url + `/${uid}` : templateSupplierApi.form.url
       const res = await request({

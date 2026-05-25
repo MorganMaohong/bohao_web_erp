@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { onMounted, ref } from "vue"
+import { computed, onMounted, ref } from "vue"
 import LCard from "@/components/LCard/index.vue"
 import MCard from "@/components/MCard/index.vue"
 import { useAppStore } from "@/store/modules/app"
@@ -9,12 +9,11 @@ import { PageVo } from "@/model"
 import { VxeTableInstance, VxeToolbarInstance } from "vxe-table"
 import { Reset, Search } from "@vicons/carbon"
 import { VxePagerEvents } from "vxe-pc-ui"
-import FastUpload from "@/components/FastUpload/FastUpload.vue"
-import { AddPhotoAlternateRound } from "@vicons/material"
 import { WarehouseService } from "@/services/template/WarehouseService"
 import { WarehouseForm, WarehouseQuery, WarehouseVo } from "@/model/stock"
 
 const appStore = useAppStore()
+const componentSize = computed(() => appStore.componentSize as any)
 const TableCardRef = ref()
 const TableCardMaxHeight = ref(0)
 const isSubmitting = ref(false)
@@ -24,11 +23,6 @@ const formData = ref<WarehouseForm>({})
 const formRef = ref<FormInst>()
 const loading = ref(false)
 const formRule = {
-  type: {
-    required: true,
-    message: "请选择类型",
-    trigger: ["input", "blur"]
-  },
   name: {
     required: true,
     message: "请输入名称",
@@ -36,7 +30,13 @@ const formRule = {
   }
 }
 const query = ref<WarehouseQuery>({ currentPage: 1, pageSize: 50 })
-const data = ref<PageVo<WarehouseVo, void>>({})
+const data = ref<PageVo<WarehouseVo, void>>({
+  currentPage: 1,
+  pageSize: 50,
+  count: 0,
+  list: [],
+  extraData: undefined
+})
 const VxeTableRef = ref<VxeTableInstance>()
 const VxeToolbarRef = ref<VxeToolbarInstance>()
 
@@ -69,13 +69,12 @@ function showCopyModal(uid: string) {
   formData.value = resetRef(formData.value)
   WarehouseService.form(uid).then((res) => {
     formData.value = res
-    formData.value.uid = null
-    formData.value.id = null
+    formData.value.uid = undefined
+    formData.value.id = undefined
   })
 }
 
 function confirmUpdate() {
-  console.log(formData.value)
   formRef.value?.validate((err) => {
     if (err) return
     if (isSubmitting.value) return
@@ -97,6 +96,7 @@ function showDeleteModal(uid: string) {
 }
 
 function confirmDelete() {
+  if (!formData.value.uid) return
   isSubmitting.value = true
   WarehouseService.delete(formData.value.uid)
     .then(() => {
@@ -118,21 +118,11 @@ function reset() {
   select()
 }
 
-function pageChange(event: VxePagerEvents) {
+function pageChange(event: { currentPage: number; pageSize: number }) {
   query.value.currentPage = event.currentPage
   query.value.pageSize = event.pageSize
   select()
 }
-
-function handlerBeforeUpload(v: string) {
-  formData.value.image = v
-}
-
-/*
-function handleUpdateTypeValue(v: string) {}
-
-function handleUpdateUnitValue(v: string) {}
-*/
 
 onMounted(() => {
   select()
@@ -150,7 +140,7 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <n-form label-placement="left" :size="appStore.componentSize" ref="queryFormRef" class="NaiveForm">
+          <n-form label-placement="left" :size="componentSize" ref="queryFormRef" class="NaiveForm">
             <n-grid :cols="4" x-gap="12" y-gap="12">
               <n-gi>
                 <n-form-item label="名称:">
@@ -186,7 +176,7 @@ onMounted(() => {
       <template #default>
         <m-card class="w-full h-full flex flex-col" padding="0">
           <m-card padding="0" class="px-2 pt-2 flex items-center justify-between">
-            <n-button type="primary" :size="appStore.componentSize" @click="showUpdateModal()">新增仓库</n-button>
+            <n-button type="primary" :size="componentSize" @click="showUpdateModal()">新增仓库</n-button>
             <vxe-toolbar ref="VxeToolbarRef" custom />
           </m-card>
           <m-card ref="TableCardRef" class="flex-1">
@@ -198,7 +188,7 @@ onMounted(() => {
               :loading="loading"
               :height="TableCardMaxHeight"
               ref="VxeTableRef"
-              :size="appStore.componentSize"
+              :size="componentSize"
             >
               <vxe-column field="code" title="编码" show-overflow="tooltip" align="center" width="15%" />
               <vxe-column field="name" title="名称" show-overflow="tooltip" align="center" width="15%" />
@@ -236,7 +226,7 @@ onMounted(() => {
       <template #footer>
         <m-card class="w-full h-full flex items-center justify-end">
           <vxe-pager
-            :size="appStore.componentSize"
+            :size="componentSize"
             v-model:currentPage="data.currentPage"
             v-model:pageSize="data.pageSize"
             :total="data.count"
@@ -262,31 +252,29 @@ onMounted(() => {
   <n-modal v-model:show="showUpdate" preset="card" class="w-[700px]" title="仓库信息">
     <n-form :model="formData" ref="formRef" :rules="formRule">
       <n-grid cols="2" x-gap="12">
-        <n-gi span="2">
-          <n-form-item label="图片">
-            <FastUpload @before-upload="handlerBeforeUpload">
-              <div class="max-w-[120px] max-h-[120px]" v-if="formData.image">
-                <n-image :src="formData.image" preview-disabled class="cursor-pointer" />
-              </div>
-              <n-icon v-else size="60" class="cursor-pointer">
-                <AddPhotoAlternateRound />
-              </n-icon>
-            </FastUpload>
+        <n-gi>
+          <n-form-item label="编码">
+            <n-input :value="formData.code" disabled placeholder="自动生成编码" />
           </n-form-item>
         </n-gi>
         <n-gi span="2">
           <n-form-item label="名称" path="name">
-            <n-input v-model:value="formData.name" />
+            <n-input v-model:value="formData.name" placeholder="请输入仓库名称" />
+          </n-form-item>
+        </n-gi>
+        <n-gi span="2">
+          <n-form-item label="区域">
+            <n-input v-model:value="formData.area" placeholder="请输入区域" />
           </n-form-item>
         </n-gi>
         <n-gi span="2">
           <n-form-item label="地址" path="address">
-            <n-input v-model:value="formData.address" />
+            <n-input v-model:value="formData.address" placeholder="请输入仓库地址" />
           </n-form-item>
         </n-gi>
         <n-gi span="2">
           <n-form-item label="备注">
-            <n-input type="textarea" v-model:value="formData.remark" />
+            <n-input type="textarea" v-model:value="formData.remark" placeholder="请输入备注" />
           </n-form-item>
         </n-gi>
       </n-grid>
@@ -306,7 +294,7 @@ onMounted(() => {
     content="确定删除吗?"
     positive-text="确定"
     @positive-click="confirmDelete"
-    :size="appStore.componentSize"
+    :size="componentSize"
   />
 </template>
 

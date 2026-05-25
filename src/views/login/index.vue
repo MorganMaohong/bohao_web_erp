@@ -129,6 +129,18 @@ const formRules: FormRules = {
   password: [{ required: true, message: "请输入密码", trigger: ["blur", "input"] }]
 }
 
+function resolveHomePath(homePaths: Array<string | undefined>, fallbackPath: string) {
+  const candidates = [...homePaths, fallbackPath, "/"].filter((item): item is string => Boolean(item))
+  for (const path of candidates) {
+    const routeResolved = router.resolve(path)
+    const hasNon404Match = routeResolved.matched.some((route) => route.name !== "404")
+    if (hasNon404Match) {
+      return path
+    }
+  }
+  return fallbackPath || "/"
+}
+
 async function onClickLogin() {
   if (loggingIn.value) return
   try {
@@ -151,7 +163,10 @@ async function onClickLogin() {
         router.addRoute(route)
       }
     }
-    const homePath = res.sysHomePageRouter || permissionStore.rootPath || "/"
+    const homePath = resolveHomePath(
+      [res.erpHomePageRouter, permissionStore.rootPath || "/", res.sysHomePageRouter],
+      permissionStore.rootPath || "/"
+    )
     await router.replace({ path: homePath })
   } catch (err) {
     console.error("登录失败：", err)

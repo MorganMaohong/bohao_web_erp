@@ -6,15 +6,16 @@ import { useAppStore } from "@/store/modules/app"
 import { FormInst, NButton } from "naive-ui"
 import { resetRef } from "@/utils"
 import { PageVo } from "@/model"
-import { VxeTableInstance } from "vxe-table"
+import { VxeTableInstance, VxeToolbarInstance } from "vxe-table"
 import { Reset, Search } from "@vicons/carbon"
 import { VxePagerEvents } from "vxe-pc-ui"
 import { ItemsService } from "@/services/template/ItemsService"
-import { ItemsForm, ItemsQuery, ItemsVo } from "src/model/template/items"
+import { ItemsForm, ItemsQuery, ItemsQueryData, ItemsVo } from "@/model/template/items"
 import FastUpload from "@/components/FastUpload/FastUpload.vue"
 import { AddPhotoAlternateRound } from "@vicons/material"
 
 const appStore = useAppStore()
+const componentSize = computed(() => appStore.componentSize as any)
 const TableCardRef = ref()
 const TableCardMaxHeight = ref(0)
 const isSubmitting = ref(false)
@@ -39,11 +40,6 @@ const formRule = {
     message: "请输入名称",
     trigger: ["input", "blur"]
   },
-  supplierUid: {
-    required: true,
-    message: "请选择供应商",
-    trigger: ["input", "blur"]
-  },
   unit: {
     required: true,
     message: "请选择单位",
@@ -51,7 +47,14 @@ const formRule = {
   }
 }
 const query = ref<ItemsQuery>({ currentPage: 1, pageSize: 50 })
-const data = ref<PageVo<ItemsVo, void>>({})
+const data = ref<PageVo<ItemsVo, ItemsQueryData>>({
+  currentPage: 1,
+  pageSize: 50,
+  count: 0,
+  list: [],
+  extraData: {}
+})
+const queryFormData = ref<ItemsForm>({})
 const VxeTableRef = ref<VxeTableInstance>()
 const VxeToolbarRef = ref<VxeToolbarInstance>()
 
@@ -71,6 +74,12 @@ function select() {
     })
 }
 
+function loadQueryOptions() {
+  ItemsService.form().then((res) => {
+    queryFormData.value = res
+  })
+}
+
 function showUpdateModal(uid?: string) {
   formData.value = resetRef(formData.value)
   showUpdate.value = true
@@ -84,8 +93,8 @@ function showCopyModal(uid: string) {
   formData.value = resetRef(formData.value)
   ItemsService.form(uid).then((res) => {
     formData.value = res
-    formData.value.uid = null
-    formData.value.id = null
+    formData.value.uid = undefined
+    formData.value.id = undefined
   })
 }
 
@@ -112,6 +121,7 @@ function showDeleteModal(uid: string) {
 }
 
 function confirmDelete() {
+  if (!formData.value.uid) return
   isSubmitting.value = true
   ItemsService.delete(formData.value.uid)
     .then(() => {
@@ -133,7 +143,7 @@ function reset() {
   select()
 }
 
-function pageChange(event: VxePagerEvents) {
+function pageChange(event: { currentPage: number; pageSize: number }) {
   query.value.currentPage = event.currentPage
   query.value.pageSize = event.pageSize
   select()
@@ -193,6 +203,7 @@ function handleUpdateTypeValue(v: string) {}
 function handleUpdateUnitValue(v: string) {}
 
 onMounted(() => {
+  loadQueryOptions()
   select()
   getCardProps()
   const $table = VxeTableRef.value
@@ -208,7 +219,7 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <n-form label-placement="left" :size="appStore.componentSize" ref="queryFormRef" class="NaiveForm">
+          <n-form label-placement="left" :size="componentSize" ref="queryFormRef" class="NaiveForm">
             <n-grid :cols="4" x-gap="12" y-gap="12">
               <n-gi>
                 <n-form-item label="名称:">
@@ -217,7 +228,7 @@ onMounted(() => {
               </n-gi>
               <n-gi>
                 <n-form-item label="业务类型:">
-                  <n-select clearable v-model:value="query.itemBizType" :options="formData.itemBizTypeOptions" />
+                  <n-select clearable v-model:value="query.itemBizType" :options="queryFormData.itemBizTypeOptions" />
                 </n-form-item>
               </n-gi>
               <n-gi span="2">
@@ -249,7 +260,7 @@ onMounted(() => {
       <template #default>
         <m-card class="w-full h-full flex flex-col" padding="0">
           <m-card padding="0" class="px-2 pt-2 flex items-center justify-between">
-            <n-button type="primary" :size="appStore.componentSize" @click="showUpdateModal()">新增物料</n-button>
+            <n-button type="primary" :size="componentSize" @click="showUpdateModal()">新增物料</n-button>
             <vxe-toolbar ref="VxeToolbarRef" custom />
           </m-card>
           <m-card ref="TableCardRef" class="flex-1">
@@ -263,7 +274,7 @@ onMounted(() => {
               :row-config="{ isHover: true }"
               :height="TableCardMaxHeight"
               ref="VxeTableRef"
-              :size="appStore.componentSize"
+              :size="componentSize"
             >
               <vxe-column field="name" title="名称" show-overflow="tooltip" align="center" width="20%" />
               <vxe-column title="图片" show-overflow="tooltip" align="center" width="10%">
@@ -342,7 +353,7 @@ onMounted(() => {
       <template #footer>
         <m-card class="w-full h-full flex items-center justify-end">
           <vxe-pager
-            :size="appStore.componentSize"
+            :size="componentSize"
             v-model:currentPage="data.currentPage"
             v-model:pageSize="data.pageSize"
             :total="data.count"
@@ -540,7 +551,7 @@ onMounted(() => {
     content="确定删除吗?"
     positive-text="确定"
     @positive-click="confirmDelete"
-    :size="appStore.componentSize"
+    :size="componentSize"
   />
 </template>
 
