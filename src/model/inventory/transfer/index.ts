@@ -25,6 +25,7 @@ export interface InventoryTransferOrder extends BaseEntityLd {
 export interface InventoryTransferOrderForm extends InventoryTransferOrder {
   imageList?: string[]
   typeOptions?: OptionVo[]
+  warehouseOptions?: OptionVo[]
   detailList?: InventoryTransferOrderDetailVo[]
   inWarehouse?: Warehouse
   outWarehouse?: Warehouse
@@ -52,7 +53,9 @@ export interface InventoryTransferOrderVo extends InventoryTransferOrder {
 
 export interface InventoryTransferOrderQuery extends PageQuery {}
 
-export interface InventoryTransferOrderQueryData {}
+export interface InventoryTransferOrderQueryData {
+  warehouseOptions?: OptionVo[]
+}
 
 export interface InventoryTransferOrderDetail extends ItemsBase {
   code?: string

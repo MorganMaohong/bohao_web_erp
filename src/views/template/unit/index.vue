@@ -287,9 +287,14 @@ onMounted(() => {
     </l-card>
   </div>
 
-  <n-modal v-model:show="showUpdate" preset="card" class="w-[760px]" title="单位信息">
-    <n-form :model="formData" ref="formRef" :rules="formRule">
-      <n-grid cols="2" x-gap="12">
+  <n-modal v-model:show="showUpdate" preset="card" class="TemplateModal TemplateModal--md" title="单位信息">
+    <n-form :model="formData" ref="formRef" :rules="formRule" class="TemplateForm">
+      <n-grid cols="2" x-gap="16" y-gap="0">
+        <n-gi span="2">
+          <div class="TemplateForm-section">
+            <div class="TemplateForm-section__title">基本信息</div>
+          </div>
+        </n-gi>
         <n-gi>
           <n-form-item label="单位编码" path="code">
             <n-input v-model:value="formData.code" placeholder="如 kg / pcs / box" />
@@ -302,7 +307,12 @@ onMounted(() => {
         </n-gi>
         <n-gi>
           <n-form-item label="单位分类">
-            <n-select v-model:value="formData.category" clearable :options="categoryOptions" />
+            <n-select
+              v-model:value="formData.category"
+              clearable
+              placeholder="请选择分类"
+              :options="categoryOptions"
+            />
           </n-form-item>
         </n-gi>
         <n-gi>
@@ -313,11 +323,17 @@ onMounted(() => {
             </n-switch>
           </n-form-item>
         </n-gi>
+        <n-gi span="2">
+          <div class="TemplateForm-section">
+            <div class="TemplateForm-section__title">层级关系</div>
+          </div>
+        </n-gi>
         <n-gi>
           <n-form-item label="上级单位">
             <n-tree-select
               v-model:value="formData.parentUid"
               clearable
+              placeholder="请选择上级单位"
               :options="formData.unitOptions"
               key-field="value"
             />
@@ -328,38 +344,64 @@ onMounted(() => {
             <n-tree-select
               v-model:value="formData.baseUnitUid"
               clearable
+              placeholder="请选择基准单位"
               :options="formData.unitOptions"
               key-field="value"
             />
           </n-form-item>
         </n-gi>
+        <n-gi span="2">
+          <div class="TemplateForm-section">
+            <div class="TemplateForm-section__title">换算设置</div>
+          </div>
+        </n-gi>
         <n-gi>
           <n-form-item label="小数精度">
-            <n-input-number v-model:value="formData.precisionScale" class="w-full" :min="0" :max="8" />
+            <n-input-number
+              v-model:value="formData.precisionScale"
+              class="w-full"
+              placeholder="0-8"
+              :min="0"
+              :max="8"
+              :show-button="false"
+            />
           </n-form-item>
         </n-gi>
         <n-gi>
           <n-form-item label="换算率">
-            <n-input-number v-model:value="formData.convertRate" class="w-full" :min="0.000001" />
+            <n-input-number
+              v-model:value="formData.convertRate"
+              class="w-full"
+              placeholder="换算到基准单位的比例"
+              :min="0.000001"
+              :show-button="false"
+            />
           </n-form-item>
         </n-gi>
         <n-gi>
           <n-form-item label="排序">
-            <n-input-number v-model:value="formData.sort" class="w-full" :min="0" />
+            <n-input-number v-model:value="formData.sort" class="w-full" placeholder="排序值" :min="0" :show-button="false" />
           </n-form-item>
         </n-gi>
         <n-gi span="2">
+          <div class="TemplateForm-section">
+            <div class="TemplateForm-section__title">其他信息</div>
+          </div>
+        </n-gi>
+        <n-gi span="2">
           <n-form-item label="备注">
-            <n-input v-model:value="formData.remark" type="textarea" />
+            <n-input v-model:value="formData.remark" type="textarea" placeholder="请输入备注" />
           </n-form-item>
+        </n-gi>
+        <n-gi span="2">
+          <div class="TemplateForm-actions">
+            <n-flex justify="end">
+              <n-button type="primary" @click="confirmUpdate" :loading="isSubmitting" :disabled="isSubmitting">确定</n-button>
+            </n-flex>
+          </div>
         </n-gi>
       </n-grid>
     </n-form>
-    <template #footer>
-      <n-flex justify="end">
-        <n-button type="primary" @click="confirmUpdate" :loading="isSubmitting" :disabled="isSubmitting">确定</n-button>
-      </n-flex>
-    </template>
   </n-modal>
 
   <n-modal
@@ -378,5 +420,20 @@ onMounted(() => {
 <style lang="scss" scoped>
 .vxe-toolbar {
   padding: 0;
+}
+
+.TemplateForm-section {
+  margin-top: 4px;
+}
+
+.TemplateForm-section__title {
+  text-align: left;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--n-text-color-1);
+  padding-bottom: 12px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--n-divider-color);
 }
 </style>

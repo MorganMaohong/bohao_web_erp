@@ -944,12 +944,19 @@ onMounted(() => {
       </template>
     </l-card>
 
-    <n-modal v-model:show="showEdit" preset="card" title="生产计划" class="w-[1200px] max-w-[96vw]">
-      <div class="space-y-4">
-        <n-alert v-if="planFormReadonly" type="warning" show-icon>
-          当前生产计划已进入审批完成后的执行阶段，不允许继续修改计划基础信息。如需处理错误，请先走关闭计划后再删除的业务流程。
-        </n-alert>
-        <n-grid :cols="2" x-gap="12">
+    <n-modal v-model:show="showEdit" preset="card" title="生产计划" class="TemplateModal TemplateModal--xl">
+      <n-form class="TemplateForm">
+        <n-grid cols="2" x-gap="16" y-gap="0">
+          <n-gi v-if="planFormReadonly" span="2">
+            <n-alert type="warning" show-icon>
+              当前生产计划已进入审批完成后的执行阶段，不允许继续修改计划基础信息。如需处理错误，请先走关闭计划后再删除的业务流程。
+            </n-alert>
+          </n-gi>
+          <n-gi span="2">
+            <div class="TemplateForm-section">
+              <div class="TemplateForm-section__title">基本信息</div>
+            </div>
+          </n-gi>
           <n-gi>
             <n-form-item label="名称"><n-input v-model:value="formData.name" :disabled="planFormReadonly" /></n-form-item>
           </n-gi>
@@ -962,81 +969,92 @@ onMounted(() => {
           <n-gi>
             <n-form-item label="计划完成"><n-date-picker v-model:value="formData.planCompleteTime" type="datetime" class="w-full" :disabled="planFormReadonly" /></n-form-item>
           </n-gi>
+          <n-gi span="2">
+            <div class="TemplateForm-section">
+              <div class="TemplateForm-section__title">附件资料</div>
+            </div>
+          </n-gi>
+          <n-gi>
+            <n-form-item label="图片">
+              <div class="flex gap-2 flex-wrap">
+                <n-image v-for="(item, index) in formData.imageList || []" :key="index" :src="item" class="w-16 h-16" />
+                <FastUpload v-if="!planFormReadonly" @before-upload="pushImage">
+                  <n-button tertiary>
+                    <template #icon><n-icon><AddPhotoAlternateRound /></n-icon></template>
+                    上传图片
+                  </n-button>
+                </FastUpload>
+              </div>
+            </n-form-item>
+          </n-gi>
+          <n-gi>
+            <n-form-item label="文档">
+              <div class="flex gap-2 flex-wrap">
+                <n-tag v-for="(item, index) in formData.docList || []" :key="index">{{ item }}</n-tag>
+                <FastUpload v-if="!planFormReadonly" upload-type="document" @before-upload="pushDoc">
+                  <n-button tertiary>上传文档</n-button>
+                </FastUpload>
+              </div>
+            </n-form-item>
+          </n-gi>
+          <n-gi span="2">
+            <div class="TemplateForm-section TemplateForm-section__head">
+              <div class="TemplateForm-section__title">成品列表</div>
+              <n-button v-if="!planFormReadonly" :size="componentSize" type="primary" @click="addProduct">新增成品</n-button>
+            </div>
+          </n-gi>
+          <n-gi span="2">
+            <n-table striped :size="componentSize" class="plan-edit-table">
+              <colgroup>
+                <col class="edit-col-product" />
+                <col class="edit-col-warehouse" />
+                <col class="edit-col-quantity" />
+                <col class="edit-col-action" />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>成品</th>
+                  <th>仓库</th>
+                  <th>数量</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(item, index) in formData.productList || []" :key="index">
+                  <td>
+                    <n-select
+                      v-model:value="item.itemUid"
+                      :options="productOptions"
+                      filterable
+                      :consistent-menu-width="false"
+                      :disabled="planFormReadonly"
+                      @update:value="handleProductChange(item)"
+                    />
+                  </td>
+                  <td>
+                    <n-select
+                      v-model:value="item.warehouseUid"
+                      :options="warehouseOptions"
+                      :consistent-menu-width="false"
+                      :disabled="planFormReadonly"
+                    />
+                  </td>
+                  <td><n-input-number v-model:value="item.quantity" :min="0.000001" class="w-full" :disabled="planFormReadonly" /></td>
+                  <td><n-button v-if="!planFormReadonly" :size="componentSize" type="error" tertiary @click="removeProduct(index)">删除</n-button></td>
+                </tr>
+              </tbody>
+            </n-table>
+          </n-gi>
+          <n-gi span="2">
+            <div class="TemplateForm-actions">
+              <n-flex justify="end">
+                <n-button @click="showEdit = false">取消</n-button>
+                <n-button v-if="!planFormReadonly" type="primary" :loading="submitting" @click="submitPlan">保存</n-button>
+              </n-flex>
+            </div>
+          </n-gi>
         </n-grid>
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <div class="mb-2 text-sm text-gray-500">图片</div>
-            <div class="flex gap-2 flex-wrap">
-              <n-image v-for="(item, index) in formData.imageList || []" :key="index" :src="item" class="w-16 h-16" />
-              <FastUpload v-if="!planFormReadonly" @before-upload="pushImage">
-                <n-button tertiary>
-                  <template #icon><n-icon><AddPhotoAlternateRound /></n-icon></template>
-                  上传图片
-                </n-button>
-              </FastUpload>
-            </div>
-          </div>
-          <div>
-            <div class="mb-2 text-sm text-gray-500">文档</div>
-            <div class="flex gap-2 flex-wrap">
-              <n-tag v-for="(item, index) in formData.docList || []" :key="index">{{ item }}</n-tag>
-              <FastUpload v-if="!planFormReadonly" upload-type="document" @before-upload="pushDoc">
-                <n-button tertiary>上传文档</n-button>
-              </FastUpload>
-            </div>
-          </div>
-        </div>
-        <div class="flex justify-between items-center">
-          <div class="text-sm text-gray-500">成品列表</div>
-          <n-button v-if="!planFormReadonly" :size="componentSize" type="primary" @click="addProduct">新增成品</n-button>
-        </div>
-        <n-table striped :size="componentSize" class="plan-edit-table">
-          <colgroup>
-            <col class="edit-col-product" />
-            <col class="edit-col-warehouse" />
-            <col class="edit-col-quantity" />
-            <col class="edit-col-action" />
-          </colgroup>
-          <thead>
-            <tr>
-              <th>成品</th>
-              <th>仓库</th>
-              <th>数量</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(item, index) in formData.productList || []" :key="index">
-              <td>
-                <n-select
-                  v-model:value="item.itemUid"
-                  :options="productOptions"
-                  filterable
-                  :consistent-menu-width="false"
-                  :disabled="planFormReadonly"
-                  @update:value="handleProductChange(item)"
-                />
-              </td>
-              <td>
-                <n-select
-                  v-model:value="item.warehouseUid"
-                  :options="warehouseOptions"
-                  :consistent-menu-width="false"
-                  :disabled="planFormReadonly"
-                />
-              </td>
-              <td><n-input-number v-model:value="item.quantity" :min="0.000001" class="w-full" :disabled="planFormReadonly" /></td>
-              <td><n-button v-if="!planFormReadonly" :size="componentSize" type="error" tertiary @click="removeProduct(index)">删除</n-button></td>
-            </tr>
-          </tbody>
-        </n-table>
-      </div>
-      <template #footer>
-        <div class="flex justify-end gap-2">
-          <n-button @click="showEdit = false">取消</n-button>
-          <n-button v-if="!planFormReadonly" type="primary" :loading="submitting" @click="submitPlan">保存</n-button>
-        </div>
-      </template>
+      </n-form>
     </n-modal>
 
     <n-modal v-model:show="showDetail" preset="card" title="生产计划详情" class="w-[1400px] max-w-[98vw]">

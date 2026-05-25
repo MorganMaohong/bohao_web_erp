@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref, watch } from "vue"
+import { applyWarehouseByUid } from "@/utils/warehouse-select"
 import { Add, Reset, Search } from "@vicons/carbon"
 import { NButton, useMessage } from "naive-ui"
 import { PageVo } from "@/model"
@@ -7,8 +8,6 @@ import LCard from "@/components/LCard/index.vue"
 import MCard from "@/components/MCard/index.vue"
 import { useAppStore } from "@/store/modules/app"
 import { VxePagerEvents, VxeTableEvents, VxeTableInstance } from "vxe-pc-ui"
-import { WarehouseQuery, WarehouseVo } from "@/model/stock"
-import { WarehouseService } from "@/services/template/WarehouseService"
 import { InventoryOverviewService } from "@/services/inventory/InventoryOverviewService"
 import { InventoryQuery, InventoryQueryData, InventoryVo } from "@/model/inventory"
 import {
@@ -22,6 +21,11 @@ import {
 import { MaterialRequestOrderService } from "@/services/inventory/MaterialRequestOrderService"
 import FlowSchemaPreview from "@/components/FlowSchemaPreview/index.vue"
 import { FlowDefinitionTypeOptions } from "@/constants/flow"
+import {
+  TEMPLATE_MODAL_TABLE_MAX,
+  TEMPLATE_MODAL_TABLE_PICKER_MAX,
+  TEMPLATE_MODAL_TABLE_DETAIL_MAX
+} from "@/constants/template-ui"
 
 const appStore = useAppStore()
 const message = useMessage()
@@ -34,20 +38,20 @@ const submitting = ref(false)
 const showUpdate = ref(false)
 const showDelete = ref(false)
 const showDetail = ref(false)
-const showWarehouse = ref(false)
 const showItems = ref(false)
 
 const query = ref<MaterialRequestOrderQuery>({ currentPage: 1, pageSize: 20 })
 const data = ref<PageVo<MaterialRequestOrderVo, MaterialRequestOrderQueryData>>({})
 const formData = ref<MaterialRequestOrderForm>({ warehouse: {}, detailList: [] })
 const detailData = ref<MaterialRequestDetail>({ detailList: [] })
-const warehouseQuery = ref<WarehouseQuery>({ currentPage: 1, pageSize: 50 })
-const warehouseData = ref<PageVo<WarehouseVo, void>>({})
 const itemsQuery = ref<InventoryQuery>({ currentPage: 1, pageSize: 50 })
 const itemsData = ref<PageVo<InventoryVo, InventoryQueryData>>({})
 const VxeTableRef = ref<VxeTableInstance>()
 const VxeTableItemsRef = ref<VxeTableInstance>()
 const isResubmit = computed(() => !!formData.value.uid && formData.value.status === "rejected")
+const warehouseOptions = computed(
+  () => formData.value.warehouseOptions || data.value.extraData?.warehouseOptions || []
+)
 
 function getCardProps() {
   if (TableCardRef.value) {
@@ -142,27 +146,21 @@ async function showDetailModal(uid?: string) {
   detailData.value = await MaterialRequestOrderService.detail(uid)
 }
 
-async function selectWarehouse() {
-  loading.value = true
-  try {
-    warehouseData.value = await WarehouseService.select(warehouseQuery.value)
-  } finally {
-    loading.value = false
+function onWarehouseUidChange(uid: string | null) {
+  const prevUid = formData.value.warehouseUid
+  if (!uid) {
+    formData.value.warehouseUid = undefined
+    formData.value.warehouse = {}
+    return
   }
-}
-
-function showWarehouseModal() {
-  showWarehouse.value = true
-  selectWarehouse()
-}
-
-const warehouseCellClickEvent: VxeTableEvents.CellClick<WarehouseVo> = ({ row }) => {
-  if (formData.value.warehouseUid !== row.uid) {
+  if (prevUid && prevUid !== uid) {
     formData.value.detailList = []
   }
-  formData.value.warehouseUid = row.uid
-  formData.value.warehouse = row
-  showWarehouse.value = false
+  formData.value.warehouseUid = uid
+  if (!formData.value.warehouse) {
+    formData.value.warehouse = {}
+  }
+  applyWarehouseByUid(formData.value.warehouse, uid, warehouseOptions.value)
 }
 
 async function selectItems() {
@@ -230,12 +228,6 @@ const pageChange = (event: VxePagerEvents) => {
   select()
 }
 
-const warehousePageChange = (event: VxePagerEvents) => {
-  warehouseQuery.value.currentPage = event.currentPage
-  warehouseQuery.value.pageSize = event.pageSize
-  selectWarehouse()
-}
-
 const itemsPageChange = (event: VxePagerEvents) => {
   itemsQuery.value.currentPage = event.currentPage
   itemsQuery.value.pageSize = event.pageSize
@@ -282,6 +274,7 @@ onMounted(() => {
                   <n-select
                     v-model:value="query.warehouseUid"
                     :options="data.extraData?.warehouseOptions || []"
+                    filterable
                     clearable
                     placeholder="领料仓库"
                   />
@@ -381,14 +374,21 @@ onMounted(() => {
     </l-card>
   </div>
 
-  <n-modal v-model:show="showUpdate" preset="card" class="w-[1380px] h-[100vh]" :title="isResubmit ? '重新提交领料申请' : '领料申请'">
-    <div class="flex h-[calc(100vh-150px)] gap-4 overflow-hidden">
-      <div class="basis-2/3 min-h-0 overflow-y-auto rounded-[18px] border border-[rgba(148,163,184,0.18)] p-[16px_18px]">
-        <div class="mb-4 flex items-center">
-          <div class="mr-2 h-4 w-1 rounded bg-blue-500" />
-          <div class="text-base font-semibold text-gray-700">领料申请信息</div>
-        </div>
-        <n-grid cols="2" x-gap="12">
+  <n-modal
+    v-model:show="showUpdate"
+    preset="card"
+    class="TemplateModal TemplateModal--xxl"
+    :title="isResubmit ? '重新提交领料申请' : '领料申请'"
+  >
+    <div class="TemplateModal__split">
+      <div class="TemplateModal__split-main">
+        <n-form :model="formData" class="TemplateForm">
+          <n-grid cols="2" x-gap="16" y-gap="0">
+            <n-gi span="2">
+              <div class="TemplateForm-section">
+                <div class="TemplateForm-section__title">基本信息</div>
+              </div>
+            </n-gi>
           <n-gi>
             <n-form-item label="申请单号">
               <n-input :value="formData.code" disabled placeholder="自动生成申请单号" />
@@ -396,7 +396,15 @@ onMounted(() => {
           </n-gi>
           <n-gi>
             <n-form-item label="领料仓库">
-              <n-input :value="formData.warehouse?.name" readonly placeholder="请选择领料仓库" @click="showWarehouseModal()" />
+              <n-select
+                filterable
+                clearable
+                placeholder="请选择领料仓库"
+                class="w-full"
+                :options="warehouseOptions"
+                v-model:value="formData.warehouseUid"
+                @update:value="onWarehouseUidChange"
+              />
             </n-form-item>
           </n-gi>
           <n-gi>
@@ -439,16 +447,15 @@ onMounted(() => {
               <n-input v-model:value="formData.remark" type="textarea" placeholder="请输入备注" />
             </n-form-item>
           </n-gi>
-        </n-grid>
-        <div class="mb-4 mt-2 flex items-center justify-between gap-3">
-          <div class="flex items-center">
-            <div class="mr-2 h-4 w-1 rounded bg-blue-500" />
-            <div class="text-base font-semibold text-gray-700">领料物料明细</div>
-          </div>
-          <n-button type="info" secondary @click="showItemsModal">添加物料</n-button>
-        </div>
-        <m-card class="w-full h-full flex flex-col" padding="0">
-          <vxe-table :data="formData.detailList || []" border stripe max-height="420">
+            <n-gi span="2">
+              <div class="TemplateForm-section TemplateForm-section__head">
+                <div class="TemplateForm-section__title">领料明细</div>
+                <n-button type="info" secondary @click="showItemsModal">添加物料</n-button>
+              </div>
+            </n-gi>
+            <n-gi span="2">
+              <m-card class="w-full" padding="0">
+                <vxe-table :data="formData.detailList || []" border stripe :max-height="TEMPLATE_MODAL_TABLE_MAX">
             <vxe-column field="name" title="名称" min-width="180" align="center" />
             <vxe-column field="spec" title="规格" min-width="120" align="center" />
             <vxe-column field="material" title="材质" min-width="120" align="center" />
@@ -470,26 +477,29 @@ onMounted(() => {
                 <n-button type="error" text @click="removeDetail(rowIndex)">删除</n-button>
               </template>
             </vxe-column>
-          </vxe-table>
-        </m-card>
+                </vxe-table>
+              </m-card>
+            </n-gi>
+          </n-grid>
+        </n-form>
+        <div class="TemplateForm-actions">
+          <n-flex justify="end">
+            <n-button @click="showUpdate = false">取消</n-button>
+            <n-button type="primary" :loading="submitting" @click="confirmUpdate">
+              {{ isResubmit ? "重新提交审批" : "提交申请" }}
+            </n-button>
+          </n-flex>
+        </div>
       </div>
-      <div class="basis-1/3 min-h-0 overflow-y-auto">
+      <div class="TemplateModal__split-side">
         <FlowSchemaPreview class="h-full" :flow-type="FlowDefinitionTypeOptions.INVENTORY_REQUEST_FLOW" title="领料申请流程" />
       </div>
     </div>
-    <template #footer>
-      <n-flex justify="end">
-        <n-button @click="showUpdate = false">取消</n-button>
-        <n-button type="primary" :loading="submitting" @click="confirmUpdate">
-          {{ isResubmit ? "重新提交审批" : "提交申请" }}
-        </n-button>
-      </n-flex>
-    </template>
   </n-modal>
 
-  <n-modal v-model:show="showDetail" preset="card" class="w-[1240px] h-[100vh]" title="领料申请详情">
-    <div class="flex h-[calc(100vh-150px)] gap-4 overflow-hidden">
-      <div class="basis-2/3 min-h-0 overflow-y-auto flex flex-col gap-4">
+  <n-modal v-model:show="showDetail" preset="card" class="TemplateModal TemplateModal--xxl" title="领料申请详情">
+    <div class="TemplateModal__split">
+      <div class="TemplateModal__split-main TemplateModal__sections">
         <n-card title="领料申请信息" :bordered="false" class="detail-card">
           <n-descriptions :column="2" label-placement="left" bordered>
             <n-descriptions-item label="申请单号">{{ detailData.code || "-" }}</n-descriptions-item>
@@ -505,7 +515,7 @@ onMounted(() => {
           </n-descriptions>
         </n-card>
         <n-card title="领料明细" :bordered="false" class="detail-card">
-          <vxe-table :data="detailData.detailList || []" border stripe max-height="420">
+          <vxe-table :data="detailData.detailList || []" border stripe :max-height="TEMPLATE_MODAL_TABLE_DETAIL_MAX">
             <vxe-column field="name" title="名称" min-width="180" align="center" />
             <vxe-column field="spec" title="规格" min-width="120" align="center" />
             <vxe-column field="material" title="材质" min-width="120" align="center" />
@@ -518,7 +528,7 @@ onMounted(() => {
           </vxe-table>
         </n-card>
       </div>
-      <div class="basis-1/3 min-h-0 overflow-y-auto">
+      <div class="TemplateModal__split-side">
         <FlowSchemaPreview title="流程进度" :schema-data="detailData.flowSchema" />
       </div>
     </div>
@@ -526,22 +536,7 @@ onMounted(() => {
 
   <n-modal v-model:show="showDelete" preset="dialog" title="删除领料申请" content="确定删除当前领料申请吗？" positive-text="确定" negative-text="取消" @positive-click="confirmDelete" />
 
-  <n-modal v-model:show="showWarehouse" preset="card" class="w-[980px] max-w-[96vw]" title="选择仓库">
-    <vxe-table :data="warehouseData.list || []" border stripe @cell-click="warehouseCellClickEvent">
-      <vxe-column type="seq" width="70" align="center" />
-      <vxe-column field="code" title="编码" min-width="140" align="center" />
-      <vxe-column field="name" title="名称" min-width="160" align="center" />
-      <vxe-column field="address" title="地址" min-width="220" align="center" />
-    </vxe-table>
-    <vxe-pager
-      :current-page="warehouseQuery.currentPage"
-      :page-size="warehouseQuery.pageSize"
-      :total="warehouseData.count || 0"
-      @page-change="warehousePageChange"
-    />
-  </n-modal>
-
-  <n-modal v-model:show="showItems" preset="card" class="w-[1240px] max-w-[96vw]" title="选择物料">
+  <n-modal v-model:show="showItems" preset="card" class="TemplateModal TemplateModal--lg" title="选择物料">
     <div class="space-y-3">
       <div class="flex items-center gap-3 flex-wrap">
         <n-input v-model:value="itemsQuery.key" clearable placeholder="名称/规格/材质" class="w-[280px]" />
@@ -562,7 +557,14 @@ onMounted(() => {
           重置
         </n-button>
       </div>
-      <vxe-table ref="VxeTableItemsRef" :data="itemsData.list || []" border stripe max-height="520" :checkbox-config="{ reserve: true }">
+      <vxe-table
+        ref="VxeTableItemsRef"
+        :data="itemsData.list || []"
+        border
+        stripe
+        :max-height="TEMPLATE_MODAL_TABLE_PICKER_MAX"
+        :checkbox-config="{ reserve: true }"
+      >
       <vxe-column type="checkbox" width="60" align="center" />
       <vxe-column field="name" title="名称" min-width="180" align="center" />
       <vxe-column field="spec" title="规格" min-width="140" align="center" />
@@ -579,11 +581,11 @@ onMounted(() => {
         @page-change="itemsPageChange"
       />
     </div>
-    <template #footer>
+    <div class="TemplateForm-actions">
       <n-flex justify="end">
         <n-button @click="showItems = false">取消</n-button>
         <n-button type="primary" @click="confirmSelectItems">确定添加</n-button>
       </n-flex>
-    </template>
+    </div>
   </n-modal>
 </template>

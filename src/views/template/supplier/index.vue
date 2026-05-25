@@ -257,12 +257,17 @@ onMounted(() => {
     </l-card>
   </div>
   <!-- 弹窗 -->
-  <n-modal v-model:show="showUpdate" preset="card" class="w-[800px]" title="供应商信息">
-    <n-form :model="formData" ref="formRef" :rules="formRule">
-      <n-grid cols="2" x-gap="12">
+  <n-modal v-model:show="showUpdate" preset="card" class="TemplateModal TemplateModal--md" title="供应商信息">
+    <n-form :model="formData" ref="formRef" :rules="formRule" class="TemplateForm">
+      <n-grid cols="2" x-gap="16" y-gap="0">
+        <n-gi span="2">
+          <div class="TemplateForm-section">
+            <div class="TemplateForm-section__title">基本信息</div>
+          </div>
+        </n-gi>
         <n-gi>
-          <n-form-item label="编码">
-            <n-input disabled placeholder="自动生成编码" />
+          <n-form-item label="供应商编码">
+            <n-input disabled :value="formData.code" placeholder="自动生成编码" />
           </n-form-item>
         </n-gi>
         <n-gi>
@@ -276,25 +281,45 @@ onMounted(() => {
           </n-form-item>
         </n-gi>
         <n-gi>
-          <n-form-item label="联系人电话">
-            <n-input v-model:value="formData.contactPhone" placeholder="请输入联系人电话" />
+          <n-form-item label="联系电话">
+            <n-input v-model:value="formData.contactPhone" placeholder="请输入联系电话" />
           </n-form-item>
         </n-gi>
         <n-gi>
           <n-form-item label="供应商分类">
-            <n-select v-model:value="formData.category" placeholder="请选择分类" :options="formData.categoryOptions" />
+            <n-select
+              v-model:value="formData.category"
+              placeholder="请选择分类"
+              :options="formData.categoryOptions"
+              clearable
+            />
           </n-form-item>
         </n-gi>
         <n-gi>
           <n-form-item label="供应商等级">
-            <n-select v-model:value="formData.level" placeholder="请选择等级" :options="formData.levelOptions" />
+            <n-select
+              v-model:value="formData.level"
+              placeholder="请选择等级"
+              :options="formData.levelOptions"
+              clearable
+            />
           </n-form-item>
         </n-gi>
         <n-gi>
-          <n-form-item label="签约开始日期" class="w-full">
+          <n-form-item label="税号">
+            <n-input v-model:value="formData.taxNo" placeholder="请输入税号" />
+          </n-form-item>
+        </n-gi>
+        <n-gi span="2">
+          <div class="TemplateForm-section">
+            <div class="TemplateForm-section__title">合作信息</div>
+          </div>
+        </n-gi>
+        <n-gi>
+          <n-form-item label="签约开始日期">
             <n-date-picker
               v-model:value="formData.startTime"
-              placeholder=""
+              placeholder="请选择日期"
               type="date"
               class="w-full"
               :is-date-disabled="(ts: number) => !!formData.endTime && ts >= formData.endTime"
@@ -302,19 +327,14 @@ onMounted(() => {
           </n-form-item>
         </n-gi>
         <n-gi>
-          <n-form-item label="签约结束日期" class="w-full">
+          <n-form-item label="签约结束日期">
             <n-date-picker
               v-model:value="formData.endTime"
-              placeholder=""
+              placeholder="请选择日期"
               type="date"
               class="w-full"
-              :is-date-disabled="(ts: number) => formData.startTime && ts <= formData.startTime"
+              :is-date-disabled="(ts: number) => !!formData.startTime && ts <= formData.startTime"
             />
-          </n-form-item>
-        </n-gi>
-        <n-gi>
-          <n-form-item label="税号">
-            <n-input v-model:value="formData.taxNo" placeholder="请输入供应商税号" />
           </n-form-item>
         </n-gi>
         <n-gi>
@@ -323,6 +343,7 @@ onMounted(() => {
               v-model:value="formData.settlement"
               placeholder="请选择期限"
               :options="formData.settlementOptions"
+              clearable
             />
           </n-form-item>
         </n-gi>
@@ -330,12 +351,12 @@ onMounted(() => {
           <n-form-item label="结算方式">
             <n-input
               v-model:value="formData.settlementMethod"
-              placeholder="如微信、支付宝、银行转账、商业汇票等"
+              placeholder="如银行转账、商业汇票等"
             />
           </n-form-item>
         </n-gi>
         <n-gi>
-          <n-form-item label="信用额度/元">
+          <n-form-item label="信用额度(元)">
             <n-input-number
               v-model:value="formData.creditLimit"
               placeholder="请输入信用额度"
@@ -344,6 +365,11 @@ onMounted(() => {
               :show-button="false"
             />
           </n-form-item>
+        </n-gi>
+        <n-gi span="2">
+          <div class="TemplateForm-section">
+            <div class="TemplateForm-section__title">银行信息</div>
+          </div>
         </n-gi>
         <n-gi span="2">
           <n-form-item label="开户银行">
@@ -361,22 +387,29 @@ onMounted(() => {
           </n-form-item>
         </n-gi>
         <n-gi span="2">
+          <div class="TemplateForm-section">
+            <div class="TemplateForm-section__title">其他信息</div>
+          </div>
+        </n-gi>
+        <n-gi span="2">
           <n-form-item label="详细地址">
-            <n-input v-model:value="formData.address" placeholder="请输入地址" />
+            <n-input v-model:value="formData.address" placeholder="请输入详细地址" />
           </n-form-item>
         </n-gi>
         <n-gi span="2">
           <n-form-item label="备注">
-            <n-input type="textarea" v-model:value="formData.remark" placeholder="" />
+            <n-input type="textarea" v-model:value="formData.remark" placeholder="请输入备注" />
           </n-form-item>
+        </n-gi>
+        <n-gi span="2">
+          <div class="TemplateForm-actions">
+            <n-flex justify="end">
+              <n-button type="primary" @click="confirmUpdate" :loading="isSubmitting" :disabled="isSubmitting">确定</n-button>
+            </n-flex>
+          </div>
         </n-gi>
       </n-grid>
     </n-form>
-    <template #footer>
-      <n-flex justify="end">
-        <n-button type="primary" @click="confirmUpdate" :loading="isSubmitting" :disabled="isSubmitting">确定</n-button>
-      </n-flex>
-    </template>
   </n-modal>
   <n-modal
     :mask-closable="false"
@@ -394,5 +427,20 @@ onMounted(() => {
 <style lang="scss" scoped>
 .vxe-toolbar {
   padding: 0;
+}
+
+.TemplateForm-section {
+  margin-top: 4px;
+}
+
+.TemplateForm-section__title {
+  text-align: left;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--n-text-color-1);
+  padding-bottom: 12px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--n-divider-color);
 }
 </style>

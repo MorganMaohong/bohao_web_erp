@@ -28,6 +28,7 @@ export interface InventoryCheckDetail extends InventoryCheckOrder {
 
 export interface InventoryCheckOrderForm extends InventoryCheckOrder {
   typeOptions?: OptionVo[]
+  warehouseOptions?: OptionVo[]
   detailList?: InventoryCheckOrderDetailVo[]
   imageList?: string[]
   warehouse?: Warehouse
@@ -45,7 +46,9 @@ export interface InventoryCheckOrderQuery extends PageQuery {
   key?: string
 }
 
-export interface InventoryCheckOrderQueryData {}
+export interface InventoryCheckOrderQueryData {
+  warehouseOptions?: OptionVo[]
+}
 
 export interface InventoryCheckOrderDetail extends BaseEntityLd {
   code?: string

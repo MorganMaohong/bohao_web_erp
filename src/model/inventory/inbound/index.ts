@@ -24,6 +24,7 @@ export interface InventoryInOrder extends BaseEntityLd {
 export interface InventoryInOrderForm extends InventoryInOrder {
   typeOptions?: OptionVo[]
   projectOptions?: OptionVo[]
+  warehouseOptions?: OptionVo[]
   warehouse?: Warehouse
   imageList?: string[]
   detailList?: InventoryInOrderDetailVo[]

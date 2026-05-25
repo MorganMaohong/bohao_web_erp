@@ -1,0 +1,1 @@
+import{d as t,_ as r,u as o,A as a,f as s}from"./vendor-misc-Cd02SP2H.js";const m=t({__name:"index",setup(u){const e=o();return r().replace({path:"/"+e.params.path,query:e.query}),(c,p)=>(s(),a("div"))}});export{m as default};

@@ -1,0 +1,1 @@
+function r(e){if(!e)return{code:"",name:""};const n=e.indexOf("-");return n<0?{code:"",name:e}:{code:e.slice(0,n),name:e.slice(n+1)}}function a(e,n,i){if(!n){Object.assign(e,{});return}const c=i.find(o=>o.value===n),{code:s,name:t}=r(c==null?void 0:c.label);Object.assign(e,{uid:n,code:s,name:t})}export{a};

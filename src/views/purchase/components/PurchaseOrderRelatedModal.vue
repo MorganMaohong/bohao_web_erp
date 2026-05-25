@@ -2,10 +2,15 @@
 import { ref, watch } from "vue"
 import FlowSchemaPreview from "@/components/FlowSchemaPreview/index.vue"
 import { FlowDefinitionTypeOptions } from "@/constants/flow"
+import {
+  TEMPLATE_MODAL_TABLE_DETAIL_MAX,
+  TEMPLATE_MODAL_TABLE_RECORD_MAX
+} from "@/constants/template-ui"
 import { PurchaseOrderDetail } from "@/model/purchase"
 import { PurchaseOrderService } from "@/services/purchase/PurchaseOrderService"
 import PurchaseApplyRelatedModal from "./PurchaseApplyRelatedModal.vue"
 import PurchaseInboundRelatedModal from "./PurchaseInboundRelatedModal.vue"
+import PurchaseModalDetailShell from "./PurchaseModalDetailShell.vue"
 
 const props = defineProps<{
   show: boolean
@@ -88,13 +93,11 @@ watch(() => [props.show, props.uid, props.code], loadDetail, { immediate: true }
   <n-modal
     :show="show"
     preset="card"
-    class="w-[1400px] h-screen overflow-auto flex flex-col"
+    class="TemplateModal TemplateModal--xxl"
     title="采购订单详情"
     @update:show="updateShow"
   >
-    <n-spin :show="loading">
-      <div class="flex flex-1 min-h-0">
-        <div class="basis-2/3 flex flex-col gap-2 overflow-auto pr-2">
+    <PurchaseModalDetailShell :loading="loading">
           <n-card title="订单详情" :bordered="false" class="detail-card">
             <n-descriptions bordered :column="2" label-placement="left">
               <n-descriptions-item label="订单编号">{{ detailData.code || "-" }}</n-descriptions-item>
@@ -120,7 +123,14 @@ watch(() => [props.show, props.uid, props.code], loadDetail, { immediate: true }
           </n-card>
 
           <n-card title="订单明细" :bordered="false" class="detail-card">
-            <vxe-table border stripe show-overflow align="center" :data="detailData.detailList || []">
+            <vxe-table
+              border
+              stripe
+              show-overflow
+              align="center"
+              :data="detailData.detailList || []"
+              :max-height="TEMPLATE_MODAL_TABLE_DETAIL_MAX"
+            >
               <vxe-column field="name" title="物料名称" min-width="160" />
               <vxe-column field="spec" title="规格型号" min-width="150" />
               <vxe-column field="unitName" title="单位" min-width="90" />
@@ -134,7 +144,14 @@ watch(() => [props.show, props.uid, props.code], loadDetail, { immediate: true }
           </n-card>
 
           <n-card v-if="detailData.inboundOrderList?.length" title="相关采购入库" :bordered="false" class="detail-card">
-            <vxe-table border stripe show-overflow align="center" :data="detailData.inboundOrderList || []">
+            <vxe-table
+              border
+              stripe
+              show-overflow
+              align="center"
+              :data="detailData.inboundOrderList || []"
+              :max-height="TEMPLATE_MODAL_TABLE_RECORD_MAX"
+            >
               <vxe-column field="code" title="入库单号" min-width="170">
                 <template #default="{ row }">
                   <n-button text type="info" @click="openInbound(row.uid, row.code)">{{ row.code || "-" }}</n-button>
@@ -146,9 +163,7 @@ watch(() => [props.show, props.uid, props.code], loadDetail, { immediate: true }
               <vxe-column field="statusName" title="状态" min-width="100" />
             </vxe-table>
           </n-card>
-        </div>
-
-        <div class="basis-1/3 overflow-auto">
+          <template #side>
           <flow-schema-preview
             v-if="detailData.flowSchema"
             title="审批流程"
@@ -158,9 +173,8 @@ watch(() => [props.show, props.uid, props.code], loadDetail, { immediate: true }
           <n-card v-else title="审批流程" :bordered="false" class="detail-card">
             <n-empty description="暂无流程数据" />
           </n-card>
-        </div>
-      </div>
-    </n-spin>
+          </template>
+    </PurchaseModalDetailShell>
 
     <PurchaseApplyRelatedModal
       v-model:show="showApplyDetail"
@@ -180,8 +194,3 @@ watch(() => [props.show, props.uid, props.code], loadDetail, { immediate: true }
   </n-modal>
 </template>
 
-<style lang="scss" scoped>
-.detail-card {
-  border-radius: 18px;
-}
-</style>

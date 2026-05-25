@@ -1,6 +1,6 @@
 import { templateWarehouseApi } from "@/services/api"
 import request from "@/utils/request"
-import { PageVo } from "@/model"
+import { OptionVo, PageVo } from "@/model"
 import { WarehouseForm, WarehouseQuery, WarehouseVo } from "@/model/stock"
 
 export const WarehouseService = {
@@ -36,6 +36,17 @@ export const WarehouseService = {
         url,
         method: "POST",
         data
+      })
+      return Promise.resolve(res.data)
+    } catch (err) {
+      return Promise.reject(err)
+    }
+  },
+  async options(): Promise<OptionVo[]> {
+    try {
+      const res = await request({
+        url: templateWarehouseApi.options.url,
+        method: "POST"
       })
       return Promise.resolve(res.data)
     } catch (err) {

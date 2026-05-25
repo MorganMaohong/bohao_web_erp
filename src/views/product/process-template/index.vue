@@ -224,9 +224,14 @@ onMounted(() => {
       </template>
     </l-card>
 
-    <n-modal v-model:show="showEdit" preset="card" title="工序模板" class="w-[1200px] max-w-[95vw]">
-      <div class="space-y-4">
-        <n-grid :cols="2" x-gap="12">
+    <n-modal v-model:show="showEdit" preset="card" title="工序模板" class="TemplateModal TemplateModal--xl">
+      <n-form class="TemplateForm">
+        <n-grid cols="2" x-gap="16" y-gap="0">
+          <n-gi span="2">
+            <div class="TemplateForm-section">
+              <div class="TemplateForm-section__title">基本信息</div>
+            </div>
+          </n-gi>
           <n-gi>
             <n-form-item label="模板名称">
               <n-input v-model:value="formData.name" />
@@ -237,42 +242,48 @@ onMounted(() => {
               <n-input v-model:value="formData.remark" />
             </n-form-item>
           </n-gi>
+          <n-gi span="2">
+            <div class="TemplateForm-section TemplateForm-section__head">
+              <div class="TemplateForm-section__title">工序节点</div>
+              <n-button :size="componentSize" type="primary" @click="addNode">新增节点</n-button>
+            </div>
+          </n-gi>
+          <n-gi span="2">
+            <n-table striped :size="componentSize">
+              <thead>
+                <tr>
+                  <th>名称</th>
+                  <th>负责人</th>
+                  <th>耗时</th>
+                  <th>单位</th>
+                  <th>开始规则</th>
+                  <th>备注</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(item, index) in formData.nodeList || []" :key="index">
+                  <td><n-input v-model:value="item.name" /></td>
+                  <td><n-select v-model:value="item.leaderUid" :options="formData.leaderOptions" filterable /></td>
+                  <td><n-input-number v-model:value="item.durationValue" :min="1" class="w-full" /></td>
+                  <td><n-select v-model:value="item.durationUnit" :options="formData.durationUnitOptions" /></td>
+                  <td><n-select v-model:value="item.startRule" :options="formData.startRuleOptions" /></td>
+                  <td><n-input v-model:value="item.remark" /></td>
+                  <td><n-button :size="componentSize" type="error" tertiary @click="removeNode(index)">删除</n-button></td>
+                </tr>
+              </tbody>
+            </n-table>
+          </n-gi>
+          <n-gi span="2">
+            <div class="TemplateForm-actions">
+              <n-flex justify="end">
+                <n-button @click="showEdit = false">取消</n-button>
+                <n-button type="primary" :loading="submitting" @click="submit">保存</n-button>
+              </n-flex>
+            </div>
+          </n-gi>
         </n-grid>
-        <div class="flex justify-between items-center">
-          <div class="text-sm text-gray-500">工序节点</div>
-          <n-button :size="componentSize" type="primary" @click="addNode">新增节点</n-button>
-        </div>
-        <n-table striped :size="componentSize">
-          <thead>
-            <tr>
-              <th>名称</th>
-              <th>负责人</th>
-              <th>耗时</th>
-              <th>单位</th>
-              <th>开始规则</th>
-              <th>备注</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(item, index) in formData.nodeList || []" :key="index">
-              <td><n-input v-model:value="item.name" /></td>
-              <td><n-select v-model:value="item.leaderUid" :options="formData.leaderOptions" filterable /></td>
-              <td><n-input-number v-model:value="item.durationValue" :min="1" class="w-full" /></td>
-              <td><n-select v-model:value="item.durationUnit" :options="formData.durationUnitOptions" /></td>
-              <td><n-select v-model:value="item.startRule" :options="formData.startRuleOptions" /></td>
-              <td><n-input v-model:value="item.remark" /></td>
-              <td><n-button :size="componentSize" type="error" tertiary @click="removeNode(index)">删除</n-button></td>
-            </tr>
-          </tbody>
-        </n-table>
-      </div>
-      <template #footer>
-        <div class="flex justify-end gap-2">
-          <n-button @click="showEdit = false">取消</n-button>
-          <n-button type="primary" :loading="submitting" @click="submit">保存</n-button>
-        </div>
-      </template>
+      </n-form>
     </n-modal>
   </div>
 </template>

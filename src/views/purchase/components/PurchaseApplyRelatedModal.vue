@@ -3,6 +3,8 @@ import { ref, watch } from "vue"
 import FlowSchemaPreview from "@/components/FlowSchemaPreview/index.vue"
 import { PurchaseApplyDetail } from "@/model/purchase"
 import { PurchaseApplyOrderService } from "@/services/purchase/PurchaseApplyOrderService"
+import { TEMPLATE_MODAL_TABLE_DETAIL_MAX } from "@/constants/template-ui"
+import PurchaseModalDetailShell from "@/views/purchase/components/PurchaseModalDetailShell.vue"
 
 const props = defineProps<{
   show: boolean
@@ -61,15 +63,13 @@ watch(() => [props.show, props.uid, props.code], loadDetail, { immediate: true }
   <n-modal
     :show="show"
     preset="card"
-    class="w-[1400px] h-screen overflow-auto flex flex-col"
+    class="TemplateModal TemplateModal--xxl"
     title="采购申请详情"
     @update:show="updateShow"
   >
-    <n-spin :show="loading">
-      <div class="flex flex-1 min-h-0">
-        <div class="basis-2/3 flex flex-col gap-2 overflow-auto pr-2">
+    <PurchaseModalDetailShell :loading="loading">
           <n-card title="申请信息" :bordered="false" class="detail-card">
-            <n-descriptions :column="2" label-placement="left" bordered>
+            <n-descriptions bordered :column="2" label-placement="left">
               <n-descriptions-item label="申请单号">{{ detailData.code || "-" }}</n-descriptions-item>
               <n-descriptions-item label="流程状态">{{ detailData.statusName || "-" }}</n-descriptions-item>
               <n-descriptions-item label="申请日期">{{ detailData.applyTimeName || "-" }}</n-descriptions-item>
@@ -82,7 +82,14 @@ watch(() => [props.show, props.uid, props.code], loadDetail, { immediate: true }
           </n-card>
 
           <n-card title="采购物料信息" :bordered="false" class="detail-card">
-            <vxe-table :data="detailData.detailList || []" border stripe show-overflow align="center">
+            <vxe-table
+              :data="detailData.detailList || []"
+              border
+              stripe
+              show-overflow
+              align="center"
+              :max-height="TEMPLATE_MODAL_TABLE_DETAIL_MAX"
+            >
               <vxe-column field="name" title="名称" min-width="140" />
               <vxe-column field="supplierName" title="供应商" min-width="140" />
               <vxe-column field="spec" title="规格" min-width="140" />
@@ -92,18 +99,10 @@ watch(() => [props.show, props.uid, props.code], loadDetail, { immediate: true }
               <vxe-column field="remark" title="备注" min-width="180" />
             </vxe-table>
           </n-card>
-        </div>
-
-        <div class="basis-1/3 overflow-auto">
+          <template #side>
           <FlowSchemaPreview title="流程进度" :schema-data="detailData.flowSchema" />
-        </div>
-      </div>
-    </n-spin>
+          </template>
+    </PurchaseModalDetailShell>
   </n-modal>
 </template>
 
-<style lang="scss" scoped>
-.detail-card {
-  border-radius: 18px;
-}
-</style>

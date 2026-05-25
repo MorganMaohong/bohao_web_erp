@@ -19,10 +19,13 @@ import {
   InventoryInOrderVo
 } from "@/model/inventory/inbound"
 import { InventInOrderStatusDict, InventInOrderTypeDict, InventOutOrderStatusDict } from "@/constants/enum"
-import { WarehouseService } from "@/services/template/WarehouseService"
-import { WarehouseQuery, WarehouseVo } from "@/model/stock"
+import {
+  TEMPLATE_MODAL_TABLE_MAX,
+  TEMPLATE_MODAL_TABLE_PICKER_MAX
+} from "@/constants/template-ui"
 import { PageVo } from "@/model"
-import { VxePagerEvents, VxeTableEvents } from "vxe-pc-ui"
+import { VxePagerEvents } from "vxe-pc-ui"
+import { applyWarehouseByUid } from "@/utils/warehouse-select"
 import { ItemsQuery, ItemsVo } from "@/model/template/items"
 import { ItemsService } from "@/services/template/ItemsService"
 
@@ -34,12 +37,9 @@ const showUpdate = ref(false)
 const showDelete = ref(false)
 const showDetail = ref(false)
 const showCancel = ref(false)
-const showWarehouse = ref(false)
 const showItems = ref(false)
 const showPreview = ref(false)
 const formData = ref<InventoryInOrderForm>({ warehouse: {} })
-const warehouseQuery = ref<WarehouseQuery>({ currentPage: 1, pageSize: 50 })
-const warehouseData = ref<PageVo<WarehouseVo, void>>({})
 const itemsQuery = ref<ItemsQuery>({ currentPage: 1, pageSize: 50 })
 const itemsData = ref<PageVo<ItemsVo, void>>({})
 const VxeTableItemsRef = ref<VxeTableInstance>()
@@ -97,6 +97,10 @@ const query = ref<InventoryInOrderQuery>({ currentPage: 1, pageSize: 50 })
 const data = ref<PageVo<InventoryInOrderVo, InventoryInOrderQueryData>>({})
 const VxeTableRef = ref<VxeTableInstance>()
 const VxeToolbarRef = ref<VxeToolbarInstance>()
+
+const warehouseOptions = computed(
+  () => formData.value.warehouseOptions || data.value.extraData?.warehouseOptions || []
+)
 
 function getCardProps() {
   TableCardMaxHeight.value = TableCardRef.value.$el.clientHeight - 20
@@ -195,20 +199,21 @@ function confirmDelete() {
     })
 }
 
-function selectWarehouse() {
-  loading.value = true
-  WarehouseService.select(warehouseQuery.value)
-    .then((data) => {
-      warehouseData.value = data
-    })
-    .finally(() => {
-      loading.value = false
-    })
-}
-
-function showWarehouseModal() {
-  showWarehouse.value = true
-  selectWarehouse()
+function onWarehouseUidChange(uid: string | null) {
+  const prevUid = formData.value.warehouseUid
+  if (!uid) {
+    formData.value.warehouseUid = undefined
+    formData.value.warehouse = {}
+    return
+  }
+  if (prevUid && prevUid !== uid) {
+    formData.value.detailList = []
+  }
+  formData.value.warehouseUid = uid
+  if (!formData.value.warehouse) {
+    formData.value.warehouse = {}
+  }
+  applyWarehouseByUid(formData.value.warehouse, uid, warehouseOptions.value)
 }
 
 function pageChange(event: VxePagerEvents) {
@@ -220,19 +225,7 @@ function pageChange(event: VxePagerEvents) {
 function itemsPageChange(event: VxePagerEvents) {
   itemsQuery.value.currentPage = event.currentPage
   itemsQuery.value.pageSize = event.pageSize
-  selectWarehouse()
-}
-
-function warehousePageChange(event: VxePagerEvents) {
-  warehouseQuery.value.currentPage = event.currentPage
-  warehouseQuery.value.pageSize = event.pageSize
   selectItems()
-}
-
-const warehouseCellClickEvent: VxeTableEvents.CellClick<WarehouseVo> = ({ row, column }) => {
-  formData.value.warehouse = row
-  formData.value.warehouseUid = row.uid
-  showWarehouse.value = false
 }
 
 function selectItems() {
@@ -529,14 +522,14 @@ onMounted(() => {
     </l-card>
   </div>
   <!-- 弹窗 -->
-  <n-modal v-model:show="showUpdate" preset="card" class="w-[1000px] z-0" content-style="padding: 0" title="其他入库单">
-    <n-scrollbar style="max-height: 600px; padding: 0 24px 24px 20px" trigger="none">
-      <n-form :model="formData" ref="formRef" :rules="formRule">
-        <div class="flex items-center mb-4">
-          <div class="w-1 h-4 bg-blue-500 mr-2 rounded" />
-          <div class="text-base font-semibold text-gray-700">入库单信息</div>
-        </div>
-        <n-grid cols="3" x-gap="24">
+  <n-modal v-model:show="showUpdate" preset="card" class="TemplateModal TemplateModal--lg" title="其他入库单">
+    <n-form :model="formData" ref="formRef" :rules="formRule" class="TemplateForm">
+        <n-grid cols="2" x-gap="16" y-gap="0">
+          <n-gi span="2">
+            <div class="TemplateForm-section">
+              <div class="TemplateForm-section__title">基本信息</div>
+            </div>
+          </n-gi>
           <n-gi>
             <n-form-item label="编号">
               <n-input disabled placeholder="自动生成编号" v-model:value="formData.code" />
@@ -553,7 +546,7 @@ onMounted(() => {
             </n-form-item>
           </n-gi>
           <n-gi>
-            <n-form-item label="入库时间" class="w-full" path="time">
+            <n-form-item label="入库时间" path="time">
               <n-date-picker
                 type="datetime"
                 placeholder="请选择时间"
@@ -563,48 +556,31 @@ onMounted(() => {
               />
             </n-form-item>
           </n-gi>
-          <template v-if="formData.type === InventInOrderTypeDict.OTHER">
-            <n-gi />
-            <n-gi>
-              <n-form-item label="其他名称" path="otherType">
-                <n-input v-model:value="formData.otherType" placeholder="请输入其他类型" />
-              </n-form-item>
-            </n-gi>
-            <n-gi />
-          </template>
+          <n-gi v-if="formData.type === InventInOrderTypeDict.OTHER">
+            <n-form-item label="其他名称" path="otherType">
+              <n-input v-model:value="formData.otherType" placeholder="请输入其他类型" />
+            </n-form-item>
+          </n-gi>
           <n-gi>
-            <n-form-item label="入库仓库" class="w-full" path="warehouseUid">
-              <n-input
-                class="w-full"
-                @click="showWarehouseModal"
-                v-if="formData?.warehouse.uid"
-                :value="`【仓库】-${formData?.warehouse.code}-${formData?.warehouse.name}`"
+            <n-form-item label="入库仓库" path="warehouseUid">
+              <n-select
+                filterable
                 clearable
-                @clear.stop="
-                  () => {
-                    formData.warehouse = resetRef(formData.warehouse)
-                  }
-                "
+                placeholder="请选择入库仓库"
+                class="w-full"
+                :options="warehouseOptions"
+                v-model:value="formData.warehouseUid"
+                @update:value="onWarehouseUidChange"
               />
-              <n-button class="w-full" @click="showWarehouseModal" v-else>关联数据</n-button>
             </n-form-item>
           </n-gi>
           <n-gi>
-            <n-form-item label="仓库编码" class="w-full">
-              <n-input class="w-full" disabled placeholder="暂无内容" v-model:value="formData.warehouse.code" />
-            </n-form-item>
-          </n-gi>
-          <n-gi>
-            <n-form-item label="仓库名称" class="w-full">
-              <n-input class="w-full" disabled placeholder="暂无内容" v-model:value="formData.warehouse.name" />
-            </n-form-item>
-          </n-gi>
-          <n-gi>
-            <n-form-item label="关联项目" class="w-full">
+            <n-form-item label="关联项目">
               <n-select
                 filterable
                 clearable
                 placeholder="请选择项目"
+                class="w-full"
                 :options="formData.projectOptions"
                 v-model:value="formData.projectUid"
               />
@@ -620,7 +596,12 @@ onMounted(() => {
               <n-input v-model:value="formData.handlerName" placeholder="请输入经手人" />
             </n-form-item>
           </n-gi>
-          <n-gi span="3">
+          <n-gi span="2">
+            <div class="TemplateForm-section">
+              <div class="TemplateForm-section__title">业务说明</div>
+            </div>
+          </n-gi>
+          <n-gi span="2">
             <n-form-item label="业务说明">
               <n-input
                 v-model:value="formData.sourcePartyName"
@@ -628,7 +609,7 @@ onMounted(() => {
               />
             </n-form-item>
           </n-gi>
-          <n-gi span="3">
+          <n-gi span="2">
             <n-form-item label="审批说明">
               <n-input
                 v-model:value="formData.approvalRemark"
@@ -637,263 +618,204 @@ onMounted(() => {
               />
             </n-form-item>
           </n-gi>
-          <n-gi span="3">
+          <n-gi span="2">
+            <div class="TemplateForm-section">
+              <div class="TemplateForm-section__title">附件与备注</div>
+            </div>
+          </n-gi>
+          <n-gi span="2">
             <n-form-item label="照片">
-              <div class="flex flex-col">
-                <FastMultipleUpload class="mb-1" v-model:data="formData.imageList">
-                  <n-button type="info" secondary :size="appStore.componentSize">上传照片</n-button>
+              <div class="InventoryForm-images">
+                <FastMultipleUpload v-model:data="formData.imageList">
+                  <n-button type="info" secondary>上传照片</n-button>
                 </FastMultipleUpload>
-                <n-grid x-gap="12" y-gap="12" cols="8" class="p-1">
+                <n-grid x-gap="12" y-gap="12" cols="8" class="InventoryForm-images__list">
                   <n-gi v-for="(url, index) in formData.imageList" :key="index">
-                    <m-card border class="relative group w-full aspect-[1/1] overflow-hidden">
-                      <!-- 删除按钮 -->
-                      <div
-                        class="absolute right-1 top-1 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10"
-                        @click="
-                          () => {
-                            formData.imageList.splice(index, 1)
-                          }
-                        "
-                      >
-                        <n-icon size="24" class="text-red-500 font-bold">
+                    <div class="InventoryForm-images__item">
+                      <div class="InventoryForm-images__remove" @click="formData.imageList.splice(index, 1)">
+                        <n-icon size="20">
                           <CloseFilled />
                         </n-icon>
                       </div>
-
-                      <!-- 图片容器 -->
-                      <div class="w-full h-full flex items-center justify-center p-2 bg-white">
-                        <n-image :src="url" class="max-w-full max-h-full object-contain" />
-                      </div>
-                    </m-card>
+                      <n-image :src="url" class="InventoryForm-images__preview" />
+                    </div>
                   </n-gi>
                 </n-grid>
               </div>
             </n-form-item>
           </n-gi>
-          <n-gi span="3">
+          <n-gi span="2">
             <n-form-item label="验收说明">
               <n-input
                 type="textarea"
                 v-model:value="formData.inspectionRemark"
-                placeholder="可记录退换货验收、品质核验结果，辅助防止次品调换"
+                placeholder="可记录退换货验收、品质核验结果"
               />
             </n-form-item>
           </n-gi>
-          <n-gi span="3">
+          <n-gi span="2">
             <n-form-item label="备注">
-              <n-input placeholder="" v-model:value="formData.remark" />
+              <n-input v-model:value="formData.remark" placeholder="请输入备注" />
             </n-form-item>
           </n-gi>
-        </n-grid>
-        <div class="flex items-center mb-4">
-          <div class="w-1 h-4 bg-blue-500 mr-2 rounded" />
-          <div class="text-base font-semibold text-gray-700">入库物料信息</div>
-        </div>
-        <n-grid cols="3" x-gap="24">
-          <n-gi span="3">
-            <n-form-item label="入库明细" path="detailList" required>
-              <m-card class="w-full h-full flex flex-col" padding="0">
-                <m-card padding="0" style="position: absolute; right: 0; top: -30px">
-                  <n-button :size="appStore.componentSize" type="info" @click="showItemsModal" class="w-20">
-                    添加物料
-                  </n-button>
-                </m-card>
-                <m-card ref="TableCardRef" class="flex-1" padding="0">
-                  <vxe-table
-                    v-if="formData.detailList && formData.detailList.length > 0"
-                    class="w-full"
-                    :data="formData.detailList"
-                    border
-                    stripe
-                    :row-config="{ isHover: true }"
-                    max-height="400"
+          <n-gi span="2">
+            <div class="TemplateForm-section TemplateForm-section__head">
+              <div class="TemplateForm-section__title">入库明细</div>
+              <n-button type="info" @click="showItemsModal">添加物料</n-button>
+            </div>
+          </n-gi>
+          <n-gi span="2">
+            <n-form-item path="detailList" :show-label="false">
+              <m-card class="w-full" padding="0">
+                <vxe-table
+                  v-if="formData.detailList && formData.detailList.length > 0"
+                  class="w-full"
+                  :data="formData.detailList"
+                  border
+                  stripe
+                  :row-config="{ isHover: true }"
+                  :max-height="TEMPLATE_MODAL_TABLE_MAX"
+                >
+                  <vxe-column title="批次号" show-overflow="tooltip" align="center" width="20%">
+                    <template #default="{ row }">
+                      <vxe-input placeholder="自动生成批次号" disabled v-model="row.batchNo" />
+                    </template>
+                  </vxe-column>
+                  <vxe-column field="name" title="名称" show-overflow="tooltip" align="center" width="15%" />
+                  <vxe-column
+                    field="supplierName"
+                    title="供应商"
+                    show-overflow="tooltip"
+                    align="center"
+                    width="15%"
+                  />
+                  <vxe-column field="typeName" title="类型" show-overflow="tooltip" align="center" width="15%" />
+                  <vxe-column field="vatTaxRate" title="税率%" show-overflow="tooltip" align="center" width="12%">
+                    <template #default="{ row }">
+                      <vxe-number-input v-model="row.vatTaxRate" />
+                    </template>
+                  </vxe-column>
+                  <vxe-column
+                    field="purchasePriceWithTax"
+                    title="采购含税"
+                    show-overflow="tooltip"
+                    align="center"
+                    width="12%"
                   >
-                    <vxe-column title="批次号" show-overflow="tooltip" align="center" width="20%">
-                      <template #default="{ row }">
-                        <vxe-input placeholder="自动生成批次号" disabled v-model="row.batchNo" />
-                      </template>
-                    </vxe-column>
-                    <vxe-column field="name" title="名称" show-overflow="tooltip" align="center" width="15%" />
-                    <vxe-column
-                      field="supplierName"
-                      title="供应商名称"
-                      show-overflow="tooltip"
-                      align="center"
-                      width="15%"
-                    />
-                    <vxe-column field="typeName" title="类型" show-overflow="tooltip" align="center" width="15%" />
-                    <vxe-column field="vatTaxRate" title="增值税率%" show-overflow="tooltip" align="center" width="15%">
-                      <template #default="{ row }">
-                        <vxe-number-input v-model="row.vatTaxRate" />
-                      </template>
-                    </vxe-column>
-                    <vxe-column
-                      field="purchasePriceWithTax"
-                      title="采购单价（含税）/元"
-                      show-overflow="tooltip"
-                      align="center"
-                      width="15%"
-                    >
-                      <template #default="{ row }">
-                        <vxe-number-input v-model="row.purchasePriceWithTax" />
-                      </template>
-                    </vxe-column>
-                    <vxe-column
-                      field="purchasePriceWithoutTax"
-                      title="采购单价（不含税）"
-                      show-overflow="tooltip"
-                      align="center"
-                      width="15%"
-                    >
-                      <template #default="{ row }">
-                        <vxe-number-input v-model="row.purchasePriceWithoutTax" />
-                      </template>
-                    </vxe-column>
-                    <vxe-column field="unitName" title="单位" show-overflow="tooltip" align="center" width="15%" />
-                    <vxe-column field="spec" title="规格" show-overflow="tooltip" align="center" width="15%" />
-                    <vxe-column field="material" title="材质" show-overflow="tooltip" align="center" width="15%" />
-                    <vxe-column field="remark" title="备注" show-overflow="tooltip" align="center" width="30%" />
-                    <vxe-column
-                      field="totalQuantity"
-                      fixed="right"
-                      title="库存数量"
-                      align="center"
-                      show-overflow="tooltip"
-                      width="15%"
-                    />
-                    <vxe-column
-                      field="availableQuantity"
-                      fixed="right"
-                      title="可用库存"
-                      align="center"
-                      show-overflow="tooltip"
-                      width="15%"
-                    />
-                    <vxe-column fixed="right" title="入库数量" align="center" show-overflow="tooltip" width="15%">
-                      <template #default="{ row }">
-                        <vxe-number-input v-model="row.quantity" min="1" />
-                      </template>
-                    </vxe-column>
-                    <vxe-column fixed="right" title="操作" align="center" show-overflow="tooltip" width="60">
-                      <template #default="{ row, rowIndex }">
-                        <n-flex justify="center">
-                          <n-button
-                            type="error"
-                            text
-                            @click="confirmDeleteItems(row, rowIndex)"
-                            :size="appStore.componentSize"
-                            >删除
-                          </n-button>
-                        </n-flex>
-                      </template>
-                    </vxe-column>
-                  </vxe-table>
-                  <el-empty :image-size="80" style="height: 140px" description="无数据" v-else />
-                </m-card>
+                    <template #default="{ row }">
+                      <vxe-number-input v-model="row.purchasePriceWithTax" />
+                    </template>
+                  </vxe-column>
+                  <vxe-column
+                    field="purchasePriceWithoutTax"
+                    title="采购不含税"
+                    show-overflow="tooltip"
+                    align="center"
+                    width="12%"
+                  >
+                    <template #default="{ row }">
+                      <vxe-number-input v-model="row.purchasePriceWithoutTax" />
+                    </template>
+                  </vxe-column>
+                  <vxe-column field="unitName" title="单位" show-overflow="tooltip" align="center" width="10%" />
+                  <vxe-column field="spec" title="规格" show-overflow="tooltip" align="center" width="10%" />
+                  <vxe-column field="material" title="材质" show-overflow="tooltip" align="center" width="10%" />
+                  <vxe-column field="remark" title="备注" show-overflow="tooltip" align="center" width="15%" />
+                  <vxe-column
+                    field="totalQuantity"
+                    fixed="right"
+                    title="库存数量"
+                    align="center"
+                    show-overflow="tooltip"
+                    width="12%"
+                  />
+                  <vxe-column
+                    field="availableQuantity"
+                    fixed="right"
+                    title="可用库存"
+                    align="center"
+                    show-overflow="tooltip"
+                    width="12%"
+                  />
+                  <vxe-column fixed="right" title="入库数量" align="center" show-overflow="tooltip" width="12%">
+                    <template #default="{ row }">
+                      <vxe-number-input v-model="row.quantity" min="1" />
+                    </template>
+                  </vxe-column>
+                  <vxe-column fixed="right" title="操作" align="center" show-overflow="tooltip" width="60">
+                    <template #default="{ row, rowIndex }">
+                      <n-flex justify="center">
+                        <n-button type="error" text @click="confirmDeleteItems(row, rowIndex)">删除</n-button>
+                      </n-flex>
+                    </template>
+                  </vxe-column>
+                </vxe-table>
+                <el-empty :image-size="80" class="TemplateForm-empty" description="无数据" v-else />
               </m-card>
             </n-form-item>
           </n-gi>
+          <n-gi span="2">
+            <div class="TemplateForm-section">
+              <div class="TemplateForm-section__title">汇总信息</div>
+            </div>
+          </n-gi>
           <n-gi>
-            <n-form-item label="本单入库总数">
+            <n-form-item label="入库总数">
               <n-input disabled placeholder="0" v-model:value="totalQuantity" />
             </n-form-item>
           </n-gi>
           <n-gi>
-            <n-form-item label="本次入库总采购价（含税）/元">
+            <n-form-item label="采购总价(含税)">
               <n-input disabled placeholder="0.00" v-model:value="totalAmountWithTax" />
             </n-form-item>
           </n-gi>
           <n-gi>
-            <n-form-item label="本次入库总采购价（不含税）/元">
+            <n-form-item label="采购总价(不含税)">
               <n-input disabled placeholder="0.00" v-model:value="totalAmountWithoutTax" />
             </n-form-item>
           </n-gi>
           <n-gi>
-            <n-form-item label="本次入库品总税额/元">
+            <n-form-item label="总税额">
               <n-input disabled placeholder="0.00" v-model:value="totalTaxAmount" />
             </n-form-item>
           </n-gi>
+          <n-gi span="2">
+            <div class="TemplateForm-actions">
+              <n-flex justify="end">
+                <n-button
+                  class="w-20"
+                  type="primary"
+                  @click="confirmComplete"
+                  :loading="isSubmitting"
+                  :disabled="isSubmitting"
+                  :size="appStore.componentSize"
+                >
+                  提交
+                </n-button>
+                <n-button
+                  class="w-20"
+                  type="default"
+                  @click="confirmUpdate"
+                  :loading="isSubmitting"
+                  :disabled="isSubmitting"
+                  :size="appStore.componentSize"
+                >
+                  保存草稿
+                </n-button>
+              </n-flex>
+            </div>
+          </n-gi>
         </n-grid>
       </n-form>
-    </n-scrollbar>
-    <n-divider dashed />
-    <template #footer>
-      <n-flex justify="end">
-        <n-button
-          class="w-20"
-          type="primary"
-          @click="confirmComplete"
-          :loading="isSubmitting"
-          :disabled="isSubmitting"
-          :size="appStore.componentSize"
-        >
-          提交
-        </n-button>
-        <n-button
-          class="w-20"
-          type="default"
-          @click="confirmUpdate"
-          :loading="isSubmitting"
-          :disabled="isSubmitting"
-          :size="appStore.componentSize"
-        >
-          保存草稿
-        </n-button>
-      </n-flex>
-    </template>
   </n-modal>
-  <n-modal v-model:show="showWarehouse" preset="card" class="w-[1000px]" title="仓库信息">
-    <l-card class="w-full h-full" border shadow rounded padding="0">
-      <vxe-table
-        :data="warehouseData.list"
-        :loading="loading"
-        @cell-click="warehouseCellClickEvent"
-        border
-        stripe
-        :row-config="{ isHover: true }"
-      >
-        <vxe-column width="30" align="center">
-          <template #default="{ row }">
-            <vxe-radio />
-          </template>
-        </vxe-column>
-        <vxe-column field="code" title="编号" show-overflow="tooltip" align="center" width="20%" />
-        <vxe-column field="name" title="名称" show-overflow="tooltip" align="center" width="30%" />
-        <vxe-column field="address" title="地址" show-overflow="tooltip" align="center" width="45%" />
-      </vxe-table>
-      <template #footer>
-        <m-card class="w-full h-full flex items-center justify-end">
-          <vxe-pager
-            :size="appStore.componentSize"
-            v-model:currentPage="warehouseData.currentPage"
-            v-model:pageSize="warehouseData.pageSize"
-            :total="warehouseData.count"
-            :layouts="[
-              'Home',
-              'PrevJump',
-              'PrevPage',
-              'Number',
-              'NextPage',
-              'NextJump',
-              'End',
-              'Sizes',
-              'FullJump',
-              'Total'
-            ]"
-            @page-change="warehousePageChange"
-          />
-        </m-card>
-      </template>
-    </l-card>
-  </n-modal>
-  <n-modal v-model:show="showItems" preset="card" class="w-[1000px] h-[600px]" title="物料信息">
+  <n-modal v-model:show="showItems" preset="card" class="TemplateModal TemplateModal--lg" title="物料信息">
     <l-card class="w-full h-full" shadow rounded padding="0">
       <vxe-table
         :data="itemsData.list"
         border
         stripe
         :loading="loading"
-        max-height="600"
+        :max-height="TEMPLATE_MODAL_TABLE_PICKER_MAX"
         :row-config="{ isHover: true }"
         :checkbox-config="{ trigger: 'row' }"
         ref="VxeTableItemsRef"
@@ -961,11 +883,11 @@ onMounted(() => {
         </m-card>
       </template>
     </l-card>
-    <template #footer>
+    <div class="TemplateForm-actions">
       <n-flex justify="end">
         <n-button size="small" type="primary" @click="confirmUpdateItems"> 确定</n-button>
       </n-flex>
-    </template>
+    </div>
   </n-modal>
   <n-modal
     :mask-closable="false"
@@ -978,9 +900,8 @@ onMounted(() => {
     @positive-click="confirmDelete"
     :size="appStore.componentSize"
   />
-  <n-modal v-model:show="showDetail" preset="card" class="w-[1000px]" content-style="padding: 0" title="入库信息">
-    <n-scrollbar style="max-height: 800px; padding: 0 24px 24px 20px" trigger="none">
-      <n-space vertical :size="12">
+  <n-modal v-model:show="showDetail" preset="card" class="TemplateModal TemplateModal--lg" title="入库信息">
+    <n-space vertical :size="12">
         <n-descriptions bordered :column="4" title="单据信息">
           <n-descriptions-item label="编号">{{ detailData.code }}</n-descriptions-item>
           <n-descriptions-item label="入库类型">{{ detailData.typeName }}</n-descriptions-item>
@@ -1022,7 +943,7 @@ onMounted(() => {
               border
               stripe
               :row-config="{ isHover: true }"
-              max-height="400"
+              :max-height="TEMPLATE_MODAL_TABLE_MAX"
             >
               <vxe-column field="batchNo" title="批次号" show-overflow="tooltip" align="center" width="20%" />
               <vxe-column field="name" title="名称" show-overflow="tooltip" align="center" width="20%" />
@@ -1072,19 +993,18 @@ onMounted(() => {
             {{ detailData.totalQuantity }}
           </n-descriptions-item>
         </n-descriptions>
+        <div
+          v-if="
+            detailData.type === InventInOrderTypeDict.TRANSFER &&
+            detailData.status === InventOutOrderStatusDict.WAIT_COMPLETE
+          "
+          class="TemplateForm-actions"
+        >
+          <n-flex justify="end">
+            <n-button size="small" type="primary" @click="confirmTransferComplete">确定</n-button>
+          </n-flex>
+        </div>
       </n-space>
-    </n-scrollbar>
-    <template
-      #footer
-      v-if="
-        detailData.type === InventInOrderTypeDict.TRANSFER &&
-        detailData.status === InventOutOrderStatusDict.WAIT_COMPLETE
-      "
-    >
-      <n-flex justify="end">
-        <n-button size="small" type="primary" @click="confirmTransferComplete">确定</n-button>
-      </n-flex>
-    </template>
   </n-modal>
   <n-modal
     :mask-closable="false"
@@ -1102,4 +1022,5 @@ onMounted(() => {
 .vxe-toolbar {
   padding: 0;
 }
+
 </style>

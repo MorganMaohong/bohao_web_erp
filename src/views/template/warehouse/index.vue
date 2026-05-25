@@ -249,41 +249,58 @@ onMounted(() => {
     </l-card>
   </div>
   <!-- 弹窗 -->
-  <n-modal v-model:show="showUpdate" preset="card" class="w-[700px]" title="仓库信息">
-    <n-form :model="formData" ref="formRef" :rules="formRule">
-      <n-grid cols="2" x-gap="12">
+  <n-modal v-model:show="showUpdate" preset="card" class="TemplateModal TemplateModal--sm" title="仓库信息">
+    <n-form :model="formData" ref="formRef" :rules="formRule" class="TemplateForm">
+      <n-grid cols="2" x-gap="16" y-gap="0">
+        <n-gi span="2">
+          <div class="TemplateForm-section">
+            <div class="TemplateForm-section__title">基本信息</div>
+          </div>
+        </n-gi>
         <n-gi>
-          <n-form-item label="编码">
+          <n-form-item label="仓库编码">
             <n-input :value="formData.code" disabled placeholder="自动生成编码" />
           </n-form-item>
         </n-gi>
-        <n-gi span="2">
+        <n-gi>
           <n-form-item label="名称" path="name">
             <n-input v-model:value="formData.name" placeholder="请输入仓库名称" />
           </n-form-item>
         </n-gi>
         <n-gi span="2">
+          <div class="TemplateForm-section">
+            <div class="TemplateForm-section__title">位置信息</div>
+          </div>
+        </n-gi>
+        <n-gi>
           <n-form-item label="区域">
             <n-input v-model:value="formData.area" placeholder="请输入区域" />
           </n-form-item>
         </n-gi>
-        <n-gi span="2">
+        <n-gi>
           <n-form-item label="地址" path="address">
             <n-input v-model:value="formData.address" placeholder="请输入仓库地址" />
           </n-form-item>
+        </n-gi>
+        <n-gi span="2">
+          <div class="TemplateForm-section">
+            <div class="TemplateForm-section__title">其他信息</div>
+          </div>
         </n-gi>
         <n-gi span="2">
           <n-form-item label="备注">
             <n-input type="textarea" v-model:value="formData.remark" placeholder="请输入备注" />
           </n-form-item>
         </n-gi>
+        <n-gi span="2">
+          <div class="TemplateForm-actions">
+            <n-flex justify="end">
+              <n-button type="primary" @click="confirmUpdate" :loading="isSubmitting" :disabled="isSubmitting">确定</n-button>
+            </n-flex>
+          </div>
+        </n-gi>
       </n-grid>
     </n-form>
-    <template #footer>
-      <n-flex justify="end">
-        <n-button type="primary" @click="confirmUpdate" :loading="isSubmitting" :disabled="isSubmitting">确定</n-button>
-      </n-flex>
-    </template>
   </n-modal>
   <n-modal
     :mask-closable="false"
@@ -301,5 +318,20 @@ onMounted(() => {
 <style lang="scss" scoped>
 .vxe-toolbar {
   padding: 0;
+}
+
+.TemplateForm-section {
+  margin-top: 4px;
+}
+
+.TemplateForm-section__title {
+  text-align: left;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--n-text-color-1);
+  padding-bottom: 12px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--n-divider-color);
 }
 </style>

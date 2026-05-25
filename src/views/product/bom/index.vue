@@ -198,13 +198,13 @@ onMounted(() => {
       </template>
     </l-card>
 
-    <n-modal v-model:show="showEdit" preset="card" title="编辑生产BOM" class="w-[1000px] max-w-[95vw]">
-      <div class="space-y-4">
-        <n-alert type="info" :show-icon="false">
+    <n-modal v-model:show="showEdit" preset="card" title="编辑生产BOM" class="TemplateModal TemplateModal--lg">
+      <n-form class="TemplateForm">
+        <n-alert type="info" :show-icon="false" class="mb-3">
           当前成品：{{ formData.productName || "-" }}
         </n-alert>
-        <div class="flex justify-between items-center">
-          <div class="text-sm text-gray-500">BOM 明细</div>
+        <div class="TemplateForm-section TemplateForm-section__head">
+          <div class="TemplateForm-section__title">BOM 明细</div>
           <n-button :size="componentSize" type="primary" @click="addDetail">新增零件</n-button>
         </div>
         <n-table striped :size="componentSize">
@@ -239,13 +239,13 @@ onMounted(() => {
             </tr>
           </tbody>
         </n-table>
-      </div>
-      <template #footer>
-        <div class="flex justify-end gap-2">
-          <n-button @click="showEdit = false">取消</n-button>
-          <n-button type="primary" :loading="submitting" @click="submit">保存</n-button>
+        <div class="TemplateForm-actions">
+          <n-flex justify="end">
+            <n-button @click="showEdit = false">取消</n-button>
+            <n-button type="primary" :loading="submitting" @click="submit">保存</n-button>
+          </n-flex>
         </div>
-      </template>
+      </n-form>
     </n-modal>
   </div>
 </template>

@@ -13,11 +13,16 @@ import {
 } from "@/model/inventory/inbound"
 import { InventoryInOrderService } from "@/services/inventory/InventoryInOrderService"
 import { WarehouseService } from "@/services/template/WarehouseService"
-import { WarehouseQuery, WarehouseVo } from "@/model/stock"
+import { OptionVo } from "@/model"
 import { resetRef } from "@/utils"
 import { useAppStore } from "@/store/modules/app"
 import { InventInOrderStatusDict, InventInOrderTypeDict } from "@/constants/enum"
+import {
+  TEMPLATE_MODAL_TABLE_MAX,
+  TEMPLATE_MODAL_TABLE_DETAIL_MAX
+} from "@/constants/template-ui"
 import PurchaseOrderRelatedModal from "@/views/purchase/components/PurchaseOrderRelatedModal.vue"
+import PurchaseModalDetailShell from "@/views/purchase/components/PurchaseModalDetailShell.vue"
 
 const appStore = useAppStore()
 const route = useRoute()
@@ -44,24 +49,15 @@ const data = ref<PageVo<InventoryInOrderVo, any>>({
 })
 const detailData = ref<InventoryInboundDetail>({ detailList: [], imageList: [] })
 const formData = ref<InventoryInOrderForm>({ detailList: [] })
-const warehouseQuery = ref<WarehouseQuery>({ currentPage: 1, pageSize: 500 })
-const warehouseData = ref<PageVo<WarehouseVo, void>>({
-  currentPage: 1,
-  pageSize: 500,
-  count: 0,
-  list: [],
-  extraData: undefined
-})
-
-const warehouseOptions = ref<{ label: string; value: string }[]>([])
+const warehouseOptions = ref<OptionVo[]>([])
 
 function loadWarehouseOptions() {
-  return WarehouseService.select(warehouseQuery.value).then((res) => {
-    warehouseData.value = res
-    warehouseOptions.value = (res.list || []).map((item) => ({
-      label: `【${item.code || "-"}】${item.name || "-"}`,
-      value: item.uid as string
-    }))
+  if (formData.value.warehouseOptions?.length) {
+    warehouseOptions.value = formData.value.warehouseOptions
+    return Promise.resolve()
+  }
+  return WarehouseService.options().then((list) => {
+    warehouseOptions.value = list
   })
 }
 
@@ -334,44 +330,61 @@ onMounted(() => {
       </template>
     </l-card>
 
-    <n-modal
-      v-model:show="showHandle"
-      preset="card"
-      class="purchase-modal"
-      content-style="padding: 0"
-      title="采购入库执行"
-    >
-      <div class="purchase-modal-body">
-        <n-card title="入库信息" :bordered="false" class="detail-card">
-          <n-form label-placement="left" label-width="90">
-            <n-grid :cols="3" x-gap="12">
-              <n-gi>
-                <n-form-item label="入库单号">
-                  <n-input :value="formData.code" disabled />
-                </n-form-item>
-              </n-gi>
-              <n-gi>
-                <n-form-item label="入库时间">
-                  <n-date-picker v-model:value="formData.time" type="datetime" class="w-full" />
-                </n-form-item>
-              </n-gi>
-              <n-gi>
-                <n-form-item label="入库仓库">
-                  <n-select v-model:value="formData.warehouseUid" :options="warehouseOptions" clearable />
-                </n-form-item>
-              </n-gi>
-            </n-grid>
-            <n-form-item label="备注">
-              <n-input v-model:value="formData.remark" type="textarea" />
-            </n-form-item>
-          </n-form>
-        </n-card>
-
-        <n-card title="入库明细" :bordered="false" class="detail-card">
-          <template #header-extra>
-            <n-button type="primary" secondary strong @click="useAllInbound">全部入库</n-button>
-          </template>
-          <vxe-table border stripe show-overflow align="center" :data="formData.detailList || []">
+    <n-modal v-model:show="showHandle" preset="card" class="TemplateModal TemplateModal--xxl" title="采购入库执行">
+      <n-spin :show="submitting">
+      <n-form :model="formData" class="TemplateForm" label-placement="left" label-width="96">
+          <n-grid cols="2" x-gap="16" y-gap="0">
+            <n-gi span="2">
+              <div class="TemplateForm-section">
+                <div class="TemplateForm-section__title">入库信息</div>
+              </div>
+            </n-gi>
+            <n-gi>
+              <n-form-item label="入库单号">
+                <n-input :value="formData.code" disabled />
+              </n-form-item>
+            </n-gi>
+            <n-gi>
+              <n-form-item label="入库时间">
+                <n-date-picker v-model:value="formData.time" type="datetime" class="w-full" clearable />
+              </n-form-item>
+            </n-gi>
+            <n-gi>
+              <n-form-item label="入库仓库">
+                <n-select
+                  v-model:value="formData.warehouseUid"
+                  :options="warehouseOptions"
+                  filterable
+                  clearable
+                  placeholder="请选择入库仓库"
+                  class="w-full"
+                />
+              </n-form-item>
+            </n-gi>
+            <n-gi span="2">
+              <n-form-item label="备注">
+                <n-input v-model:value="formData.remark" type="textarea" placeholder="请输入备注" />
+              </n-form-item>
+            </n-gi>
+            <n-gi span="2">
+              <div class="TemplateForm-section TemplateForm-section__head">
+                <div class="TemplateForm-section__title">入库明细</div>
+                <n-button type="info" secondary @click="useAllInbound">全部入库</n-button>
+              </div>
+            </n-gi>
+            <n-gi span="2">
+          <div
+            class="TemplateForm-table-wrap w-full"
+            :style="{ '--template-form-table-max': `${TEMPLATE_MODAL_TABLE_MAX}px` }"
+          >
+          <vxe-table
+            border
+            stripe
+            show-overflow
+            align="center"
+            :max-height="TEMPLATE_MODAL_TABLE_MAX"
+            :data="formData.detailList || []"
+          >
             <vxe-column field="name" title="物料名称" min-width="160" />
             <vxe-column field="spec" title="规格型号" min-width="150" />
             <vxe-column field="unitName" title="单位" min-width="90" />
@@ -389,81 +402,64 @@ onMounted(() => {
               </template>
             </vxe-column>
           </vxe-table>
-        </n-card>
-      </div>
-
-      <template #action>
-        <div class="flex justify-end gap-2">
-          <n-button @click="showHandle = false">取消</n-button>
-          <n-button type="primary" :loading="submitting" @click="confirmInbound">确定入库</n-button>
-        </div>
-      </template>
+          </div>
+            </n-gi>
+            <n-gi span="2">
+              <div class="TemplateForm-actions">
+                <n-flex justify="end">
+                  <n-button @click="showHandle = false">取消</n-button>
+                  <n-button type="primary" :loading="submitting" @click="confirmInbound">确定入库</n-button>
+                </n-flex>
+              </div>
+            </n-gi>
+          </n-grid>
+        </n-form>
+      </n-spin>
     </n-modal>
 
-    <n-modal
-      v-model:show="showDetail"
-      preset="card"
-      class="w-[1400px] h-screen overflow-auto"
-      content-style="padding: 0"
-      title="采购入库详情"
-    >
-      <n-spin :show="loading">
-        <div class="purchase-modal-body">
-          <n-card title="入库详情" :bordered="false" class="detail-card">
-            <n-descriptions bordered :column="3">
-              <n-descriptions-item label="入库单号">{{ detailData.code || "-" }}</n-descriptions-item>
-              <n-descriptions-item label="采购订单">
-                <n-button
-                  v-if="detailData.purchaseOrderCode"
-                  text
-                  type="info"
-                  @click="openRelatedOrder(detailData.purchaseOrderUid, detailData.purchaseOrderCode)"
-                >
-                  {{ detailData.purchaseOrderCode }}
-                </n-button>
-                <span v-else>-</span>
-              </n-descriptions-item>
-              <n-descriptions-item label="状态">{{ detailData.statusName || "-" }}</n-descriptions-item>
-              <n-descriptions-item label="仓库">{{ detailData.warehouseName || "-" }}</n-descriptions-item>
-              <n-descriptions-item label="入库时间">{{ detailData.timeName || "-" }}</n-descriptions-item>
-              <n-descriptions-item label="备注">{{ detailData.remark || "-" }}</n-descriptions-item>
-            </n-descriptions>
-          </n-card>
+    <n-modal v-model:show="showDetail" preset="card" class="TemplateModal TemplateModal--xxl" title="采购入库详情">
+      <PurchaseModalDetailShell :loading="loading">
+        <n-card title="入库详情" :bordered="false" class="detail-card">
+          <n-descriptions bordered :column="2" label-placement="left">
+            <n-descriptions-item label="入库单号">{{ detailData.code || "-" }}</n-descriptions-item>
+            <n-descriptions-item label="采购订单">
+              <n-button
+                v-if="detailData.purchaseOrderCode"
+                text
+                type="info"
+                @click="openRelatedOrder(detailData.purchaseOrderUid, detailData.purchaseOrderCode)"
+              >
+                {{ detailData.purchaseOrderCode }}
+              </n-button>
+              <span v-else>-</span>
+            </n-descriptions-item>
+            <n-descriptions-item label="状态">{{ detailData.statusName || "-" }}</n-descriptions-item>
+            <n-descriptions-item label="仓库">{{ detailData.warehouseName || "-" }}</n-descriptions-item>
+            <n-descriptions-item label="入库时间">{{ detailData.timeName || "-" }}</n-descriptions-item>
+            <n-descriptions-item label="备注" :span="2">{{ detailData.remark || "-" }}</n-descriptions-item>
+          </n-descriptions>
+        </n-card>
 
-          <n-card title="入库明细" :bordered="false" class="detail-card">
-            <vxe-table
-              border
-              stripe
-              show-overflow
-              :size="appStore.componentSize"
-              align="center"
-              :data="detailData.detailList || []"
-            >
-              <vxe-column field="name" title="物料名称" min-width="160" />
-              <vxe-column field="spec" title="规格型号" min-width="150" />
-              <vxe-column field="unitName" title="单位" min-width="90" />
-              <vxe-column field="quantity" title="入库数量" min-width="110" />
-              <vxe-column field="returnedQuantity" title="已退货数量" min-width="110" />
-            </vxe-table>
-          </n-card>
-        </div>
-      </n-spin>
+        <n-card title="入库明细" :bordered="false" class="detail-card">
+          <vxe-table
+            border
+            stripe
+            show-overflow
+            align="center"
+            :data="detailData.detailList || []"
+            :max-height="TEMPLATE_MODAL_TABLE_DETAIL_MAX"
+          >
+            <vxe-column field="name" title="物料名称" min-width="160" />
+            <vxe-column field="spec" title="规格型号" min-width="150" />
+            <vxe-column field="unitName" title="单位" min-width="90" />
+            <vxe-column field="quantity" title="入库数量" min-width="110" />
+            <vxe-column field="returnedQuantity" title="已退货数量" min-width="110" />
+          </vxe-table>
+        </n-card>
+      </PurchaseModalDetailShell>
     </n-modal>
 
     <PurchaseOrderRelatedModal v-model:show="showRelatedOrder" :uid="relatedOrder.uid" :code="relatedOrder.code" />
   </div>
 </template>
 
-<style lang="scss" scoped>
-.purchase-modal-body {
-  overflow-y: auto;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.detail-card {
-  border-radius: 18px;
-}
-</style>

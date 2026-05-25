@@ -809,6 +809,7 @@ export const templateWarehouseApi = {
   update: { url: `${apiPrefix.templateWarehouse}/update`, permission: "template:warehouse:edit" },
   delete: { url: `${apiPrefix.templateWarehouse}/delete`, permission: "template:warehouse:delete" },
   select: { url: `${apiPrefix.templateWarehouse}/select`, permission: "template:warehouse:select" },
+  options: { url: `${apiPrefix.templateWarehouse}/options`, permission: "" },
   form: { url: `${apiPrefix.templateWarehouse}/form`, permission: "" }
 }
 

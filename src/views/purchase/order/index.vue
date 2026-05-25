@@ -23,6 +23,12 @@ import { useAppStore } from "@/store/modules/app"
 import { resetRef } from "@/utils"
 import { FlowDefinitionTypeOptions } from "@/constants/flow"
 import {
+  TEMPLATE_MODAL_TABLE_MAX_TALL,
+  TEMPLATE_MODAL_TABLE_DETAIL_MAX,
+  TEMPLATE_MODAL_TABLE_PICKER_MAX,
+  TEMPLATE_MODAL_TABLE_RECORD_MAX
+} from "@/constants/template-ui"
+import {
   calcAmountWithoutTax,
   calcAmountWithTax,
   calcPriceWithoutTax,
@@ -33,6 +39,7 @@ import {
 } from "@/utils/purchasePrice"
 import PurchaseApplyRelatedModal from "@/views/purchase/components/PurchaseApplyRelatedModal.vue"
 import PurchaseInboundRelatedModal from "@/views/purchase/components/PurchaseInboundRelatedModal.vue"
+import PurchaseModalDetailShell from "@/views/purchase/components/PurchaseModalDetailShell.vue"
 import PurchaseOrderRelatedModal from "@/views/purchase/components/PurchaseOrderRelatedModal.vue"
 
 const PurchaseOrderStatus = {
@@ -520,15 +527,8 @@ onBeforeUnmount(() => {
       </template>
     </l-card>
 
-    <n-modal
-      v-model:show="showDetail"
-      preset="card"
-      class="w-[1400px] h-screen overflow-auto flex flex-col"
-      title="采购订单详情"
-    >
-      <n-spin :show="loading">
-        <div class="flex flex-1 min-h-0">
-          <div class="basis-2/3 flex flex-col gap-2 overflow-auto pr-2">
+    <n-modal v-model:show="showDetail" preset="card" class="TemplateModal TemplateModal--xxl" title="采购订单详情">
+      <PurchaseModalDetailShell :loading="loading">
             <n-card title="订单详情" :bordered="false" class="detail-card">
               <n-descriptions bordered :column="2" label-placement="left">
                 <n-descriptions-item label="订单编号">{{ detailData.code || "-" }}</n-descriptions-item>
@@ -564,7 +564,14 @@ onBeforeUnmount(() => {
             </n-card>
 
             <n-card title="订单明细" :bordered="false" class="detail-card">
-              <vxe-table border stripe show-overflow align="center" :data="detailData.detailList || []">
+              <vxe-table
+                border
+                stripe
+                show-overflow
+                align="center"
+                :data="detailData.detailList || []"
+                :max-height="TEMPLATE_MODAL_TABLE_DETAIL_MAX"
+              >
                 <vxe-column field="name" title="物料名称" min-width="160" />
                 <vxe-column field="spec" title="规格型号" min-width="150" />
                 <vxe-column field="unitName" title="单位" min-width="90" />
@@ -604,7 +611,14 @@ onBeforeUnmount(() => {
               :bordered="false"
               class="detail-card"
             >
-              <vxe-table border stripe show-overflow align="center" :data="detailData.inboundOrderList || []">
+              <vxe-table
+                border
+                stripe
+                show-overflow
+                align="center"
+                :data="detailData.inboundOrderList || []"
+                :max-height="TEMPLATE_MODAL_TABLE_RECORD_MAX"
+              >
                 <vxe-column field="code" title="入库单号" min-width="170">
                   <template #default="{ row }">
                     <n-button text type="info" @click="openRelatedInbound(row.uid, row.code)">
@@ -618,9 +632,7 @@ onBeforeUnmount(() => {
                 <vxe-column field="statusName" title="状态" min-width="100" />
               </vxe-table>
             </n-card>
-          </div>
-
-          <div class="basis-1/3 overflow-auto">
+          <template #side>
             <flow-schema-preview
               v-if="detailData.flowSchema"
               title="审批流程"
@@ -630,9 +642,8 @@ onBeforeUnmount(() => {
             <n-card v-else title="审批流程" :bordered="false" class="detail-card">
               <n-empty description="暂无流程数据" />
             </n-card>
-          </div>
-        </div>
-      </n-spin>
+          </template>
+      </PurchaseModalDetailShell>
     </n-modal>
 
     <PurchaseApplyRelatedModal v-model:show="showRelatedApply" :uid="relatedApply.uid" :code="relatedApply.code" />
@@ -643,49 +654,53 @@ onBeforeUnmount(() => {
       :code="relatedInbound.code"
     />
 
-    <n-modal
-      v-model:show="showConfirm"
-      preset="card"
-      class="w-[1400px] h-screen overflow-auto"
-      content-style="padding: 0"
-      title="确认采购订单"
-    >
+    <n-modal v-model:show="showConfirm" preset="card" class="TemplateModal TemplateModal--xxl" title="确认采购订单">
       <n-spin :show="submitting">
-        <div class="purchase-modal-body">
-          <n-card title="订单信息" :bordered="false" class="detail-card">
-            <n-form label-placement="left" label-width="90">
-              <n-grid :cols="3" x-gap="12">
-                <n-gi>
-                  <n-form-item label="订单编号">
-                    <n-input :value="confirmData.code" disabled />
-                  </n-form-item>
-                </n-gi>
-                <n-gi>
-                  <n-form-item label="订单类型">
-                    <n-input :value="confirmData.orderTypeName" disabled />
-                  </n-form-item>
-                </n-gi>
-                <n-gi>
-                  <n-form-item label="预计到货">
-                    <n-date-picker v-model:value="confirmData.expectTime" type="date" clearable class="w-full" />
-                  </n-form-item>
-                </n-gi>
-              </n-grid>
+        <n-form :model="confirmData" class="TemplateForm" label-placement="left" label-width="96">
+          <n-grid cols="2" x-gap="16" y-gap="0">
+            <n-gi span="2">
+              <div class="TemplateForm-section">
+                <div class="TemplateForm-section__title">订单信息</div>
+              </div>
+            </n-gi>
+            <n-gi>
+              <n-form-item label="订单编号">
+                <n-input :value="confirmData.code" disabled />
+              </n-form-item>
+            </n-gi>
+            <n-gi>
+              <n-form-item label="订单类型">
+                <n-input :value="confirmData.orderTypeName" disabled />
+              </n-form-item>
+            </n-gi>
+            <n-gi>
+              <n-form-item label="预计到货">
+                <n-date-picker v-model:value="confirmData.expectTime" type="date" clearable class="w-full" />
+              </n-form-item>
+            </n-gi>
+            <n-gi span="2">
               <n-form-item label="备注">
                 <n-input v-model:value="confirmData.remark" type="textarea" maxlength="200" show-count />
               </n-form-item>
-            </n-form>
-          </n-card>
-
-          <n-card title="订单明细" :bordered="false" class="detail-card">
-            <template #header-extra>
-              <n-button size="small" tertiary type="info" :loading="priceCompareLoading" @click="loadPriceCompare">
-                刷新历史价格
-              </n-button>
-            </template>
-            <n-alert type="info" show-icon class="mb-3">
-              历史价格仅统计审批通过及后续状态的采购订单，不包含当前订单、待审批和驳回订单。
-            </n-alert>
+            </n-gi>
+            <n-gi span="2">
+              <div class="TemplateForm-section TemplateForm-section__head">
+                <div class="TemplateForm-section__title">订单明细</div>
+                <n-button size="small" tertiary type="info" :loading="priceCompareLoading" @click="loadPriceCompare">
+                  刷新历史价格
+                </n-button>
+              </div>
+            </n-gi>
+            <n-gi span="2">
+              <n-alert type="info" show-icon class="mb-3">
+                历史价格仅统计审批通过及后续状态的采购订单，不包含当前订单、待审批和驳回订单。
+              </n-alert>
+            </n-gi>
+            <n-gi span="2">
+            <div
+              class="TemplateForm-table-wrap w-full"
+              :style="{ '--template-form-table-max': `${TEMPLATE_MODAL_TABLE_MAX_TALL}px` }"
+            >
             <vxe-table
               border
               stripe
@@ -694,6 +709,7 @@ onBeforeUnmount(() => {
               align="center"
               :loading="priceCompareLoading"
               :data="confirmData.detailList || []"
+              :max-height="TEMPLATE_MODAL_TABLE_MAX_TALL"
               :cell-config="{ height: 160 }"
             >
               <vxe-column field="name" title="物料名称" min-width="160" />
@@ -809,27 +825,25 @@ onBeforeUnmount(() => {
                 </template>
               </vxe-column>
             </vxe-table>
-          </n-card>
-        </div>
+            </div>
+            </n-gi>
+            <n-gi span="2">
+              <div class="TemplateForm-actions">
+                <n-flex justify="end">
+                  <n-button @click="showConfirm = false">取消</n-button>
+                  <n-button type="primary" :loading="submitting" @click="confirmOrder">提交审批</n-button>
+                </n-flex>
+              </div>
+            </n-gi>
+          </n-grid>
+        </n-form>
       </n-spin>
-
-      <template #action>
-        <div class="flex justify-end gap-2">
-          <n-button @click="showConfirm = false">取消</n-button>
-          <n-button type="primary" :loading="submitting" @click="confirmOrder">提交审批</n-button>
-        </div>
-      </template>
     </n-modal>
 
-    <n-modal
-      v-model:show="showPriceHistory"
-      preset="card"
-      class="w-[1100px]"
-      title="物料历史采购记录"
-      content-style="padding: 0"
-    >
-      <div class="purchase-modal-body">
-        <n-card :bordered="false" class="detail-card">
+    <n-modal v-model:show="showPriceHistory" preset="card" class="TemplateModal TemplateModal--xl" title="物料历史采购记录">
+      <n-spin :show="priceHistoryLoading">
+      <div class="TemplateModal__sections">
+      <n-card :bordered="false" class="detail-card">
           <div class="history-toolbar">
             <div>
               <div class="history-title">{{ priceHistoryData.itemName || "物料" }}</div>
@@ -837,6 +851,7 @@ onBeforeUnmount(() => {
             </div>
             <n-select
               v-model:value="priceHistoryQuery.supplierUid"
+              filterable
               clearable
               class="w-[260px]"
               placeholder="全部供应商"
@@ -852,6 +867,7 @@ onBeforeUnmount(() => {
             :size="appStore.componentSize"
             :loading="priceHistoryLoading"
             :data="priceHistoryData.list || []"
+            :max-height="TEMPLATE_MODAL_TABLE_DETAIL_MAX"
           >
             <vxe-column field="orderCode" title="订单编号" min-width="150" />
             <vxe-column field="supplierName" title="供应商" min-width="150" />
@@ -889,23 +905,12 @@ onBeforeUnmount(() => {
           />
         </n-card>
       </div>
+      </n-spin>
     </n-modal>
   </div>
 </template>
 
 <style lang="scss" scoped>
-.purchase-modal-body {
-  overflow-y: auto;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.detail-card {
-  border-radius: 18px;
-}
-
 .price-compare-cell {
   display: flex;
   flex-direction: column;

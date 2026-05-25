@@ -15,6 +15,7 @@ import {
   MaterialRequestOrderVo
 } from "@/model/inventory/request"
 import { MaterialRequestOrderService } from "@/services/inventory/MaterialRequestOrderService"
+import { TEMPLATE_MODAL_TABLE_DETAIL_MAX } from "@/constants/template-ui"
 
 const appStore = useAppStore()
 const message = useMessage()
@@ -282,22 +283,27 @@ onMounted(() => {
     </l-card>
   </div>
 
-  <n-modal v-model:show="showIssue" preset="card" class="w-[1100px] h-screen overflow-auto" :title="issueTitle()">
+  <n-modal v-model:show="showIssue" preset="card" class="TemplateModal TemplateModal--xl" :title="issueTitle()">
     <n-alert v-if="issueMode === 'all'" type="success" :show-icon="false" class="mb-3">
       全部出库会按剩余未出库数量扣减库存，若库存不足会直接提示。
     </n-alert>
     <n-alert v-else-if="issueMode === 'unable'" type="warning" :show-icon="false" class="mb-3">
       无法出库会关闭当前领料申请，请填写原因，方便后续追踪。
     </n-alert>
-    <n-descriptions bordered title="领料申请信息" column="4">
+      <div class="TemplateForm-section">
+        <div class="TemplateForm-section__title">申请信息</div>
+      </div>
+      <n-descriptions bordered column="4">
       <n-descriptions-item label="申请单号">{{ detailData.code || "-" }}</n-descriptions-item>
       <n-descriptions-item label="领料仓库">{{ detailData.warehouseName || "-" }}</n-descriptions-item>
       <n-descriptions-item label="用途类型">{{ detailData.usageTypeName || "-" }}</n-descriptions-item>
       <n-descriptions-item label="关联对象">{{ detailData.bizName || "-" }}</n-descriptions-item>
       <n-descriptions-item label="备注" :span="4">{{ detailData.remark || "-" }}</n-descriptions-item>
     </n-descriptions>
-    <m-card />
-    <vxe-table :data="detailData.detailList || []" border stripe max-height="420" :row-config="{ isHover: true }">
+      <div class="TemplateForm-section">
+        <div class="TemplateForm-section__title">出库明细</div>
+      </div>
+      <vxe-table :data="detailData.detailList || []" border stripe :max-height="TEMPLATE_MODAL_TABLE_DETAIL_MAX" :row-config="{ isHover: true }">
       <vxe-column field="name" title="物料名称" align="center" min-width="180" />
       <vxe-column field="spec" title="规格" align="center" min-width="130" />
       <vxe-column field="material" title="材质" align="center" min-width="120" />
@@ -326,23 +332,25 @@ onMounted(() => {
       </vxe-column>
       <vxe-column field="remark" title="备注" align="center" min-width="180" />
     </vxe-table>
-    <m-card />
-    <n-form-item :label="issueMode === 'unable' ? '无法出库原因' : '出库说明'">
-      <n-input
-        v-model:value="issueForm.comment"
-        type="textarea"
-        :placeholder="issueMode === 'unable' ? '请填写无法出库原因' : '请输入本次出库说明'"
-      />
-    </n-form-item>
-    <template #footer>
+      <div class="TemplateForm-section">
+        <div class="TemplateForm-section__title">{{ issueMode === 'unable' ? '无法出库说明' : '出库说明' }}</div>
+      </div>
+      <n-form-item :show-label="false">
+        <n-input
+          v-model:value="issueForm.comment"
+          type="textarea"
+          :placeholder="issueMode === 'unable' ? '请填写无法出库原因' : '请输入本次出库说明'"
+        />
+      </n-form-item>
+    <div class="TemplateForm-actions">
       <n-flex justify="end">
         <n-button @click="showIssue = false">取消</n-button>
         <n-button type="primary" :loading="submitting" @click="confirmIssue">确定</n-button>
       </n-flex>
-    </template>
+    </div>
   </n-modal>
 
-  <n-modal v-model:show="showDetail" preset="card" class="w-[1100px] h-screen overflow-auto" title="领料申请详情">
+  <n-modal v-model:show="showDetail" preset="card" class="TemplateModal TemplateModal--xl" title="领料申请详情">
     <n-descriptions bordered title="基础信息" column="4">
       <n-descriptions-item label="申请单号">{{ detailData.code || "-" }}</n-descriptions-item>
       <n-descriptions-item label="状态">{{ detailData.statusName || "-" }}</n-descriptions-item>
@@ -355,7 +363,7 @@ onMounted(() => {
       <n-descriptions-item label="备注" :span="4">{{ detailData.remark || "-" }}</n-descriptions-item>
     </n-descriptions>
     <m-card />
-    <vxe-table :data="detailData.detailList || []" border stripe max-height="420" :row-config="{ isHover: true }">
+    <vxe-table :data="detailData.detailList || []" border stripe :max-height="TEMPLATE_MODAL_TABLE_DETAIL_MAX" :row-config="{ isHover: true }">
       <vxe-column field="name" title="物料名称" align="center" min-width="180" />
       <vxe-column field="spec" title="规格" align="center" min-width="130" />
       <vxe-column field="material" title="材质" align="center" min-width="120" />

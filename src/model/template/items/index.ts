@@ -1,6 +1,7 @@
 import { BaseEntityLd, OptionVo, PageQuery, TreeOptionVo } from "@/model"
 
 export interface ItemsBase extends BaseEntityLd {
+  code?: string
   name?: string
   image?: string
   type?: string

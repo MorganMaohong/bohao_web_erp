@@ -2,7 +2,9 @@
 import { ref, watch } from "vue"
 import { InventoryInboundDetail } from "@/model/inventory/inbound"
 import { InventoryInOrderService } from "@/services/inventory/InventoryInOrderService"
+import { TEMPLATE_MODAL_TABLE_DETAIL_MAX } from "@/constants/template-ui"
 import { InventInOrderTypeDict } from "@/constants/enum"
+import PurchaseModalDetailShell from "@/views/purchase/components/PurchaseModalDetailShell.vue"
 
 const props = defineProps<{
   show: boolean
@@ -66,45 +68,38 @@ watch(() => [props.show, props.uid, props.code], loadDetail, { immediate: true }
   <n-modal
     :show="show"
     preset="card"
-    class="w-[1400px] h-screen overflow-auto flex flex-col"
+    class="TemplateModal TemplateModal--xxl"
     title="采购入库详情"
     @update:show="updateShow"
   >
-    <n-spin :show="loading">
-      <div class="purchase-related-body">
-        <n-card title="入库详情" :bordered="false" class="detail-card">
-          <n-descriptions bordered :column="3">
-            <n-descriptions-item label="入库单号">{{ detailData.code || "-" }}</n-descriptions-item>
-            <n-descriptions-item label="采购订单">{{ detailData.purchaseOrderCode || "-" }}</n-descriptions-item>
-            <n-descriptions-item label="状态">{{ detailData.statusName || "-" }}</n-descriptions-item>
-            <n-descriptions-item label="仓库">{{ detailData.warehouseName || "-" }}</n-descriptions-item>
-            <n-descriptions-item label="入库时间">{{ detailData.timeName || "-" }}</n-descriptions-item>
-            <n-descriptions-item label="备注">{{ detailData.remark || "-" }}</n-descriptions-item>
-          </n-descriptions>
-        </n-card>
+    <PurchaseModalDetailShell :loading="loading">
+      <n-card title="入库详情" :bordered="false" class="detail-card">
+        <n-descriptions bordered :column="2" label-placement="left">
+          <n-descriptions-item label="入库单号">{{ detailData.code || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="采购订单">{{ detailData.purchaseOrderCode || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="状态">{{ detailData.statusName || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="仓库">{{ detailData.warehouseName || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="入库时间">{{ detailData.timeName || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="备注" :span="2">{{ detailData.remark || "-" }}</n-descriptions-item>
+        </n-descriptions>
+      </n-card>
 
-        <n-card title="入库明细" :bordered="false" class="detail-card">
-          <vxe-table border stripe show-overflow align="center" :data="detailData.detailList || []">
-            <vxe-column field="name" title="物料名称" min-width="160" />
-            <vxe-column field="spec" title="规格型号" min-width="150" />
-            <vxe-column field="unitName" title="单位" min-width="90" />
-            <vxe-column field="quantity" title="入库数量" min-width="110" />
-            <vxe-column field="returnedQuantity" title="已退货数量" min-width="110" />
-          </vxe-table>
-        </n-card>
-      </div>
-    </n-spin>
+      <n-card title="入库明细" :bordered="false" class="detail-card">
+        <vxe-table
+          border
+          stripe
+          show-overflow
+          align="center"
+          :data="detailData.detailList || []"
+          :max-height="TEMPLATE_MODAL_TABLE_DETAIL_MAX"
+        >
+          <vxe-column field="name" title="物料名称" min-width="160" />
+          <vxe-column field="spec" title="规格型号" min-width="150" />
+          <vxe-column field="unitName" title="单位" min-width="90" />
+          <vxe-column field="quantity" title="入库数量" min-width="110" />
+          <vxe-column field="returnedQuantity" title="已退货数量" min-width="110" />
+        </vxe-table>
+      </n-card>
+    </PurchaseModalDetailShell>
   </n-modal>
 </template>
-
-<style lang="scss" scoped>
-.purchase-related-body {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.detail-card {
-  border-radius: 18px;
-}
-</style>

@@ -25,6 +25,11 @@ const formData = ref<ItemsForm>({})
 const formRef = ref<FormInst>()
 const loading = ref(false)
 const formRule = {
+  code: {
+    required: true,
+    message: "请输入物料编码",
+    trigger: ["input", "blur"]
+  },
   itemBizType: {
     required: true,
     message: "请选择物料业务类型",
@@ -95,6 +100,7 @@ function showCopyModal(uid: string) {
     formData.value = res
     formData.value.uid = undefined
     formData.value.id = undefined
+    formData.value.code = undefined
   })
 }
 
@@ -276,7 +282,8 @@ onMounted(() => {
               ref="VxeTableRef"
               :size="componentSize"
             >
-              <vxe-column field="name" title="名称" show-overflow="tooltip" align="center" width="20%" />
+              <vxe-column field="code" title="物料编码" show-overflow="tooltip" align="center" width="12%" />
+              <vxe-column field="name" title="名称" show-overflow="tooltip" align="center" width="18%" />
               <vxe-column title="图片" show-overflow="tooltip" align="center" width="10%">
                 <template #default="{ row }">
                   <div class="flex justify-center items-center">
@@ -376,19 +383,35 @@ onMounted(() => {
     </l-card>
   </div>
   <!-- 弹窗 -->
-  <n-modal v-model:show="showUpdate" preset="card" class="w-[700px]" title="物料信息">
-    <n-form :model="formData" ref="formRef" :rules="formRule">
-      <n-grid cols="2" x-gap="12">
+  <n-modal v-model:show="showUpdate" preset="card" class="TemplateModal TemplateModal--md" title="物料信息">
+    <n-form :model="formData" ref="formRef" :rules="formRule" class="ItemsForm">
+      <n-grid cols="2" x-gap="16" y-gap="0">
         <n-gi span="2">
           <n-form-item label="图片">
             <FastUpload @before-upload="handlerBeforeUpload">
-              <div class="max-w-[120px] max-h-[120px]" v-if="formData.image">
+              <div class="ItemsForm-upload" v-if="formData.image">
                 <n-image :src="formData.image" preview-disabled class="cursor-pointer" />
               </div>
-              <n-icon v-else size="60" class="cursor-pointer">
-                <AddPhotoAlternateRound />
-              </n-icon>
+              <div v-else class="ItemsForm-upload ItemsForm-upload--empty">
+                <n-icon size="40">
+                  <AddPhotoAlternateRound />
+                </n-icon>
+              </div>
             </FastUpload>
+          </n-form-item>
+        </n-gi>
+        <n-gi span="2">
+          <div class="ItemsForm-section">
+            <div class="ItemsForm-section__title">基本信息</div>
+          </div>
+        </n-gi>
+        <n-gi>
+          <n-form-item label="物料编码" path="code">
+            <n-input
+              v-model:value="formData.code"
+              :disabled="Boolean(formData.uid)"
+              placeholder="请输入物料编码"
+            />
           </n-form-item>
         </n-gi>
         <n-gi>
@@ -402,15 +425,6 @@ onMounted(() => {
               v-model:value="formData.itemBizType"
               :options="formData.itemBizTypeOptions"
               placeholder="请选择业务类型"
-            />
-          </n-form-item>
-        </n-gi>
-        <n-gi>
-          <n-form-item label="供应商" path="supplierUid">
-            <n-select
-              v-model:value="formData.supplierUid"
-              :options="formData.supplierOptions"
-              placeholder="请选择供应商"
             />
           </n-form-item>
         </n-gi>
@@ -445,6 +459,21 @@ onMounted(() => {
           </n-form-item>
         </n-gi>
         <n-gi>
+          <n-form-item label="供应商" path="supplierUid">
+            <n-select
+              v-model:value="formData.supplierUid"
+              :options="formData.supplierOptions"
+              placeholder="请选择供应商"
+              clearable
+            />
+          </n-form-item>
+        </n-gi>
+        <n-gi span="2">
+          <div class="ItemsForm-section">
+            <div class="ItemsForm-section__title">规格信息</div>
+          </div>
+        </n-gi>
+        <n-gi>
           <n-form-item label="品牌">
             <n-input v-model:value="formData.brand" placeholder="请输入品牌" />
           </n-form-item>
@@ -454,16 +483,21 @@ onMounted(() => {
             <n-input v-model:value="formData.spec" placeholder="请输入规格" />
           </n-form-item>
         </n-gi>
-        <n-gi>
+        <n-gi span="2">
           <n-form-item label="材质">
             <n-input v-model:value="formData.material" placeholder="请输入材质" />
           </n-form-item>
         </n-gi>
+        <n-gi span="2">
+          <div class="ItemsForm-section">
+            <div class="ItemsForm-section__title">价格信息</div>
+          </div>
+        </n-gi>
         <n-gi>
-          <n-form-item label="增值税率%" class="w-full">
+          <n-form-item label="增值税率(%)">
             <n-input-number
               v-model:value="formData.vatTaxRate"
-              placeholder="请输入增值税率，如13"
+              placeholder="如 13"
               :show-button="false"
               :min="0"
               :max="100"
@@ -472,7 +506,7 @@ onMounted(() => {
           </n-form-item>
         </n-gi>
         <n-gi>
-          <n-form-item label="采购单价（含税）/元" class="w-full">
+          <n-form-item label="采购单价(含税)">
             <n-input-number
               class="w-full"
               v-model:value="formData.purchasePriceWithTax"
@@ -483,11 +517,11 @@ onMounted(() => {
           </n-form-item>
         </n-gi>
         <n-gi>
-          <n-form-item label="采购单价（不含税）/元" class="w-full">
+          <n-form-item label="采购单价(不含税)">
             <n-input-number
               class="w-full"
               v-model:value="formData.purchasePriceWithoutTax"
-              placeholder="根据含税单价和税率自动计算"
+              placeholder="自动计算"
               :show-button="false"
               :min="0"
               disabled
@@ -495,11 +529,11 @@ onMounted(() => {
           </n-form-item>
         </n-gi>
         <n-gi>
-          <n-form-item label="税额/元" class="w-full">
+          <n-form-item label="税额">
             <n-input-number
               class="w-full"
               v-model:value="formData.taxAmount"
-              placeholder="根据采购含税价自动计算"
+              placeholder="自动计算"
               :show-button="false"
               :min="0"
               disabled
@@ -507,22 +541,22 @@ onMounted(() => {
           </n-form-item>
         </n-gi>
         <n-gi>
-          <n-form-item label="销售单价（含税）/元" class="w-full">
+          <n-form-item label="销售单价(含税)">
             <n-input-number
               class="w-full"
               v-model:value="formData.salePriceWithTax"
-              placeholder="请输入销售含税单价"
+              placeholder="请输入含税单价"
               :show-button="false"
               :min="0"
             />
           </n-form-item>
         </n-gi>
         <n-gi>
-          <n-form-item label="销售单价（不含税）/元" class="w-full">
+          <n-form-item label="销售单价(不含税)">
             <n-input-number
               class="w-full"
               v-model:value="formData.salePriceWithoutTax"
-              placeholder="根据销售含税单价和税率自动计算"
+              placeholder="自动计算"
               :show-button="false"
               :min="0"
               disabled
@@ -531,16 +565,18 @@ onMounted(() => {
         </n-gi>
         <n-gi span="2">
           <n-form-item label="备注">
-            <n-input type="textarea" v-model:value="formData.remark" placeholder="" />
+            <n-input type="textarea" v-model:value="formData.remark" placeholder="请输入备注" />
           </n-form-item>
+        </n-gi>
+        <n-gi span="2">
+          <div class="TemplateForm-actions">
+            <n-flex justify="end">
+              <n-button type="primary" @click="confirmUpdate" :loading="isSubmitting" :disabled="isSubmitting">确定</n-button>
+            </n-flex>
+          </div>
         </n-gi>
       </n-grid>
     </n-form>
-    <template #footer>
-      <n-flex justify="end">
-        <n-button type="primary" @click="confirmUpdate" :loading="isSubmitting" :disabled="isSubmitting">确定</n-button>
-      </n-flex>
-    </template>
   </n-modal>
   <n-modal
     :mask-closable="false"
@@ -558,5 +594,47 @@ onMounted(() => {
 <style lang="scss" scoped>
 .vxe-toolbar {
   padding: 0;
+}
+
+.ItemsForm-section {
+  margin-top: 4px;
+}
+
+.ItemsForm-section__title {
+  text-align: left;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--n-text-color-1);
+  padding-bottom: 12px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--n-divider-color);
+}
+
+.ItemsForm-upload {
+  width: 100px;
+  height: 100px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px dashed var(--n-border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.2s;
+
+  &:hover {
+    border-color: var(--n-primary-color);
+  }
+
+  :deep(.n-image) {
+    width: 100%;
+    height: 100%;
+  }
+}
+
+.ItemsForm-upload--empty {
+  color: var(--n-text-color-3);
+  background: var(--n-action-color);
 }
 </style>

@@ -1,0 +1,130 @@
+// 基础资料 / 库存等业务弹窗：上下近全屏，左右固定宽度；仅卡片内容区滚动
+.TemplateModal.n-modal {
+  max-width: 96vw !important;
+
+  &.TemplateModal--sm {
+    width: 680px !important;
+  }
+
+  &.TemplateModal--md {
+    width: 760px !important;
+  }
+
+  &.TemplateModal--lg {
+    width: 1000px !important;
+  }
+
+  &.TemplateModal--xl {
+    width: 1200px !important;
+  }
+
+  &.TemplateModal--xxl {
+    width: 1380px !important;
+  }
+
+  // preset="card" 时 class 落在 n-card 根节点（非子级），须直接选中自身
+  &.n-card {
+    height: calc(100vh - 48px);
+    max-height: calc(100vh - 48px);
+    display: flex;
+    flex-direction: column;
+  }
+
+  &.n-card > .n-card-header {
+    flex-shrink: 0;
+  }
+
+  &.n-card > .n-card__content {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding: 16px 20px;
+  }
+
+  // 操作按钮随内容滚动，不使用固定底栏
+  &.n-card > .n-card__footer,
+  &.n-card > .n-card__action {
+    display: none;
+  }
+}
+
+.TemplateModal__body,
+.TemplateModal-detail-scroll {
+  overflow: visible;
+  max-height: none;
+}
+
+.TemplateModal__sections {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow: visible;
+  max-height: none;
+  width: 100%;
+}
+
+// 未使用 TemplateModal__sections 包裹时，相邻详情卡片仍保留间距
+.TemplateModal .n-card__content > .detail-card + .detail-card,
+.TemplateModal .n-spin-content > .detail-card + .detail-card {
+  margin-top: 16px;
+}
+
+.TemplateModal__sections > .detail-card + .detail-card {
+  margin-top: 0;
+}
+
+.TemplateModal__split {
+  display: flex;
+  gap: 16px;
+  width: 100%;
+  align-items: flex-start;
+  overflow: visible;
+  max-height: none;
+}
+
+.TemplateModal__split-main {
+  flex: 2;
+  min-width: 0;
+  overflow: visible;
+  max-height: none;
+}
+
+.TemplateModal__split-side {
+  flex: 1;
+  min-width: 0;
+  overflow: visible;
+  max-height: none;
+}
+
+// 无右侧流程区时主栏占满宽度（入库/退货详情等）
+.TemplateModal__split--solo .TemplateModal__split-main {
+  flex: 1 1 100%;
+  max-width: 100%;
+}
+
+.TemplateModal .detail-card {
+  flex: 0 0 auto;
+  height: auto !important;
+  max-height: none !important;
+  border-radius: 12px;
+
+  > .n-card-header {
+    flex-shrink: 0;
+    padding: 12px 16px 4px;
+  }
+
+  > .n-card__content {
+    flex: 0 0 auto;
+    min-height: 0;
+    overflow: visible;
+    padding: 0 16px 14px;
+  }
+}
+
+// 弹窗表单内表格区域：限制高度，避免撑满弹窗
+.TemplateModal .TemplateForm-table-wrap {
+  width: 100%;
+  flex: 0 0 auto;
+  max-height: var(--template-form-table-max, 280px);
+  overflow: hidden;
+}
