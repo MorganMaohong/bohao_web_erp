@@ -6,6 +6,7 @@ import { VxeTableInstance, VxeToolbarInstance } from "vxe-table"
 import { VxePagerEvents } from "vxe-pc-ui"
 import { useAppStore } from "@/store/modules/app"
 import LCard from "@/components/LCard/index.vue"
+import ErpFormModal from "@/components/ErpFormModal/index.vue"
 import MCard from "@/components/MCard/index.vue"
 import FastUpload from "@/components/FastUpload/FastUpload.vue"
 import FlowSchemaPreview from "@/components/FlowSchemaPreview/index.vue"
@@ -854,7 +855,7 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <n-form label-placement="left" :size="componentSize" class="NaiveForm">
+          <n-form label-placement="left" class="NaiveForm">
             <n-grid :cols="4" x-gap="12" y-gap="12">
               <n-gi>
                 <n-form-item label="计划:">
@@ -864,11 +865,11 @@ onMounted(() => {
               <n-gi span="3">
                 <n-form-item>
                   <div class="flex gap-2">
-                    <n-button :size="componentSize" type="info" secondary strong @click="search">
+                    <n-button type="primary" @click="search">
                       <template #icon><n-icon><Search /></n-icon></template>
                       搜索
                     </n-button>
-                    <n-button :size="componentSize" type="tertiary" secondary strong @click="reset">
+                    <n-button @click="reset">
                       <template #icon><n-icon><Reset /></n-icon></template>
                       重置
                     </n-button>
@@ -882,7 +883,7 @@ onMounted(() => {
       <template #default>
         <m-card class="w-full h-full flex flex-col" padding="0">
           <m-card padding="0" class="px-2 pt-2 flex items-center justify-between">
-            <n-button type="primary" :size="componentSize" @click="openEdit()">新增计划</n-button>
+            <n-button type="primary" @click="openEdit()">新增计划</n-button>
             <vxe-toolbar ref="VxeToolbarRef" custom />
           </m-card>
           <m-card ref="TableCardRef" class="flex-1">
@@ -944,7 +945,8 @@ onMounted(() => {
       </template>
     </l-card>
 
-    <n-modal v-model:show="showEdit" preset="card" title="生产计划" class="TemplateModal TemplateModal--xl">
+    <ErpFormModal v-model:show="showEdit" title="生产计划" size="xl">
+
       <n-form class="TemplateForm">
         <n-grid cols="2" x-gap="16" y-gap="0">
           <n-gi v-if="planFormReadonly" span="2">
@@ -1000,7 +1002,7 @@ onMounted(() => {
           <n-gi span="2">
             <div class="TemplateForm-section TemplateForm-section__head">
               <div class="TemplateForm-section__title">成品列表</div>
-              <n-button v-if="!planFormReadonly" :size="componentSize" type="primary" @click="addProduct">新增成品</n-button>
+              <n-button v-if="!planFormReadonly" type="primary" @click="addProduct">新增成品</n-button>
             </div>
           </n-gi>
           <n-gi span="2">
@@ -1040,22 +1042,20 @@ onMounted(() => {
                     />
                   </td>
                   <td><n-input-number v-model:value="item.quantity" :min="0.000001" class="w-full" :disabled="planFormReadonly" /></td>
-                  <td><n-button v-if="!planFormReadonly" :size="componentSize" type="error" tertiary @click="removeProduct(index)">删除</n-button></td>
+                  <td><n-button v-if="!planFormReadonly" type="error" tertiary @click="removeProduct(index)">删除</n-button></td>
                 </tr>
               </tbody>
             </n-table>
           </n-gi>
-          <n-gi span="2">
-            <div class="TemplateForm-actions">
-              <n-flex justify="end">
-                <n-button @click="showEdit = false">取消</n-button>
-                <n-button v-if="!planFormReadonly" type="primary" :loading="submitting" @click="submitPlan">保存</n-button>
-              </n-flex>
-            </div>
-          </n-gi>
         </n-grid>
       </n-form>
-    </n-modal>
+    <template #footer>
+      <n-flex justify="end">
+        <n-button @click="showEdit = false">取消</n-button>
+                <n-button v-if="!planFormReadonly" type="primary" :loading="submitting" @click="submitPlan">保存</n-button>
+      </n-flex>
+    </template>
+  </ErpFormModal>
 
     <n-modal v-model:show="showDetail" preset="card" title="生产计划详情" class="w-[1400px] max-w-[98vw]">
       <div class="space-y-4">
@@ -1076,16 +1076,14 @@ onMounted(() => {
                 v-if="detailData.status === 'completed' && !detailData.inboundCompleted"
                 type="error"
                 tertiary
-                :size="componentSize"
                 @click="openClose(detailData.uid)"
               >
                 关闭计划
               </n-button>
-              <n-button v-if="detailData.status === 'closed'" type="error" :size="componentSize" @click="deletePlan(detailData.uid)">删除计划</n-button>
+              <n-button v-if="detailData.status === 'closed'" type="error" @click="deletePlan(detailData.uid)">删除计划</n-button>
               <n-button
                 v-if="canOpenCurrentStage(detailData)"
                 type="primary"
-                :size="componentSize"
                 @click="openCurrentStage(detailData)"
               >
                 {{ stageActionLabel(detailData) }}
@@ -1162,9 +1160,9 @@ onMounted(() => {
                 </div>
               </div>
               <div class="flex gap-2">
-                <n-button v-if="detailData.currentStage === 'process'" :size="componentSize" @click="editProcessItem(detailData.uid!, process)">编辑</n-button>
-                <n-button v-if="detailData.currentStage === 'process'" :size="componentSize" type="error" tertiary @click="deleteProcess(detailData.uid, process.uid)">删除</n-button>
-                <n-button v-if="detailData.currentStage === 'process'" :size="componentSize" type="success" @click="confirmProcess(detailData.uid)">确认工序完成</n-button>
+                <n-button v-if="detailData.currentStage === 'process'" @click="editProcessItem(detailData.uid!, process)">编辑</n-button>
+                <n-button v-if="detailData.currentStage === 'process'" type="error" tertiary @click="deleteProcess(detailData.uid, process.uid)">删除</n-button>
+                <n-button v-if="detailData.currentStage === 'process'" type="success" @click="confirmProcess(detailData.uid)">确认工序完成</n-button>
               </div>
             </div>
             <div class="mt-3 space-y-2">
@@ -1176,8 +1174,8 @@ onMounted(() => {
                 </div>
                 <div class="flex gap-2">
                   <n-tag :type="node.completed ? 'success' : 'warning'">{{ node.completed ? "已完成" : "待处理" }}</n-tag>
-                  <n-button v-if="detailData.currentStage === 'process'" :size="componentSize" type="primary" @click="openCompleteNode(process.uid, node.uid)">完工</n-button>
-                  <n-button v-if="detailData.currentStage === 'process'" :size="componentSize" type="error" tertiary @click="reworkNode(detailData.uid, process.uid, node.uid)">返工</n-button>
+                  <n-button v-if="detailData.currentStage === 'process'" type="primary" @click="openCompleteNode(process.uid, node.uid)">完工</n-button>
+                  <n-button v-if="detailData.currentStage === 'process'" type="error" tertiary @click="reworkNode(detailData.uid, process.uid, node.uid)">返工</n-button>
                 </div>
               </div>
             </div>
@@ -1189,7 +1187,7 @@ onMounted(() => {
     <n-modal v-model:show="showPrepare" preset="card" title="备料" class="w-[1200px] max-w-[96vw] prepare-modal">
       <div class="space-y-4">
         <div class="flex justify-end">
-          <n-button :size="componentSize" type="primary" @click="addPrepareBom">新增BOM</n-button>
+          <n-button type="primary" @click="addPrepareBom">新增BOM</n-button>
         </div>
         <div class="modal-table-scroll">
           <n-table :size="componentSize" striped class="plan-modal-table prepare-modal-table">
@@ -1262,7 +1260,7 @@ onMounted(() => {
                 <td class="text-center whitespace-nowrap">{{ item.requiredQuantity || 0 }}</td>
                 <td class="text-center whitespace-nowrap">{{ item.stockQuantity || 0 }}</td>
                 <td><n-input v-model:value="item.remark" class="compact-input" /></td>
-                <td class="text-center"><n-button :size="componentSize" type="error" tertiary @click="removePrepareBom(index)">删除</n-button></td>
+                <td class="text-center"><n-button type="error" tertiary @click="removePrepareBom(index)">删除</n-button></td>
               </tr>
             </tbody>
           </n-table>
@@ -1277,7 +1275,8 @@ onMounted(() => {
       </template>
     </n-modal>
 
-    <n-modal v-model:show="showIssue" preset="card" title="领料" class="w-[1200px] max-w-[96vw]">
+    <ErpFormModal v-model:show="showIssue" title="领料" size="xl">
+
       <n-alert
         v-if="issuePlanMeta.issueStatusName"
         class="mb-3"
@@ -1288,7 +1287,7 @@ onMounted(() => {
         <template v-if="issuePlanMeta.materialRequestCode">（申请单：{{ issuePlanMeta.materialRequestCode }}）</template>
       </n-alert>
       <div class="mb-3 flex justify-end">
-        <n-button :size="componentSize" type="primary" tertiary :disabled="issueFormReadonly" @click="fillAllIssueQuantity">全部领料</n-button>
+        <n-button type="primary" tertiary :disabled="issueFormReadonly" @click="fillAllIssueQuantity">全部领料</n-button>
       </div>
       <div class="modal-table-scroll">
         <n-table :size="componentSize" striped class="plan-modal-table">
@@ -1335,18 +1334,20 @@ onMounted(() => {
               <td class="text-center whitespace-nowrap">{{ item.requiredQuantity || 0 }}</td>
               <td class="text-center whitespace-nowrap">{{ item.issuedQuantity || 0 }}</td>
               <td><n-input-number v-model:value="item.quantity" :min="0" :max="getIssueRowMax(item)" :disabled="issueFormReadonly" class="w-full compact-number" /></td>
-              <td class="text-center"><n-button :size="componentSize" tertiary :disabled="issueFormReadonly" @click="fillIssueRowQuantity(item)">全部</n-button></td>
+              <td class="text-center"><n-button tertiary :disabled="issueFormReadonly" @click="fillIssueRowQuantity(item)">全部</n-button></td>
             </tr>
           </tbody>
         </n-table>
       </div>
-      <template #footer>
+    <template #footer>
+      <n-flex justify="end">
         <div class="flex justify-end gap-2">
           <n-button @click="showIssue = false">关闭</n-button>
           <n-button v-if="canSubmitIssueRequest" type="primary" :loading="submitting" @click="submitIssue">提交领料申请</n-button>
         </div>
-      </template>
-    </n-modal>
+      </n-flex>
+    </template>
+  </ErpFormModal>
 
     <n-modal v-model:show="showProcess" preset="card" title="工序" class="w-[900px] max-w-[92vw]">
       <n-grid :cols="2" x-gap="12">
@@ -1418,7 +1419,6 @@ onMounted(() => {
       </n-alert>
       <div class="mb-3 flex justify-end">
         <n-button
-          :size="componentSize"
           type="primary"
           tertiary
           :disabled="inboundFormReadonly || !inboundCanSubmit"
@@ -1478,7 +1478,7 @@ onMounted(() => {
                 />
               </td>
               <td class="text-center">
-                <n-button :size="componentSize" tertiary :disabled="inboundFormReadonly" @click="fillInboundRowQuantity(item)">全部</n-button>
+                <n-button tertiary :disabled="inboundFormReadonly" @click="fillInboundRowQuantity(item)">全部</n-button>
               </td>
             </tr>
           </tbody>

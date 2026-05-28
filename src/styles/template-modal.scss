@@ -39,11 +39,27 @@
     min-height: 0;
     overflow: auto;
     padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
   }
 
-  // 操作按钮随内容滚动，不使用固定底栏
-  &.n-card > .n-card__footer,
-  &.n-card > .n-card__action {
+  // 复杂业务（表格 + 内嵌底栏）：内容区不整体滚动，由 TemplateForm--sticky-footer 内部滚动
+  &.n-card > .n-card__content:has(.TemplateForm--sticky-footer) {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  &.n-card > .n-card__content > .n-form.TemplateForm--sticky-footer,
+  &.n-card > .n-card__content > .n-spin-container .n-form.TemplateForm--sticky-footer {
+    flex: 1 1 0%;
+    min-height: 0;
+    align-self: stretch;
+    width: 100%;
+  }
+
+  &.n-card > .n-card__footer:empty,
+  &.n-card > .n-card__action:empty {
     display: none;
   }
 }
@@ -77,14 +93,19 @@
   display: flex;
   gap: 16px;
   width: 100%;
-  align-items: flex-start;
+  flex: 1 1 auto;
+  min-height: 0;
+  align-items: stretch;
   overflow: visible;
   max-height: none;
 }
 
 .TemplateModal__split-main {
+  display: flex;
+  flex-direction: column;
   flex: 2;
   min-width: 0;
+  min-height: 0;
   overflow: visible;
   max-height: none;
 }
@@ -121,10 +142,36 @@
   }
 }
 
-// 弹窗表单内表格区域：限制高度，避免撑满弹窗
+// n-spin 包裹的分栏弹窗需占满内容区高度
+.TemplateModal.n-modal > .n-card__content > .n-spin-container {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.TemplateModal .n-spin-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+// 选料等弹窗：操作区为内容区直接子节点（与表单内操作栏统一样式见 template-form.scss）
+
+// 弹窗表单内表格区域：限制高度，避免撑满弹窗（sticky-footer 表单内由 flex 控制高度）
 .TemplateModal .TemplateForm-table-wrap {
   width: 100%;
   flex: 0 0 auto;
   max-height: var(--template-form-table-max, 280px);
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: auto;
+}
+
+.TemplateModal .TemplateForm--sticky-footer .ProcessTemplateForm-nodes__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow-x: auto;
+  overflow-y: auto;
 }

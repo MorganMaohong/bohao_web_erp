@@ -5,6 +5,7 @@ import { VxeTableInstance, VxeToolbarInstance } from "vxe-table"
 import { VxePagerEvents } from "vxe-pc-ui"
 import { useAppStore } from "@/store/modules/app"
 import LCard from "@/components/LCard/index.vue"
+import ErpFormModal from "@/components/ErpFormModal/index.vue"
 import MCard from "@/components/MCard/index.vue"
 import { PageVo } from "@/model"
 import { resetRef } from "@/utils"
@@ -151,7 +152,7 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <n-form label-placement="left" :size="componentSize" class="NaiveForm">
+          <n-form label-placement="left" class="NaiveForm">
             <n-grid :cols="4" x-gap="12" y-gap="12">
               <n-gi>
                 <n-form-item label="模板:">
@@ -161,11 +162,11 @@ onMounted(() => {
               <n-gi span="3">
                 <n-form-item>
                   <div class="flex gap-2">
-                    <n-button :size="componentSize" type="info" secondary strong @click="search">
+                    <n-button type="primary" @click="search">
                       <template #icon><n-icon><Search /></n-icon></template>
                       搜索
                     </n-button>
-                    <n-button :size="componentSize" type="tertiary" secondary strong @click="reset">
+                    <n-button @click="reset">
                       <template #icon><n-icon><Reset /></n-icon></template>
                       重置
                     </n-button>
@@ -179,7 +180,7 @@ onMounted(() => {
       <template #default>
         <m-card class="w-full h-full flex flex-col" padding="0">
           <m-card padding="0" class="px-2 pt-2 flex items-center justify-between">
-            <n-button type="primary" :size="componentSize" @click="openEdit()">新增模板</n-button>
+            <n-button type="primary" @click="openEdit()">新增模板</n-button>
             <vxe-toolbar ref="VxeToolbarRef" custom />
           </m-card>
           <m-card ref="TableCardRef" class="flex-1">
@@ -224,7 +225,8 @@ onMounted(() => {
       </template>
     </l-card>
 
-    <n-modal v-model:show="showEdit" preset="card" title="工序模板" class="TemplateModal TemplateModal--xl">
+    <ErpFormModal v-model:show="showEdit" title="工序模板" size="xl">
+
       <n-form class="TemplateForm">
         <n-grid cols="2" x-gap="16" y-gap="0">
           <n-gi span="2">
@@ -245,7 +247,7 @@ onMounted(() => {
           <n-gi span="2">
             <div class="TemplateForm-section TemplateForm-section__head">
               <div class="TemplateForm-section__title">工序节点</div>
-              <n-button :size="componentSize" type="primary" @click="addNode">新增节点</n-button>
+              <n-button type="primary" @click="addNode">新增节点</n-button>
             </div>
           </n-gi>
           <n-gi span="2">
@@ -269,21 +271,19 @@ onMounted(() => {
                   <td><n-select v-model:value="item.durationUnit" :options="formData.durationUnitOptions" /></td>
                   <td><n-select v-model:value="item.startRule" :options="formData.startRuleOptions" /></td>
                   <td><n-input v-model:value="item.remark" /></td>
-                  <td><n-button :size="componentSize" type="error" tertiary @click="removeNode(index)">删除</n-button></td>
+                  <td><n-button type="error" tertiary @click="removeNode(index)">删除</n-button></td>
                 </tr>
               </tbody>
             </n-table>
           </n-gi>
-          <n-gi span="2">
-            <div class="TemplateForm-actions">
-              <n-flex justify="end">
-                <n-button @click="showEdit = false">取消</n-button>
-                <n-button type="primary" :loading="submitting" @click="submit">保存</n-button>
-              </n-flex>
-            </div>
-          </n-gi>
         </n-grid>
       </n-form>
-    </n-modal>
+    <template #footer>
+      <n-flex justify="end">
+        <n-button @click="showEdit = false">取消</n-button>
+                <n-button type="primary" :loading="submitting" @click="submit">保存</n-button>
+      </n-flex>
+    </template>
+  </ErpFormModal>
   </div>
 </template>

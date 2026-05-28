@@ -4,6 +4,7 @@ import { Reset, Search } from "@vicons/carbon"
 import { NButton, useDialog, useMessage } from "naive-ui"
 import { PageVo } from "@/model"
 import LCard from "@/components/LCard/index.vue"
+import ErpFormModal from "@/components/ErpFormModal/index.vue"
 import MCard from "@/components/MCard/index.vue"
 import { useAppStore } from "@/store/modules/app"
 import { VxePagerEvents } from "vxe-pc-ui"
@@ -213,11 +214,11 @@ onMounted(() => {
             </n-form-item>
             <n-form-item>
               <n-space>
-                <n-button type="primary" :size="componentSize" @click="search">
+                <n-button type="primary" @click="search">
                   <template #icon><n-icon :component="Search" /></template>
                   查询
                 </n-button>
-                <n-button :size="componentSize" @click="reset">
+                <n-button @click="reset">
                   <template #icon><n-icon :component="Reset" /></template>
                   重置
                 </n-button>
@@ -258,16 +259,16 @@ onMounted(() => {
             <vxe-column title="操作" align="center" fixed="right" width="260">
               <template #default="{ row }">
                 <n-space justify="center">
-                  <n-button type="primary" text :size="componentSize" @click="showIssueModal(row.uid, 'partial')">
+                  <n-button type="primary" text @click="showIssueModal(row.uid, 'partial')">
                     部分出库
                   </n-button>
-                  <n-button type="success" text :size="componentSize" @click="confirmIssueAll(row.uid)">
+                  <n-button type="success" text @click="confirmIssueAll(row.uid)">
                     全部出库
                   </n-button>
-                  <n-button type="warning" text :size="componentSize" @click="confirmUnable(row.uid)">
+                  <n-button type="warning" text @click="confirmUnable(row.uid)">
                     无法出库
                   </n-button>
-                  <n-button text :size="componentSize" @click="showDetailModal(row.uid)">详情</n-button>
+                  <n-button text @click="showDetailModal(row.uid)">详情</n-button>
                 </n-space>
               </template>
             </vxe-column>
@@ -283,7 +284,8 @@ onMounted(() => {
     </l-card>
   </div>
 
-  <n-modal v-model:show="showIssue" preset="card" class="TemplateModal TemplateModal--xl" :title="issueTitle()">
+  <ErpFormModal v-model:show="showIssue" :title="issueTitle()" size="xl">
+
     <n-alert v-if="issueMode === 'all'" type="success" :show-icon="false" class="mb-3">
       全部出库会按剩余未出库数量扣减库存，若库存不足会直接提示。
     </n-alert>
@@ -342,13 +344,13 @@ onMounted(() => {
           :placeholder="issueMode === 'unable' ? '请填写无法出库原因' : '请输入本次出库说明'"
         />
       </n-form-item>
-    <div class="TemplateForm-actions">
+    <template #footer>
       <n-flex justify="end">
         <n-button @click="showIssue = false">取消</n-button>
         <n-button type="primary" :loading="submitting" @click="confirmIssue">确定</n-button>
       </n-flex>
-    </div>
-  </n-modal>
+    </template>
+  </ErpFormModal>
 
   <n-modal v-model:show="showDetail" preset="card" class="TemplateModal TemplateModal--xl" title="领料申请详情">
     <n-descriptions bordered title="基础信息" column="4">

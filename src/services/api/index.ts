@@ -25,6 +25,7 @@ export const apiPrefix = {
   projectAnalysis: "/project/analysis",
   flowInstance: "/flowInstance",
   templateDictionary: "/template/dictionary",
+  templateItemDict: "/template/item-dict",
   templateProduct: "/template/product",
   templateCustomer: "/template/customer",
   templateSupplier: "/template/supplier",
@@ -770,6 +771,17 @@ export const templateDictionaryApi = {
   select: { url: `${apiPrefix.templateDictionary}/select`, permission: "template:dictionary:select" },
   form: { url: `${apiPrefix.templateDictionary}/form`, permission: "" },
   updateSort: { url: `${apiPrefix.templateDictionary}/updateSort`, permission: "template:dictionary:edit" }
+}
+
+export const templateItemDictApi = {
+  add: { url: `${apiPrefix.templateItemDict}/add`, permission: "template:itemDict:edit" },
+  update: { url: `${apiPrefix.templateItemDict}/update`, permission: "template:itemDict:edit" },
+  delete: { url: `${apiPrefix.templateItemDict}/delete`, permission: "template:itemDict:delete" },
+  select: { url: `${apiPrefix.templateItemDict}/select`, permission: "template:itemDict:select" },
+  form: { url: `${apiPrefix.templateItemDict}/form`, permission: "" },
+  updateSort: { url: `${apiPrefix.templateItemDict}/updateSort`, permission: "template:itemDict:edit" },
+  picker: { url: `${apiPrefix.templateItemDict}/picker`, permission: "" },
+  buildCode: { url: `${apiPrefix.templateItemDict}/buildCode`, permission: "" }
 }
 
 export const templateProductApi = {

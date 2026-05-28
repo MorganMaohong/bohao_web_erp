@@ -5,6 +5,7 @@ import { VxeTableInstance, VxeToolbarInstance } from "vxe-table"
 import { VxePagerEvents } from "vxe-pc-ui"
 import { useAppStore } from "@/store/modules/app"
 import LCard from "@/components/LCard/index.vue"
+import ErpFormModal from "@/components/ErpFormModal/index.vue"
 import MCard from "@/components/MCard/index.vue"
 import { PageVo } from "@/model"
 import { resetRef } from "@/utils"
@@ -129,7 +130,7 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <n-form label-placement="left" :size="componentSize" class="NaiveForm">
+          <n-form label-placement="left" class="NaiveForm">
             <n-grid :cols="4" x-gap="12" y-gap="12">
               <n-gi>
                 <n-form-item label="成品:">
@@ -139,11 +140,11 @@ onMounted(() => {
               <n-gi span="3">
                 <n-form-item>
                   <div class="flex gap-2">
-                    <n-button :size="componentSize" type="info" secondary strong @click="search">
+                    <n-button type="primary" @click="search">
                       <template #icon><n-icon><Search /></n-icon></template>
                       搜索
                     </n-button>
-                    <n-button :size="componentSize" type="tertiary" secondary strong @click="reset">
+                    <n-button @click="reset">
                       <template #icon><n-icon><Reset /></n-icon></template>
                       重置
                     </n-button>
@@ -198,14 +199,15 @@ onMounted(() => {
       </template>
     </l-card>
 
-    <n-modal v-model:show="showEdit" preset="card" title="编辑生产BOM" class="TemplateModal TemplateModal--lg">
+    <ErpFormModal v-model:show="showEdit" title="编辑生产BOM" size="lg">
+
       <n-form class="TemplateForm">
         <n-alert type="info" :show-icon="false" class="mb-3">
           当前成品：{{ formData.productName || "-" }}
         </n-alert>
         <div class="TemplateForm-section TemplateForm-section__head">
           <div class="TemplateForm-section__title">BOM 明细</div>
-          <n-button :size="componentSize" type="primary" @click="addDetail">新增零件</n-button>
+          <n-button type="primary" @click="addDetail">新增零件</n-button>
         </div>
         <n-table striped :size="componentSize">
           <thead>
@@ -234,18 +236,18 @@ onMounted(() => {
                 <n-input v-model:value="item.remark" />
               </td>
               <td>
-                <n-button :size="componentSize" type="error" tertiary @click="removeDetail(index)">删除</n-button>
+                <n-button type="error" tertiary @click="removeDetail(index)">删除</n-button>
               </td>
             </tr>
           </tbody>
         </n-table>
-        <div class="TemplateForm-actions">
-          <n-flex justify="end">
-            <n-button @click="showEdit = false">取消</n-button>
-            <n-button type="primary" :loading="submitting" @click="submit">保存</n-button>
-          </n-flex>
-        </div>
       </n-form>
-    </n-modal>
+    <template #footer>
+      <n-flex justify="end">
+        <n-button @click="showEdit = false">取消</n-button>
+            <n-button type="primary" :loading="submitting" @click="submit">保存</n-button>
+      </n-flex>
+    </template>
+  </ErpFormModal>
   </div>
 </template>

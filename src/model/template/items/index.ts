@@ -4,12 +4,15 @@ export interface ItemsBase extends BaseEntityLd {
   code?: string
   name?: string
   image?: string
+  /** 末级品类 uid */
   type?: string
   unit?: string
   itemBizType?: string
   spec?: string
+  specUids?: string
   material?: string
   brand?: string
+  brandUid?: string
   supplierUid?: string
   remark?: string
   vatTaxRate?: number
@@ -32,10 +35,13 @@ export interface ItemsVo extends Items {
 }
 
 export interface ItemsForm extends Items {
+  specUidList?: string[]
   typeOptions?: TreeOptionVo[]
   unitOptions?: TreeOptionVo[]
   supplierOptions?: OptionVo[]
   itemBizTypeOptions?: OptionVo[]
+  specOptions?: OptionVo[]
+  brandOptions?: OptionVo[]
 }
 
 export interface ItemsQuery extends PageQuery {

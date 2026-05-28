@@ -65,29 +65,6 @@
   padding: 8px;
 }
 
-.TemplateModal__split {
-  display: flex;
-  gap: 16px;
-  width: 100%;
-  align-items: flex-start;
-  overflow: visible;
-  max-height: none;
-}
-
-.TemplateModal__split-main {
-  flex: 2;
-  min-width: 0;
-  overflow: visible;
-  max-height: none;
-}
-
-.TemplateModal__split-side {
-  flex: 1;
-  min-width: 0;
-  overflow: visible;
-  max-height: none;
-}
-
 .TemplateForm-section-block {
   flex: 0 0 auto;
 }
@@ -100,14 +77,129 @@
   flex: 0 0 auto;
   width: 100%;
   max-height: var(--template-form-table-max, 280px);
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: auto;
 }
 
 .TemplateForm .TemplateForm-table-wrap {
   --template-form-table-max: 280px;
 }
 
-.TemplateForm-actions {
-  padding-top: 16px;
+// 复杂弹窗分栏内表单滚动区
+.TemplateModal .TemplateForm-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+// 固定底栏：取消/保存贴弹窗底，中间仅表格等区域滚动
+.TemplateForm--sticky-footer {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.TemplateForm--sticky-footer > .n-grid,
+.TemplateForm--sticky-footer > .TemplateForm-section,
+.TemplateForm--sticky-footer > .TemplateForm-section__head {
+  flex-shrink: 0;
+  width: 100%;
+}
+
+.TemplateForm--sticky-footer > .n-grid {
+  flex: 0 0 auto;
+  width: 100%;
+}
+
+.TemplateForm--sticky-footer > .ProcessTemplateForm-nodes {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
   margin-top: 8px;
+}
+
+.TemplateForm--sticky-footer > .ProcessTemplateForm-nodes > .ProcessTemplateForm-nodes__head {
+  flex-shrink: 0;
+  margin-top: 0;
+}
+
+.TemplateForm--sticky-footer > .ProcessTemplateForm-nodes > .ProcessTemplateForm-nodes__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-top: 8px;
+  overflow-x: auto;
+  overflow-y: auto;
+}
+
+.TemplateForm--sticky-footer > .TemplateForm-section__head {
+  margin-top: 8px;
+}
+
+.TemplateForm--sticky-footer > .TemplateForm-table-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  margin-top: 0;
+}
+
+.TemplateForm--sticky-footer > .TemplateForm-actions {
+  flex-shrink: 0;
+  margin-top: auto;
+}
+
+// 操作按钮与 n-grid 同级（如采购申请主栏）
+.TemplateModal .TemplateModal__split-main > .TemplateForm {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.TemplateModal .TemplateModal__split-main > .TemplateForm-actions {
+  flex-shrink: 0;
+  margin-top: auto;
+}
+
+// 内容区直接挂载的操作栏（选料弹窗等）
+.TemplateModal.n-modal > .n-card__content > .TemplateForm-actions {
+  flex-shrink: 0;
+  margin-top: auto;
+}
+
+.TemplateForm-actions {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+  margin-top: auto;
+  padding-top: var(--erp-modal-form-actions-padding-top, 16px);
+  padding-bottom: var(--erp-modal-form-actions-padding-bottom, 16px);
+  border-top: 1px solid var(--n-divider-color);
+  background: var(--n-color, #fff);
+  box-sizing: border-box;
+
+  > .n-flex,
+  > .n-space {
+    width: 100%;
+    justify-content: flex-end !important;
+    gap: 8px !important;
+  }
+}
+
+// sticky-footer：中间区域滚动，操作栏贴底并保留底边距
+.TemplateForm--sticky-footer > .TemplateForm-actions,
+.TemplateModal .TemplateForm--sticky-footer > .TemplateForm-actions {
+  padding-top: var(--erp-modal-form-actions-padding-top, 16px);
+  padding-bottom: var(--erp-modal-form-actions-padding-bottom, 16px);
+  border-top: 1px solid var(--n-divider-color);
+  background: var(--n-color, #fff);
 }

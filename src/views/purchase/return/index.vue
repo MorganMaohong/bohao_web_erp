@@ -3,6 +3,7 @@ import { onMounted, ref, watch } from "vue"
 import { useRoute } from "vue-router"
 import { Reset, Search } from "@vicons/carbon"
 import LCard from "@/components/LCard/index.vue"
+import ErpFormModal from "@/components/ErpFormModal/index.vue"
 import MCard from "@/components/MCard/index.vue"
 import { PageVo } from "@/model"
 import {
@@ -223,7 +224,7 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <n-form label-placement="left" :size="appStore.componentSize" class="NaiveForm">
+          <n-form label-placement="left" class="NaiveForm">
             <n-grid :cols="4" x-gap="12" y-gap="12">
               <n-gi>
                 <n-form-item label="关键字:">
@@ -255,7 +256,7 @@ onMounted(() => {
               <n-gi>
                 <n-form-item>
                   <div class="flex gap-2">
-                    <n-button type="info" secondary strong @click="search">
+                    <n-button type="primary" @click="search">
                       <template #icon>
                         <n-icon>
                           <Search />
@@ -263,7 +264,7 @@ onMounted(() => {
                       </template>
                       查询
                     </n-button>
-                    <n-button secondary strong @click="reset">
+                    <n-button @click="reset">
                       <template #icon>
                         <n-icon>
                           <Reset />
@@ -359,9 +360,8 @@ onMounted(() => {
       </template>
     </l-card>
 
-    <n-modal v-model:show="showHandle" preset="card" class="TemplateModal TemplateModal--xxl" title="采购退货执行">
-      <n-spin :show="submitting">
-      <n-form :model="formData" class="TemplateForm" label-placement="left" label-width="96">
+    <ErpFormModal v-model:show="showHandle" title="采购退货执行" size="xxl" :loading="submitting">
+<n-form :model="formData" class="TemplateForm" label-placement="left" label-width="96">
           <n-grid cols="2" x-gap="16" y-gap="0">
             <n-gi span="2">
               <div class="TemplateForm-section">
@@ -461,18 +461,15 @@ onMounted(() => {
           </vxe-table>
           </div>
             </n-gi>
-            <n-gi span="2">
-              <div class="TemplateForm-actions">
-                <n-flex justify="end">
-                  <n-button @click="showHandle = false">取消</n-button>
-                  <n-button type="primary" :loading="submitting" @click="confirmReturn">确定退货</n-button>
-                </n-flex>
-              </div>
-            </n-gi>
           </n-grid>
         </n-form>
-      </n-spin>
-    </n-modal>
+    <template #footer>
+      <n-flex justify="end">
+        <n-button @click="showHandle = false">取消</n-button>
+                  <n-button type="primary" :loading="submitting" @click="confirmReturn">确定退货</n-button>
+      </n-flex>
+    </template>
+  </ErpFormModal>
 
     <n-modal v-model:show="showDetail" preset="card" class="TemplateModal TemplateModal--xxl" title="采购退货详情">
       <PurchaseModalDetailShell :loading="loading">

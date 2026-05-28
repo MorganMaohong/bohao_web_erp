@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref } from "vue"
 import LCard from "@/components/LCard/index.vue"
+import ErpFormModal from "@/components/ErpFormModal/index.vue"
 import MCard from "@/components/MCard/index.vue"
 import { useAppStore } from "@/store/modules/app"
 import { FormInst, NButton } from "naive-ui"
@@ -138,7 +139,7 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <n-form label-placement="left" :size="componentSize" ref="queryFormRef" class="NaiveForm">
+          <n-form label-placement="left" ref="queryFormRef" class="NaiveForm">
             <n-grid :cols="4" x-gap="12" y-gap="12">
               <n-gi>
                 <n-form-item label="名称:">
@@ -148,7 +149,7 @@ onMounted(() => {
               <n-gi>
                 <n-form-item>
                   <div class="flex gap-2">
-                    <n-button @click="search" type="info" icon-placement="left" secondary strong>
+                    <n-button type="primary" @click="search">
                       <template #icon>
                         <n-icon>
                           <Search />
@@ -156,7 +157,7 @@ onMounted(() => {
                       </template>
                       搜索
                     </n-button>
-                    <n-button @click="reset" type="tertiary" icon-placement="left" secondary strong>
+                    <n-button @click="reset">
                       <template #icon>
                         <n-icon>
                           <Reset />
@@ -174,7 +175,7 @@ onMounted(() => {
       <template #default>
         <m-card class="w-full h-full flex flex-col" padding="0">
           <m-card padding="0" class="px-2 pt-2 flex items-center justify-between">
-            <n-button type="primary" :size="componentSize" @click="showUpdateModal()">新增字典</n-button>
+            <n-button type="primary" @click="showUpdateModal()">新增字典</n-button>
             <vxe-toolbar ref="VxeToolbarRef" custom />
           </m-card>
           <m-card ref="TableCardRef" class="flex-1">
@@ -224,7 +225,8 @@ onMounted(() => {
     </l-card>
   </div>
   <!-- 弹窗 -->
-  <n-modal v-model:show="showUpdate" preset="card" class="w-[600px]" title="字典信息">
+  <ErpFormModal v-model:show="showUpdate" title="字典信息" size="md">
+
     <n-form :model="formData" ref="formRef" :rules="formRule">
       <n-grid cols="1">
         <n-gi>
@@ -254,7 +256,7 @@ onMounted(() => {
         <n-button type="primary" @click="confirmUpdate" :loading="isSubmitting" :disabled="isSubmitting">确定</n-button>
       </n-flex>
     </template>
-  </n-modal>
+  </ErpFormModal>
   <n-modal
     :mask-closable="false"
     v-model:show="showDelete"
@@ -264,7 +266,7 @@ onMounted(() => {
     content="确定删除吗?"
     positive-text="确定"
     @positive-click="confirmDelete"
-    :size="componentSize"
+
   />
 </template>
 

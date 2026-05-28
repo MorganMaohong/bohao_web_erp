@@ -4,6 +4,7 @@ import { Add, Reset, Search } from "@vicons/carbon"
 import { FormInst } from "naive-ui"
 import { VxeTableInstance } from "vxe-table"
 import LCard from "@/components/LCard/index.vue"
+import ErpFormModal from "@/components/ErpFormModal/index.vue"
 import MCard from "@/components/MCard/index.vue"
 import { OptionVo, PageVo } from "@/model"
 import { InventoryOutOrderForm } from "@/model/inventory/outbound"
@@ -274,7 +275,7 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <n-form label-placement="left" :size="componentSize" class="NaiveForm">
+          <n-form label-placement="left" class="NaiveForm">
             <n-grid :cols="5" x-gap="12" y-gap="12">
               <n-gi>
                 <n-form-item label="关键字:">
@@ -299,11 +300,11 @@ onMounted(() => {
               <n-gi>
                 <n-form-item>
                   <div class="flex gap-2">
-                    <n-button @click="search" type="info" icon-placement="left" secondary strong>
+                    <n-button type="primary" @click="search">
                       <template #icon><n-icon><Search /></n-icon></template>
                       搜索
                     </n-button>
-                    <n-button @click="reset" type="tertiary" icon-placement="left" secondary strong>
+                    <n-button @click="reset">
                       <template #icon><n-icon><Reset /></n-icon></template>
                       重置
                     </n-button>
@@ -317,7 +318,7 @@ onMounted(() => {
       <template #default>
         <m-card class="w-full h-full flex flex-col" padding="0">
           <m-card padding="0" class="px-2 pt-2 flex items-center justify-between">
-            <n-button type="primary" :size="componentSize" @click="showUpdateModal()">新增销售订单</n-button>
+            <n-button type="primary" @click="showUpdateModal()">新增销售订单</n-button>
             <vxe-toolbar ref="VxeToolbarRef" custom />
           </m-card>
           <m-card ref="TableCardRef" class="flex-1">
@@ -375,7 +376,8 @@ onMounted(() => {
     </l-card>
   </div>
 
-  <n-modal v-model:show="showUpdate" preset="card" class="w-[1100px]" title="销售订单">
+  <ErpFormModal v-model:show="showUpdate" title="销售订单" size="xl">
+
     <n-form :model="formData" ref="formRef" :rules="formRule">
       <n-grid cols="4" x-gap="12">
         <n-gi>
@@ -460,9 +462,10 @@ onMounted(() => {
         </n-button>
       </n-flex>
     </template>
-  </n-modal>
+  </ErpFormModal>
 
-  <n-modal v-model:show="showItems" preset="card" class="w-[900px]" title="选择物料">
+  <ErpFormModal v-model:show="showItems" title="选择物料" size="lg">
+
     <n-form inline :size="componentSize">
       <n-form-item label="关键字">
         <n-input v-model:value="itemsQuery.key" clearable placeholder="名称/编码" />
@@ -485,9 +488,9 @@ onMounted(() => {
         <n-button type="primary" @click="confirmSelectItems">确定</n-button>
       </n-flex>
     </template>
-  </n-modal>
+  </ErpFormModal>
 
-  <n-modal v-model:show="showOutbound" preset="card" class="w-[1000px]" title="销售出库">
+  <ErpFormModal v-model:show="showOutbound" title="销售出库" size="xl" :loading="submitting">
     <n-form :model="outboundData" ref="outboundFormRef" :rules="outboundRule">
       <n-grid cols="3" x-gap="12">
         <n-gi>
@@ -530,7 +533,7 @@ onMounted(() => {
         <n-button type="primary" @click="confirmOutbound" :loading="submitting">确认出库</n-button>
       </n-flex>
     </template>
-  </n-modal>
+  </ErpFormModal>
 
   <n-modal v-model:show="showDetail" preset="card" class="w-[1050px]" title="销售订单详情">
     <n-descriptions :column="4" bordered size="small">
@@ -574,7 +577,7 @@ onMounted(() => {
     content="确定删除吗?"
     positive-text="确定"
     @positive-click="confirmDelete"
-    :size="componentSize"
+   
   />
 </template>
 

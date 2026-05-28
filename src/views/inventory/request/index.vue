@@ -5,6 +5,7 @@ import { Add, Reset, Search } from "@vicons/carbon"
 import { NButton, useMessage } from "naive-ui"
 import { PageVo } from "@/model"
 import LCard from "@/components/LCard/index.vue"
+import ErpFormModal from "@/components/ErpFormModal/index.vue"
 import MCard from "@/components/MCard/index.vue"
 import { useAppStore } from "@/store/modules/app"
 import { VxePagerEvents, VxeTableEvents, VxeTableInstance } from "vxe-pc-ui"
@@ -257,7 +258,7 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <n-form label-placement="left" :size="componentSize" class="NaiveForm">
+          <n-form label-placement="left" class="NaiveForm">
             <n-grid :cols="4" x-gap="12" y-gap="12">
               <n-gi>
                 <n-form-item label="搜索:">
@@ -294,11 +295,11 @@ onMounted(() => {
                 <n-form-item>
                   <div class="flex items-center justify-between gap-3 flex-wrap w-full">
                     <div class="flex gap-2">
-                      <n-button type="info" secondary strong @click="search">
+                      <n-button type="primary" @click="search">
                         <template #icon><Search /></template>
                         查询
                       </n-button>
-                      <n-button type="tertiary" secondary strong @click="reset">
+                      <n-button @click="reset">
                         <template #icon><Reset /></template>
                         重置
                       </n-button>
@@ -340,12 +341,11 @@ onMounted(() => {
             <vxe-column title="操作" fixed="right" width="220" align="center">
               <template #default="{ row }">
                 <n-space justify="center" size="small">
-                  <n-button type="primary" text :size="componentSize" @click="showDetailModal(row.uid)">详情</n-button>
+                  <n-button type="primary" text @click="showDetailModal(row.uid)">详情</n-button>
                   <n-button
                     v-if="['rejected'].includes(row.status)"
                     type="info"
                     text
-                    :size="componentSize"
                     @click="showUpdateModal(row.uid)"
                   >
                     重新提交
@@ -354,7 +354,6 @@ onMounted(() => {
                     v-if="['rejected'].includes(row.status)"
                     type="error"
                     text
-                    :size="componentSize"
                     @click="showDeleteModal(row.uid)"
                   >
                     删除
@@ -374,12 +373,12 @@ onMounted(() => {
     </l-card>
   </div>
 
-  <n-modal
+  <ErpFormModal
     v-model:show="showUpdate"
-    preset="card"
-    class="TemplateModal TemplateModal--xxl"
     :title="isResubmit ? '重新提交领料申请' : '领料申请'"
+    size="xxl"
   >
+
     <div class="TemplateModal__split">
       <div class="TemplateModal__split-main">
         <n-form :model="formData" class="TemplateForm">
@@ -482,20 +481,20 @@ onMounted(() => {
             </n-gi>
           </n-grid>
         </n-form>
-        <div class="TemplateForm-actions">
-          <n-flex justify="end">
-            <n-button @click="showUpdate = false">取消</n-button>
-            <n-button type="primary" :loading="submitting" @click="confirmUpdate">
-              {{ isResubmit ? "重新提交审批" : "提交申请" }}
-            </n-button>
-          </n-flex>
-        </div>
       </div>
       <div class="TemplateModal__split-side">
         <FlowSchemaPreview class="h-full" :flow-type="FlowDefinitionTypeOptions.INVENTORY_REQUEST_FLOW" title="领料申请流程" />
       </div>
     </div>
-  </n-modal>
+    <template #footer>
+      <n-flex justify="end">
+        <n-button @click="showUpdate = false">取消</n-button>
+            <n-button type="primary" :loading="submitting" @click="confirmUpdate">
+              {{ isResubmit ? "重新提交审批" : "提交申请" }}
+            </n-button>
+      </n-flex>
+    </template>
+  </ErpFormModal>
 
   <n-modal v-model:show="showDetail" preset="card" class="TemplateModal TemplateModal--xxl" title="领料申请详情">
     <div class="TemplateModal__split">
@@ -536,7 +535,8 @@ onMounted(() => {
 
   <n-modal v-model:show="showDelete" preset="dialog" title="删除领料申请" content="确定删除当前领料申请吗？" positive-text="确定" negative-text="取消" @positive-click="confirmDelete" />
 
-  <n-modal v-model:show="showItems" preset="card" class="TemplateModal TemplateModal--lg" title="选择物料">
+  <ErpFormModal v-model:show="showItems" title="选择物料" size="lg">
+
     <div class="space-y-3">
       <div class="flex items-center gap-3 flex-wrap">
         <n-input v-model:value="itemsQuery.key" clearable placeholder="名称/规格/材质" class="w-[280px]" />
@@ -581,11 +581,11 @@ onMounted(() => {
         @page-change="itemsPageChange"
       />
     </div>
-    <div class="TemplateForm-actions">
+    <template #footer>
       <n-flex justify="end">
         <n-button @click="showItems = false">取消</n-button>
         <n-button type="primary" @click="confirmSelectItems">确定添加</n-button>
       </n-flex>
-    </div>
-  </n-modal>
+    </template>
+  </ErpFormModal>
 </template>

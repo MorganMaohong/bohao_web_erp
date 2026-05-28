@@ -29,10 +29,39 @@ body .n-modal .n-card > .n-card__content,
 }
 
 body .n-modal .n-card > .n-card__footer,
-.n-modal .n-card > .n-card__footer {
+.n-modal .n-card > .n-card__footer,
+body .n-modal .n-card > .n-card__action,
+.n-modal .n-card > .n-card__action {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
   padding: var(--erp-modal-footer-padding-y) var(--erp-modal-footer-padding-x);
   border-top: 1px solid var(--erp-border-subtle);
   background: var(--erp-modal-footer-bg);
+}
+
+/* 底栏容器（n-flex / n-space）占满宽度并右对齐 */
+body .n-modal .n-card__footer > .n-flex,
+.n-modal .n-card__footer > .n-flex,
+body .n-modal .n-card__footer > .n-space,
+.n-modal .n-card__footer > .n-space,
+body .n-modal .n-card__action > .n-flex,
+.n-modal .n-card__action > .n-flex {
+  width: 100%;
+  justify-content: flex-end !important;
+}
+
+body .n-modal .n-card__footer > div,
+.n-modal .n-card__footer > div {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 /* 弹窗内表单：统一行距与标签区 */
@@ -63,3 +92,14 @@ body .n-modal .n-dialog__title,
 .n-modal .n-dialog__title {
   font-weight: 600;
 }
+
+body .n-modal .n-dialog__action,
+.n-modal .n-dialog__action {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 20px 16px;
+}
+

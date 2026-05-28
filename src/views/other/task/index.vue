@@ -521,7 +521,7 @@ watch(currentTab, () => {
             <vxe-column field="createTime" title="创建时间" align="center" show-overflow="tooltip" />
             <vxe-column title="操作" align="center" fixed="right" width="120">
               <template #default="{ row }">
-                <n-button type="primary" text :size="componentSize" @click="showDetailModal(row)">详情</n-button>
+                <n-button type="primary" text @click="showDetailModal(row)">详情</n-button>
               </template>
             </vxe-column>
           </vxe-table>

@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref, watch } from "vue"
+import ErpFormModal from "@/components/ErpFormModal/index.vue"
 import LCard from "@/components/LCard/index.vue"
 import MCard from "@/components/MCard/index.vue"
 import { useAppStore } from "@/store/modules/app"
@@ -10,6 +11,7 @@ import { VxeTableInstance, VxeToolbarInstance } from "vxe-table"
 import { Reset, Search } from "@vicons/carbon"
 import { VxePagerEvents } from "vxe-pc-ui"
 import { ItemsService } from "@/services/template/ItemsService"
+import { ItemDictService } from "@/services/template/ItemDictService"
 import { ItemsForm, ItemsQuery, ItemsQueryData, ItemsVo } from "@/model/template/items"
 import FastUpload from "@/components/FastUpload/FastUpload.vue"
 import { AddPhotoAlternateRound } from "@vicons/material"
@@ -24,12 +26,8 @@ const showDelete = ref(false)
 const formData = ref<ItemsForm>({})
 const formRef = ref<FormInst>()
 const loading = ref(false)
+const codePreview = ref("")
 const formRule = {
-  code: {
-    required: true,
-    message: "请输入物料编码",
-    trigger: ["input", "blur"]
-  },
   itemBizType: {
     required: true,
     message: "请选择物料业务类型",
@@ -37,7 +35,12 @@ const formRule = {
   },
   type: {
     required: true,
-    message: "请选择类型",
+    message: "请选择品类",
+    trigger: ["input", "blur"]
+  },
+  brandUid: {
+    required: true,
+    message: "请选择品牌",
     trigger: ["input", "blur"]
   },
   name: {
@@ -87,9 +90,14 @@ function loadQueryOptions() {
 
 function showUpdateModal(uid?: string) {
   formData.value = resetRef(formData.value)
+  formData.value.specUidList = []
+  codePreview.value = ""
   showUpdate.value = true
   ItemsService.form(uid).then((data) => {
     formData.value = data
+    formData.value.specUidList = Array.isArray(data.specUidList) ? [...data.specUidList] : []
+    codePreview.value = data.code || ""
+    refreshCodePreview()
   })
 }
 
@@ -204,9 +212,55 @@ function normalizePrice() {
   }
 }
 
-function handleUpdateTypeValue(v: string) {}
+async function handleUpdateTypeValue(v: string | null) {
+  formData.value.specUidList = []
+  formData.value.brandUid = undefined
+  if (!v) {
+    formData.value.specOptions = []
+    formData.value.brandOptions = []
+    codePreview.value = ""
+    return
+  }
+  try {
+    const picker = await ItemDictService.picker(v)
+    formData.value.specOptions = picker.specOptions || []
+    formData.value.brandOptions = picker.brandOptions || []
+  } catch {
+    formData.value.specOptions = []
+    formData.value.brandOptions = []
+  }
+  refreshCodePreview()
+}
 
 function handleUpdateUnitValue(v: string) {}
+
+async function refreshCodePreview() {
+  if (!formData.value.type) {
+    if (!formData.value.uid) codePreview.value = ""
+    return
+  }
+  if (!formData.value.brandUid) {
+    if (!formData.value.uid) codePreview.value = ""
+    return
+  }
+  try {
+    codePreview.value = await ItemDictService.buildCode({
+      categoryUid: formData.value.type,
+      specUids: formData.value.specUidList || [],
+      brandUid: formData.value.brandUid
+    })
+  } catch {
+    if (!formData.value.uid) codePreview.value = ""
+  }
+}
+
+watch(
+  () => [formData.value.specUidList, formData.value.brandUid],
+  () => {
+    refreshCodePreview()
+  },
+  { deep: true }
+)
 
 onMounted(() => {
   loadQueryOptions()
@@ -225,7 +279,7 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <n-form label-placement="left" :size="componentSize" ref="queryFormRef" class="NaiveForm">
+          <n-form label-placement="left" ref="queryFormRef" class="NaiveForm">
             <n-grid :cols="4" x-gap="12" y-gap="12">
               <n-gi>
                 <n-form-item label="名称:">
@@ -240,7 +294,7 @@ onMounted(() => {
               <n-gi span="2">
                 <n-form-item>
                   <div class="flex gap-2">
-                    <n-button @click="search" type="info" icon-placement="left" secondary strong>
+                    <n-button type="primary" @click="search">
                       <template #icon>
                         <n-icon>
                           <Search />
@@ -248,7 +302,7 @@ onMounted(() => {
                       </template>
                       搜索
                     </n-button>
-                    <n-button @click="reset" type="tertiary" icon-placement="left" secondary strong>
+                    <n-button @click="reset">
                       <template #icon>
                         <n-icon>
                           <Reset />
@@ -266,7 +320,7 @@ onMounted(() => {
       <template #default>
         <m-card class="w-full h-full flex flex-col" padding="0">
           <m-card padding="0" class="px-2 pt-2 flex items-center justify-between">
-            <n-button type="primary" :size="componentSize" @click="showUpdateModal()">新增物料</n-button>
+            <n-button type="primary" @click="showUpdateModal()">新增物料</n-button>
             <vxe-toolbar ref="VxeToolbarRef" custom />
           </m-card>
           <m-card ref="TableCardRef" class="flex-1">
@@ -291,7 +345,7 @@ onMounted(() => {
                   </div>
                 </template>
               </vxe-column>
-              <vxe-column field="typeName" title="类型" show-overflow="tooltip" align="center" width="10%" />
+              <vxe-column field="typeName" title="品类" show-overflow="tooltip" align="center" width="10%" />
               <vxe-column field="itemBizTypeName" title="业务类型" show-overflow="tooltip" align="center" width="10%" />
               <vxe-column field="unitName" title="单位" show-overflow="tooltip" align="center" width="10%" />
               <vxe-column field="brand" title="品牌" show-overflow="tooltip" align="center" width="10%" />
@@ -383,7 +437,7 @@ onMounted(() => {
     </l-card>
   </div>
   <!-- 弹窗 -->
-  <n-modal v-model:show="showUpdate" preset="card" class="TemplateModal TemplateModal--md" title="物料信息">
+  <ErpFormModal v-model:show="showUpdate" title="物料信息" size="lg">
     <n-form :model="formData" ref="formRef" :rules="formRule" class="ItemsForm">
       <n-grid cols="2" x-gap="16" y-gap="0">
         <n-gi span="2">
@@ -406,12 +460,8 @@ onMounted(() => {
           </div>
         </n-gi>
         <n-gi>
-          <n-form-item label="物料编码" path="code">
-            <n-input
-              v-model:value="formData.code"
-              :disabled="Boolean(formData.uid)"
-              placeholder="请输入物料编码"
-            />
+          <n-form-item label="物料编码">
+            <n-input :value="codePreview || formData.code" disabled placeholder="选择品类、规格、品牌后自动生成" />
           </n-form-item>
         </n-gi>
         <n-gi>
@@ -429,10 +479,10 @@ onMounted(() => {
           </n-form-item>
         </n-gi>
         <n-gi>
-          <n-form-item label="类型" path="type">
+          <n-form-item label="品类" path="type">
             <n-cascader
               v-model:value="formData.type"
-              placeholder="请选择类型"
+              placeholder="请选择末级品类"
               expand-trigger="hover"
               :options="formData.typeOptions"
               check-strategy="child"
@@ -474,13 +524,30 @@ onMounted(() => {
           </div>
         </n-gi>
         <n-gi>
-          <n-form-item label="品牌">
-            <n-input v-model:value="formData.brand" placeholder="请输入品牌" />
+          <n-form-item label="品牌" path="brandUid">
+            <n-select
+              v-model:value="formData.brandUid"
+              :options="formData.brandOptions || []"
+              label-field="label"
+              value-field="value"
+              placeholder="请选择品牌"
+              clearable
+              filterable
+            />
           </n-form-item>
         </n-gi>
         <n-gi>
           <n-form-item label="规格">
-            <n-input v-model:value="formData.spec" placeholder="请输入规格" />
+            <n-select
+              v-model:value="formData.specUidList"
+              :options="formData.specOptions || []"
+              label-field="label"
+              value-field="value"
+              multiple
+              filterable
+              :disabled="!formData.type"
+              placeholder="可多选，按选择顺序参与编码"
+            />
           </n-form-item>
         </n-gi>
         <n-gi span="2">
@@ -568,16 +635,12 @@ onMounted(() => {
             <n-input type="textarea" v-model:value="formData.remark" placeholder="请输入备注" />
           </n-form-item>
         </n-gi>
-        <n-gi span="2">
-          <div class="TemplateForm-actions">
-            <n-flex justify="end">
-              <n-button type="primary" @click="confirmUpdate" :loading="isSubmitting" :disabled="isSubmitting">确定</n-button>
-            </n-flex>
-          </div>
-        </n-gi>
       </n-grid>
     </n-form>
-  </n-modal>
+    <template #footer>
+      <n-button type="primary" @click="confirmUpdate" :loading="isSubmitting" :disabled="isSubmitting">确定</n-button>
+    </template>
+  </ErpFormModal>
   <n-modal
     :mask-closable="false"
     v-model:show="showDelete"
@@ -587,7 +650,6 @@ onMounted(() => {
     content="确定删除吗?"
     positive-text="确定"
     @positive-click="confirmDelete"
-    :size="componentSize"
   />
 </template>
 

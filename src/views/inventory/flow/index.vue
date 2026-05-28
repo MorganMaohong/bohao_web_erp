@@ -155,7 +155,7 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <n-form label-placement="left" :size="appStore.componentSize" ref="queryFormRef" class="NaiveForm">
+          <n-form label-placement="left" ref="queryFormRef" class="NaiveForm">
             <n-grid :cols="4" x-gap="12" y-gap="12">
               <n-gi>
                 <n-form-item label="关键字:">
@@ -187,7 +187,7 @@ onMounted(() => {
               <n-gi>
                 <n-form-item>
                   <div class="flex gap-2">
-                    <n-button @click="search" type="info" icon-placement="left" secondary strong>
+                    <n-button type="primary" @click="search">
                       <template #icon>
                         <n-icon>
                           <Search />
@@ -195,7 +195,7 @@ onMounted(() => {
                       </template>
                       搜索
                     </n-button>
-                    <n-button @click="reset" type="tertiary" icon-placement="left" secondary strong>
+                    <n-button @click="reset">
                       <template #icon>
                         <n-icon>
                           <Reset />

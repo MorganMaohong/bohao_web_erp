@@ -13,6 +13,9 @@
   --erp-modal-footer-padding-y: 12px;
   --erp-modal-footer-padding-x: 22px;
   --erp-modal-footer-bg: rgba(248, 250, 252, 0.85);
+  /** 弹窗内表单操作栏（TemplateForm-actions） */
+  --erp-modal-form-actions-padding-top: 16px;
+  --erp-modal-form-actions-padding-bottom: 16px;
   --erp-form-item-gap: 16px;
   --erp-form-row-gap: 4px;
   --erp-text-secondary: rgba(15, 23, 42, 0.65);

@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref } from "vue"
 import LCard from "@/components/LCard/index.vue"
+import ErpFormModal from "@/components/ErpFormModal/index.vue"
 import MCard from "@/components/MCard/index.vue"
 import { useAppStore } from "@/store/modules/app"
 import { FormInst, NButton } from "naive-ui"
@@ -362,7 +363,7 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <n-form label-placement="left" :size="appStore.componentSize" ref="queryFormRef" class="NaiveForm">
+          <n-form label-placement="left" ref="queryFormRef" class="NaiveForm">
             <n-grid :cols="4" x-gap="12" y-gap="12">
               <n-gi>
                 <n-form-item label="名称:">
@@ -372,7 +373,7 @@ onMounted(() => {
               <n-gi>
                 <n-form-item>
                   <div class="flex gap-2">
-                    <n-button @click="search" type="info" icon-placement="left" secondary strong>
+                    <n-button type="primary" @click="search">
                       <template #icon>
                         <n-icon>
                           <Search />
@@ -380,7 +381,7 @@ onMounted(() => {
                       </template>
                       搜索
                     </n-button>
-                    <n-button @click="reset" type="tertiary" icon-placement="left" secondary strong>
+                    <n-button @click="reset">
                       <template #icon>
                         <n-icon>
                           <Reset />
@@ -398,7 +399,7 @@ onMounted(() => {
       <template #default>
         <m-card class="w-full h-full flex flex-col" padding="0">
           <m-card padding="0" class="px-2 pt-2 flex items-center justify-between">
-            <n-button type="primary" :size="appStore.componentSize" @click="showUpdateModal()">
+            <n-button type="primary" @click="showUpdateModal()">
               <n-icon size="18">
                 <Add />
               </n-icon>
@@ -519,7 +520,8 @@ onMounted(() => {
     </l-card>
   </div>
   <!-- 弹窗 -->
-  <n-modal v-model:show="showUpdate" preset="card" class="TemplateModal TemplateModal--lg" title="调拨单">
+  <ErpFormModal v-model:show="showUpdate" title="调拨单" size="lg">
+
     <n-form :model="formData" ref="formRef" :rules="formRule" class="TemplateForm">
         <n-alert type="info" :show-icon="false" class="mb-3">
           调拨应由调出仓库发起，货物到达后再由调入仓库确认收货。
@@ -701,7 +703,6 @@ onMounted(() => {
                             type="error"
                             text
                             @click="confirmDeleteItems(row, rowIndex)"
-                            :size="appStore.componentSize"
                             >删除
                           </n-button>
                         </n-flex>
@@ -763,16 +764,16 @@ onMounted(() => {
               <n-input v-model:value="formData.remark" placeholder="请输入备注" />
             </n-form-item>
           </n-gi>
-          <n-gi span="2">
-            <div class="TemplateForm-actions">
-              <n-flex justify="end">
-                <n-button
+        </n-grid>
+      </n-form>
+    <template #footer>
+      <n-flex justify="end">
+        <n-button
                   class="w-20"
                   type="primary"
                   @click="confirmComplete"
                   :loading="isSubmitting"
                   :disabled="isSubmitting"
-                  :size="appStore.componentSize"
                 >
                   提交
                 </n-button>
@@ -782,17 +783,14 @@ onMounted(() => {
                   @click="confirmUpdate"
                   :loading="isSubmitting"
                   :disabled="isSubmitting"
-                  :size="appStore.componentSize"
                 >
                   保存草稿
                 </n-button>
-              </n-flex>
-            </div>
-          </n-gi>
-        </n-grid>
-      </n-form>
-  </n-modal>
-  <n-modal v-model:show="showItems" preset="card" class="TemplateModal TemplateModal--lg" title="物料信息">
+      </n-flex>
+    </template>
+  </ErpFormModal>
+  <ErpFormModal v-model:show="showItems" title="物料信息" size="lg">
+
     <l-card class="w-full h-full" shadow rounded padding="0">
       <vxe-table
         :data="itemsData.list"
@@ -867,12 +865,12 @@ onMounted(() => {
         </m-card>
       </template>
     </l-card>
-    <div class="TemplateForm-actions">
+    <template #footer>
       <n-flex justify="end">
-        <n-button size="small" type="primary" @click="confirmUpdateItems"> 确定</n-button>
+        <n-button type="primary" @click="confirmUpdateItems"> 确定</n-button>
       </n-flex>
-    </div>
-  </n-modal>
+    </template>
+  </ErpFormModal>
   <n-modal
     :mask-closable="false"
     v-model:show="showDelete"
@@ -882,7 +880,7 @@ onMounted(() => {
     content="确定删除吗?"
     positive-text="确定"
     @positive-click="confirmDelete"
-    :size="appStore.componentSize"
+   
   />
   <n-modal v-model:show="showDetail" preset="card" class="TemplateModal TemplateModal--lg" title="调拨详情">
     <n-space vertical :size="12">
