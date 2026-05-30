@@ -5,7 +5,9 @@ import { VxeTableInstance, VxeToolbarInstance } from "vxe-table"
 import { VxePagerEvents } from "vxe-pc-ui"
 import { useAppStore } from "@/store/modules/app"
 import LCard from "@/components/LCard/index.vue"
-import ErpFormModal from "@/components/ErpFormModal/index.vue"
+import ListPageToolbar from "@/components/ListPageToolbar/index.vue"
+import SearchQueryForm from "@/components/SearchQueryForm/index.vue"
+import FormModal from "@/components/FormModal/index.vue"
 import MCard from "@/components/MCard/index.vue"
 import { PageVo } from "@/model"
 import { resetRef } from "@/utils"
@@ -130,7 +132,7 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <n-form label-placement="left" class="NaiveForm">
+          <SearchQueryForm label-placement="left" >
             <n-grid :cols="4" x-gap="12" y-gap="12">
               <n-gi>
                 <n-form-item label="成品:">
@@ -152,14 +154,14 @@ onMounted(() => {
                 </n-form-item>
               </n-gi>
             </n-grid>
-          </n-form>
+          </SearchQueryForm>
         </m-card>
       </template>
       <template #default>
         <m-card class="w-full h-full flex flex-col" padding="0">
-          <m-card padding="0" class="px-2 pt-2 flex items-center justify-end">
+          <ListPageToolbar justify="end">
             <vxe-toolbar ref="VxeToolbarRef" custom />
-          </m-card>
+          </ListPageToolbar>
           <m-card ref="TableCardRef" class="flex-1">
             <vxe-table
               ref="VxeTableRef"
@@ -199,7 +201,7 @@ onMounted(() => {
       </template>
     </l-card>
 
-    <ErpFormModal v-model:show="showEdit" title="编辑生产BOM" size="lg">
+    <FormModal v-model:show="showEdit" title="编辑生产BOM" size="lg">
 
       <n-form class="TemplateForm">
         <n-alert type="info" :show-icon="false" class="mb-3">
@@ -248,6 +250,6 @@ onMounted(() => {
             <n-button type="primary" :loading="submitting" @click="submit">保存</n-button>
       </n-flex>
     </template>
-  </ErpFormModal>
+  </FormModal>
   </div>
 </template>

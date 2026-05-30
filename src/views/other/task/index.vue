@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import FormModal from "@/components/FormModal/index.vue"
 import { computed, h, onMounted, ref, watch } from "vue"
 import { NButton, NTab, NTabs, NTag, useDialog, useMessage } from "naive-ui"
 import {
@@ -552,7 +553,7 @@ watch(currentTab, () => {
       </template>
     </l-card>
   </div>
-  <n-modal v-model:show="showDetail" preset="card" class="w-[1200px] h-screen overflow-auto" title="任务详情">
+  <FormModal v-model:show="showDetail" title="任务详情" size="xl">
     <div style="">
       <n-descriptions bordered title="任务信息" column="4">
         <template v-if="isFlowTask">
@@ -1314,8 +1315,8 @@ watch(currentTab, () => {
         </n-flex>
       </template>
     </template>
-  </n-modal>
-  <n-modal v-model:show="showLeaderActionModal" preset="card" class="w-[520px]" :title="currentLeaderActionTitle">
+  </FormModal>
+  <FormModal v-model:show="showLeaderActionModal" :title="currentLeaderActionTitle" size="sm" height-mode="auto">
     <n-form>
       <n-form-item label="处理对象">
         <n-select
@@ -1328,12 +1329,10 @@ watch(currentTab, () => {
       </n-form-item>
     </n-form>
     <template #footer>
-      <n-flex justify="end">
-        <n-button @click="showLeaderActionModal = false">取消</n-button>
+      <n-button @click="showLeaderActionModal = false">取消</n-button>
         <n-button type="primary" @click="confirmLeaderAction">确定</n-button>
-      </n-flex>
     </template>
-  </n-modal>
+  </FormModal>
 </template>
 
 <style scoped>

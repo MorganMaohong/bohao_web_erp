@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import FormModal from "@/components/FormModal/index.vue"
 import { ref, watch } from "vue"
 import FlowSchemaPreview from "@/components/FlowSchemaPreview/index.vue"
 import { PurchaseApplyDetail } from "@/model/purchase"
@@ -60,13 +61,7 @@ watch(() => [props.show, props.uid, props.code], loadDetail, { immediate: true }
 </script>
 
 <template>
-  <n-modal
-    :show="show"
-    preset="card"
-    class="TemplateModal TemplateModal--xxl"
-    title="采购申请详情"
-    @update:show="updateShow"
-  >
+  <FormModal :show="show" title="采购申请详情" size="xxl" @update:show="updateShow">
     <PurchaseModalDetailShell :loading="loading">
           <n-card title="申请信息" :bordered="false" class="detail-card">
             <n-descriptions bordered :column="2" label-placement="left">
@@ -103,6 +98,6 @@ watch(() => [props.show, props.uid, props.code], loadDetail, { immediate: true }
           <FlowSchemaPreview title="流程进度" :schema-data="detailData.flowSchema" />
           </template>
     </PurchaseModalDetailShell>
-  </n-modal>
+  </FormModal>
 </template>
 

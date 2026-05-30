@@ -50,9 +50,13 @@ export interface ItemsQuery extends PageQuery {
   unit?: string
   warehouseUid?: string
   itemBizType?: string
+  specUid?: string
+  brandUid?: string
 }
 
 export interface ItemsQueryData {
   typeOptions?: TreeOptionVo[]
   unitOptions?: TreeOptionVo[]
+  specOptions?: OptionVo[]
+  brandOptions?: OptionVo[]
 }

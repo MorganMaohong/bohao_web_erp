@@ -2,6 +2,7 @@ import { reactive, ref, watch } from "vue"
 import { defineStore } from "pinia"
 import { getSidebarStatus, setSidebarStatus } from "@/utils/cache/local-storage"
 import { DeviceEnum, SIDEBAR_OPENED, SIDEBAR_CLOSED, ComponentSizeEnum } from "@/constants/app-key"
+import { SEARCH_BAR_SIZE } from "@/config/ui"
 import store from "@/store"
 
 interface Sidebar {
@@ -114,7 +115,9 @@ export const useAppStore = defineStore("app", () => {
     setComponentSize,
     appMainKey,
     refreshAppMain,
-    fullScreenStatus
+    fullScreenStatus,
+    /** 列表搜索栏及下方工具栏按钮尺寸，源配置见 @/config/ui SEARCH_BAR_SIZE */
+    searchBarSize: SEARCH_BAR_SIZE
   }
 })
 

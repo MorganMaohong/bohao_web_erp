@@ -1,7 +1,9 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref } from "vue"
 import LCard from "@/components/LCard/index.vue"
-import ErpFormModal from "@/components/ErpFormModal/index.vue"
+import ListPageToolbar from "@/components/ListPageToolbar/index.vue"
+import SearchQueryForm from "@/components/SearchQueryForm/index.vue"
+import FormModal from "@/components/FormModal/index.vue"
 import MCard from "@/components/MCard/index.vue"
 import { useAppStore } from "@/store/modules/app"
 import { FormInst, NButton } from "naive-ui"
@@ -371,7 +373,7 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <n-form label-placement="left" ref="queryFormRef" class="NaiveForm">
+          <SearchQueryForm label-placement="left" ref="queryFormRef" >
             <n-grid :cols="4" x-gap="12" y-gap="12">
               <n-gi>
                 <n-form-item label="名称:">
@@ -401,12 +403,12 @@ onMounted(() => {
                 </n-form-item>
               </n-gi>
             </n-grid>
-          </n-form>
+          </SearchQueryForm>
         </m-card>
       </template>
       <template #default>
         <m-card class="w-full h-full flex flex-col" padding="0">
-          <m-card padding="0" class="px-2 pt-2 flex items-center justify-between">
+          <ListPageToolbar>
             <n-button type="primary" @click="showUpdateModal()">
               <n-icon size="18">
                 <Add />
@@ -414,7 +416,7 @@ onMounted(() => {
               添加
             </n-button>
             <vxe-toolbar ref="VxeToolbarRef" custom />
-          </m-card>
+          </ListPageToolbar>
           <m-card ref="TableCardRef" class="flex-1">
             <vxe-table
               :column-config="{ resizable: true }"
@@ -528,7 +530,7 @@ onMounted(() => {
     </l-card>
   </div>
   <!-- 弹窗 -->
-  <ErpFormModal v-model:show="showUpdate" title="其他出库单" size="lg">
+  <FormModal v-model:show="showUpdate" title="其他出库单" size="lg">
 
     <n-form :model="formData" ref="formRef" :rules="formRule" class="TemplateForm">
         <n-grid cols="2" x-gap="16" y-gap="0">
@@ -769,8 +771,8 @@ onMounted(() => {
                 </n-button>
       </n-flex>
     </template>
-  </ErpFormModal>
-  <ErpFormModal v-model:show="showItems" title="物料信息" size="lg">
+  </FormModal>
+  <FormModal v-model:show="showItems" title="物料信息" size="lg">
 
     <l-card class="w-full h-full" shadow rounded padding="0">
       <vxe-table
@@ -851,7 +853,7 @@ onMounted(() => {
         <n-button type="primary" @click="confirmUpdateItems"> 确定</n-button>
       </n-flex>
     </template>
-  </ErpFormModal>
+  </FormModal>
   <n-modal
     :mask-closable="false"
     v-model:show="showDelete"
@@ -863,7 +865,7 @@ onMounted(() => {
     @positive-click="confirmDelete"
    
   />
-  <n-modal v-model:show="showDetail" preset="card" class="TemplateModal TemplateModal--lg" title="出库信息">
+  <FormModal v-model:show="showDetail" title="出库信息" size="lg">
     <n-space vertical :size="12">
         <n-descriptions bordered :column="4" title="单据信息">
           <n-descriptions-item label="编号">{{ detailData.code }}</n-descriptions-item>
@@ -962,7 +964,7 @@ onMounted(() => {
           </n-flex>
         </div>
       </n-space>
-  </n-modal>
+  </FormModal>
   <n-modal
     :mask-closable="false"
     v-model:show="showCancel"

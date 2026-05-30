@@ -4,7 +4,8 @@ import { Reset, Search } from "@vicons/carbon"
 import { NButton, useDialog, useMessage } from "naive-ui"
 import { PageVo } from "@/model"
 import LCard from "@/components/LCard/index.vue"
-import ErpFormModal from "@/components/ErpFormModal/index.vue"
+import SearchQueryForm from "@/components/SearchQueryForm/index.vue"
+import FormModal from "@/components/FormModal/index.vue"
 import MCard from "@/components/MCard/index.vue"
 import { useAppStore } from "@/store/modules/app"
 import { VxePagerEvents } from "vxe-pc-ui"
@@ -189,7 +190,7 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <n-form inline label-placement="left" :show-feedback="false" class="request-issue-search">
+          <SearchQueryForm inline label-placement="left" :show-feedback="false" class="request-issue-search">
             <n-form-item label="关键词">
               <n-input v-model:value="query.key" placeholder="申请单号 / 用途 / 备注" clearable />
             </n-form-item>
@@ -224,7 +225,7 @@ onMounted(() => {
                 </n-button>
               </n-space>
             </n-form-item>
-          </n-form>
+          </SearchQueryForm>
         </m-card>
       </template>
       <template #default>
@@ -284,7 +285,7 @@ onMounted(() => {
     </l-card>
   </div>
 
-  <ErpFormModal v-model:show="showIssue" :title="issueTitle()" size="xl">
+  <FormModal v-model:show="showIssue" :title="issueTitle()" size="xl">
 
     <n-alert v-if="issueMode === 'all'" type="success" :show-icon="false" class="mb-3">
       全部出库会按剩余未出库数量扣减库存，若库存不足会直接提示。
@@ -350,9 +351,9 @@ onMounted(() => {
         <n-button type="primary" :loading="submitting" @click="confirmIssue">确定</n-button>
       </n-flex>
     </template>
-  </ErpFormModal>
+  </FormModal>
 
-  <n-modal v-model:show="showDetail" preset="card" class="TemplateModal TemplateModal--xl" title="领料申请详情">
+  <FormModal v-model:show="showDetail" title="领料申请详情" size="xl">
     <n-descriptions bordered title="基础信息" column="4">
       <n-descriptions-item label="申请单号">{{ detailData.code || "-" }}</n-descriptions-item>
       <n-descriptions-item label="状态">{{ detailData.statusName || "-" }}</n-descriptions-item>
@@ -378,7 +379,7 @@ onMounted(() => {
       </vxe-column>
       <vxe-column field="remark" title="备注" align="center" min-width="180" />
     </vxe-table>
-  </n-modal>
+  </FormModal>
 </template>
 
 <style scoped>

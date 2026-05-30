@@ -3,7 +3,8 @@ import { onMounted, ref, watch } from "vue"
 import { useRoute } from "vue-router"
 import { Reset, Search } from "@vicons/carbon"
 import LCard from "@/components/LCard/index.vue"
-import ErpFormModal from "@/components/ErpFormModal/index.vue"
+import SearchQueryForm from "@/components/SearchQueryForm/index.vue"
+import FormModal from "@/components/FormModal/index.vue"
 import MCard from "@/components/MCard/index.vue"
 import { PageVo } from "@/model"
 import {
@@ -224,7 +225,7 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <n-form label-placement="left" class="NaiveForm">
+          <SearchQueryForm label-placement="left" >
             <n-grid :cols="4" x-gap="12" y-gap="12">
               <n-gi>
                 <n-form-item label="关键字:">
@@ -276,7 +277,7 @@ onMounted(() => {
                 </n-form-item>
               </n-gi>
             </n-grid>
-          </n-form>
+          </SearchQueryForm>
         </m-card>
       </template>
 
@@ -360,7 +361,7 @@ onMounted(() => {
       </template>
     </l-card>
 
-    <ErpFormModal v-model:show="showHandle" title="采购退货执行" size="xxl" :loading="submitting">
+    <FormModal v-model:show="showHandle" title="采购退货执行" size="xxl" :loading="submitting">
 <n-form :model="formData" class="TemplateForm" label-placement="left" label-width="96">
           <n-grid cols="2" x-gap="16" y-gap="0">
             <n-gi span="2">
@@ -469,9 +470,9 @@ onMounted(() => {
                   <n-button type="primary" :loading="submitting" @click="confirmReturn">确定退货</n-button>
       </n-flex>
     </template>
-  </ErpFormModal>
+  </FormModal>
 
-    <n-modal v-model:show="showDetail" preset="card" class="TemplateModal TemplateModal--xxl" title="采购退货详情">
+    <FormModal v-model:show="showDetail" title="采购退货详情" size="xxl">
       <PurchaseModalDetailShell :loading="loading">
         <n-card title="退货详情" :bordered="false" class="detail-card">
           <n-descriptions bordered :column="2" label-placement="left">
@@ -548,7 +549,7 @@ onMounted(() => {
           </vxe-table>
         </n-card>
       </PurchaseModalDetailShell>
-    </n-modal>
+    </FormModal>
 
     <PurchaseOrderRelatedModal v-model:show="showRelatedOrder" :uid="relatedOrder.uid" :code="relatedOrder.code" />
   </div>

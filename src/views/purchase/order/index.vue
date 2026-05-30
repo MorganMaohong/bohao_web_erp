@@ -3,7 +3,8 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import { useRoute } from "vue-router"
 import { Reset, Search } from "@vicons/carbon"
 import LCard from "@/components/LCard/index.vue"
-import ErpFormModal from "@/components/ErpFormModal/index.vue"
+import SearchQueryForm from "@/components/SearchQueryForm/index.vue"
+import FormModal from "@/components/FormModal/index.vue"
 import MCard from "@/components/MCard/index.vue"
 import FlowSchemaPreview from "@/components/FlowSchemaPreview/index.vue"
 import { PageVo } from "@/model"
@@ -389,7 +390,7 @@ onBeforeUnmount(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <n-form label-placement="left" class="NaiveForm">
+          <SearchQueryForm label-placement="left" >
             <n-grid :cols="4" x-gap="12" y-gap="12">
               <n-gi>
                 <n-form-item label="关键字:">
@@ -441,7 +442,7 @@ onBeforeUnmount(() => {
                 </n-form-item>
               </n-gi>
             </n-grid>
-          </n-form>
+          </SearchQueryForm>
         </m-card>
       </template>
 
@@ -528,7 +529,7 @@ onBeforeUnmount(() => {
       </template>
     </l-card>
 
-    <n-modal v-model:show="showDetail" preset="card" class="TemplateModal TemplateModal--xxl" title="采购订单详情">
+    <FormModal v-model:show="showDetail" title="采购订单详情" size="xxl">
       <PurchaseModalDetailShell :loading="loading">
             <n-card title="订单详情" :bordered="false" class="detail-card">
               <n-descriptions bordered :column="2" label-placement="left">
@@ -645,7 +646,7 @@ onBeforeUnmount(() => {
             </n-card>
           </template>
       </PurchaseModalDetailShell>
-    </n-modal>
+    </FormModal>
 
     <PurchaseApplyRelatedModal v-model:show="showRelatedApply" :uid="relatedApply.uid" :code="relatedApply.code" />
     <PurchaseOrderRelatedModal v-model:show="showRelatedOrder" :uid="relatedOrder.uid" :code="relatedOrder.code" />
@@ -655,7 +656,7 @@ onBeforeUnmount(() => {
       :code="relatedInbound.code"
     />
 
-    <ErpFormModal v-model:show="showConfirm" title="确认采购订单" size="xxl" :loading="submitting">
+    <FormModal v-model:show="showConfirm" title="确认采购订单" size="xxl" :loading="submitting">
 <n-form :model="confirmData" class="TemplateForm" label-placement="left" label-width="96">
           <n-grid cols="2" x-gap="16" y-gap="0">
             <n-gi span="2">
@@ -835,9 +836,9 @@ onBeforeUnmount(() => {
                   <n-button type="primary" :loading="submitting" @click="confirmOrder">提交审批</n-button>
       </n-flex>
     </template>
-  </ErpFormModal>
+  </FormModal>
 
-    <n-modal v-model:show="showPriceHistory" preset="card" class="TemplateModal TemplateModal--xl" title="物料历史采购记录">
+    <FormModal v-model:show="showPriceHistory" title="物料历史采购记录" size="xl">
       <n-spin :show="priceHistoryLoading">
       <div class="TemplateModal__sections">
       <n-card :bordered="false" class="detail-card">
@@ -903,7 +904,7 @@ onBeforeUnmount(() => {
         </n-card>
       </div>
       </n-spin>
-    </n-modal>
+    </FormModal>
   </div>
 </template>
 

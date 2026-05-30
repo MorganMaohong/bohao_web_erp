@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { onMounted, ref } from "vue"
 import LCard from "@/components/LCard/index.vue"
+import SearchQueryForm from "@/components/SearchQueryForm/index.vue"
 import MCard from "@/components/MCard/index.vue"
 import { useAppStore } from "@/store/modules/app"
 import { FormInst, NButton } from "naive-ui"
@@ -158,7 +159,7 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <n-form label-placement="left" ref="queryFormRef" class="NaiveForm">
+          <SearchQueryForm label-placement="left" ref="queryFormRef" >
             <n-grid :cols="4" x-gap="12" y-gap="12">
               <n-gi>
                 <n-form-item label="关键字:">
@@ -210,7 +211,7 @@ onMounted(() => {
                 </n-form-item>
               </n-gi>
             </n-grid>
-          </n-form>
+          </SearchQueryForm>
         </m-card>
       </template>
       <template #default>

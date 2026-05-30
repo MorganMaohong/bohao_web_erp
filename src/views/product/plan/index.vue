@@ -6,7 +6,9 @@ import { VxeTableInstance, VxeToolbarInstance } from "vxe-table"
 import { VxePagerEvents } from "vxe-pc-ui"
 import { useAppStore } from "@/store/modules/app"
 import LCard from "@/components/LCard/index.vue"
-import ErpFormModal from "@/components/ErpFormModal/index.vue"
+import ListPageToolbar from "@/components/ListPageToolbar/index.vue"
+import SearchQueryForm from "@/components/SearchQueryForm/index.vue"
+import FormModal from "@/components/FormModal/index.vue"
 import MCard from "@/components/MCard/index.vue"
 import FastUpload from "@/components/FastUpload/FastUpload.vue"
 import FlowSchemaPreview from "@/components/FlowSchemaPreview/index.vue"
@@ -855,7 +857,7 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <n-form label-placement="left" class="NaiveForm">
+          <SearchQueryForm label-placement="left" >
             <n-grid :cols="4" x-gap="12" y-gap="12">
               <n-gi>
                 <n-form-item label="计划:">
@@ -877,15 +879,15 @@ onMounted(() => {
                 </n-form-item>
               </n-gi>
             </n-grid>
-          </n-form>
+          </SearchQueryForm>
         </m-card>
       </template>
       <template #default>
         <m-card class="w-full h-full flex flex-col" padding="0">
-          <m-card padding="0" class="px-2 pt-2 flex items-center justify-between">
+          <ListPageToolbar>
             <n-button type="primary" @click="openEdit()">新增计划</n-button>
             <vxe-toolbar ref="VxeToolbarRef" custom />
-          </m-card>
+          </ListPageToolbar>
           <m-card ref="TableCardRef" class="flex-1">
             <vxe-table
               ref="VxeTableRef"
@@ -945,7 +947,7 @@ onMounted(() => {
       </template>
     </l-card>
 
-    <ErpFormModal v-model:show="showEdit" title="生产计划" size="xl">
+    <FormModal v-model:show="showEdit" title="生产计划" size="xl">
 
       <n-form class="TemplateForm">
         <n-grid cols="2" x-gap="16" y-gap="0">
@@ -1055,9 +1057,9 @@ onMounted(() => {
                 <n-button v-if="!planFormReadonly" type="primary" :loading="submitting" @click="submitPlan">保存</n-button>
       </n-flex>
     </template>
-  </ErpFormModal>
+  </FormModal>
 
-    <n-modal v-model:show="showDetail" preset="card" title="生产计划详情" class="w-[1400px] max-w-[98vw]">
+    <FormModal v-model:show="showDetail" title="生产计划详情" size="xxl">
       <div class="space-y-4">
         <n-descriptions :column="2" bordered>
           <n-descriptions-item label="计划名称">{{ detailData.name || "-" }}</n-descriptions-item>
@@ -1182,9 +1184,9 @@ onMounted(() => {
           </div>
         </div>
       </div>
-    </n-modal>
+    </FormModal>
 
-    <n-modal v-model:show="showPrepare" preset="card" title="备料" class="w-[1200px] max-w-[96vw] prepare-modal">
+    <FormModal v-model:show="showPrepare" title="备料" size="xl">
       <div class="space-y-4">
         <div class="flex justify-end">
           <n-button type="primary" @click="addPrepareBom">新增BOM</n-button>
@@ -1273,9 +1275,9 @@ onMounted(() => {
           <n-button type="primary" :loading="submitting" @click="confirmPrepare(prepareData.uid)">确认备料</n-button>
         </div>
       </template>
-    </n-modal>
+    </FormModal>
 
-    <ErpFormModal v-model:show="showIssue" title="领料" size="xl">
+    <FormModal v-model:show="showIssue" title="领料" size="xl">
 
       <n-alert
         v-if="issuePlanMeta.issueStatusName"
@@ -1347,9 +1349,9 @@ onMounted(() => {
         </div>
       </n-flex>
     </template>
-  </ErpFormModal>
+  </FormModal>
 
-    <n-modal v-model:show="showProcess" preset="card" title="工序" class="w-[900px] max-w-[92vw]">
+    <FormModal v-model:show="showProcess" title="工序" size="md">
       <n-grid :cols="2" x-gap="12">
         <n-gi>
           <n-form-item label="成品">
@@ -1388,9 +1390,9 @@ onMounted(() => {
           <n-button type="primary" :loading="submitting" @click="submitProcess(currentPlanUid)">保存</n-button>
         </div>
       </template>
-    </n-modal>
+    </FormModal>
 
-    <n-modal v-model:show="showCompleteNode" preset="card" title="工序节点完工" class="w-[720px] max-w-[92vw]">
+    <FormModal v-model:show="showCompleteNode" title="工序节点完工" size="md" height-mode="auto">
       <div class="space-y-4">
         <div class="flex gap-2 flex-wrap">
           <n-image v-for="(item, index) in completeNodeForm.imageList || []" :key="index" :src="item" class="w-20 h-20" />
@@ -1405,9 +1407,9 @@ onMounted(() => {
           <n-button type="primary" :loading="submitting" @click="submitCompleteNode(detailData.uid)">确认完工</n-button>
         </div>
       </template>
-    </n-modal>
+    </FormModal>
 
-    <n-modal v-model:show="showInbound" preset="card" title="完工入库" class="w-[1100px] max-w-[96vw]">
+    <FormModal v-model:show="showInbound" title="完工入库" size="xl">
       <n-alert
         v-if="inboundPlanMeta.inboundStatusName"
         class="mb-3"
@@ -1490,9 +1492,9 @@ onMounted(() => {
           <n-button v-if="inboundCanSubmit" type="primary" :loading="submitting" @click="submitInbound">提交入库申请</n-button>
         </div>
       </template>
-    </n-modal>
+    </FormModal>
 
-    <n-modal v-model:show="showClose" preset="card" title="关闭生产计划" class="w-[560px] max-w-[92vw]">
+    <FormModal v-model:show="showClose" title="关闭生产计划" size="sm" height-mode="auto">
       <div class="space-y-4">
         <n-alert type="warning" show-icon>
           关闭后将不允许继续执行该生产计划，且只有关闭后的计划才允许删除。
@@ -1507,7 +1509,7 @@ onMounted(() => {
           <n-button type="error" :loading="submitting" @click="submitClose">确认关闭</n-button>
         </div>
       </template>
-    </n-modal>
+    </FormModal>
   </div>
 </template>
 

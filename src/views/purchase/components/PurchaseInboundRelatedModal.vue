@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import FormModal from "@/components/FormModal/index.vue"
 import { ref, watch } from "vue"
 import { InventoryInboundDetail } from "@/model/inventory/inbound"
 import { InventoryInOrderService } from "@/services/inventory/InventoryInOrderService"
@@ -65,13 +66,7 @@ watch(() => [props.show, props.uid, props.code], loadDetail, { immediate: true }
 </script>
 
 <template>
-  <n-modal
-    :show="show"
-    preset="card"
-    class="TemplateModal TemplateModal--xxl"
-    title="采购入库详情"
-    @update:show="updateShow"
-  >
+  <FormModal :show="show" title="采购入库详情" size="xxl" @update:show="updateShow">
     <PurchaseModalDetailShell :loading="loading">
       <n-card title="入库详情" :bordered="false" class="detail-card">
         <n-descriptions bordered :column="2" label-placement="left">
@@ -101,5 +96,5 @@ watch(() => [props.show, props.uid, props.code], loadDetail, { immediate: true }
         </vxe-table>
       </n-card>
     </PurchaseModalDetailShell>
-  </n-modal>
+  </FormModal>
 </template>

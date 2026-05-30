@@ -23,8 +23,8 @@ body .n-modal .n-card > .n-card-header,
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(248, 250, 252, 0.95) 100%);
 }
 
-body .n-modal .n-card > .n-card__content,
-.n-modal .n-card > .n-card__content {
+body .n-modal .n-card:not(.FormModal) > .n-card__content,
+.n-modal .n-card:not(.FormModal) > .n-card__content {
   padding: var(--erp-modal-body-padding-y) var(--erp-modal-body-padding-x);
 }
 

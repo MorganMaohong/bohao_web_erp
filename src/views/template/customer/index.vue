@@ -3,7 +3,9 @@ import { computed, onMounted, ref } from "vue"
 import { Reset, Search } from "@vicons/carbon"
 import { FormInst } from "naive-ui"
 import { VxeTableInstance } from "vxe-table"
-import ErpFormModal from "@/components/ErpFormModal/index.vue"
+import FormModal from "@/components/FormModal/index.vue"
+import ListPageToolbar from "@/components/ListPageToolbar/index.vue"
+import SearchQueryForm from "@/components/SearchQueryForm/index.vue"
 import LCard from "@/components/LCard/index.vue"
 import MCard from "@/components/MCard/index.vue"
 import { PageVo } from "@/model"
@@ -121,7 +123,7 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <n-form label-placement="left" class="NaiveForm">
+          <SearchQueryForm label-placement="left" >
             <n-grid :cols="4" x-gap="12" y-gap="12">
               <n-gi>
                 <n-form-item label="客户:">
@@ -147,15 +149,15 @@ onMounted(() => {
                 </n-form-item>
               </n-gi>
             </n-grid>
-          </n-form>
+          </SearchQueryForm>
         </m-card>
       </template>
       <template #default>
         <m-card class="w-full h-full flex flex-col" padding="0">
-          <m-card padding="0" class="px-2 pt-2 flex items-center justify-between">
+          <ListPageToolbar>
             <n-button type="primary" @click="showUpdateModal()">新增客户</n-button>
             <vxe-toolbar ref="VxeToolbarRef" custom />
-          </m-card>
+          </ListPageToolbar>
           <m-card ref="TableCardRef" class="flex-1">
             <vxe-table
               :column-config="{ resizable: true }"
@@ -204,7 +206,7 @@ onMounted(() => {
     </l-card>
   </div>
 
-  <ErpFormModal v-model:show="showUpdate" title="客户信息" size="lg">
+  <FormModal v-model:show="showUpdate" title="客户信息" size="lg">
     <n-form :model="formData" ref="formRef" :rules="formRule">
       <n-grid cols="2" x-gap="16" y-gap="0">
         <n-gi span="2">
@@ -320,7 +322,7 @@ onMounted(() => {
     <template #footer>
       <n-button type="primary" @click="confirmUpdate" :loading="isSubmitting" :disabled="isSubmitting">确定</n-button>
     </template>
-  </ErpFormModal>
+  </FormModal>
   <n-modal
     :mask-closable="false"
     v-model:show="showDelete"

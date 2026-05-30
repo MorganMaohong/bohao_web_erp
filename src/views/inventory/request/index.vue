@@ -5,7 +5,8 @@ import { Add, Reset, Search } from "@vicons/carbon"
 import { NButton, useMessage } from "naive-ui"
 import { PageVo } from "@/model"
 import LCard from "@/components/LCard/index.vue"
-import ErpFormModal from "@/components/ErpFormModal/index.vue"
+import SearchQueryForm from "@/components/SearchQueryForm/index.vue"
+import FormModal from "@/components/FormModal/index.vue"
 import MCard from "@/components/MCard/index.vue"
 import { useAppStore } from "@/store/modules/app"
 import { VxePagerEvents, VxeTableEvents, VxeTableInstance } from "vxe-pc-ui"
@@ -258,7 +259,7 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <n-form label-placement="left" class="NaiveForm">
+          <SearchQueryForm label-placement="left" >
             <n-grid :cols="4" x-gap="12" y-gap="12">
               <n-gi>
                 <n-form-item label="搜索:">
@@ -312,7 +313,7 @@ onMounted(() => {
                 </n-form-item>
               </n-gi>
             </n-grid>
-          </n-form>
+          </SearchQueryForm>
         </m-card>
       </template>
 
@@ -373,7 +374,7 @@ onMounted(() => {
     </l-card>
   </div>
 
-  <ErpFormModal
+  <FormModal
     v-model:show="showUpdate"
     :title="isResubmit ? '重新提交领料申请' : '领料申请'"
     size="xxl"
@@ -494,9 +495,9 @@ onMounted(() => {
             </n-button>
       </n-flex>
     </template>
-  </ErpFormModal>
+  </FormModal>
 
-  <n-modal v-model:show="showDetail" preset="card" class="TemplateModal TemplateModal--xxl" title="领料申请详情">
+  <FormModal v-model:show="showDetail" title="领料申请详情" size="xxl">
     <div class="TemplateModal__split">
       <div class="TemplateModal__split-main TemplateModal__sections">
         <n-card title="领料申请信息" :bordered="false" class="detail-card">
@@ -531,11 +532,11 @@ onMounted(() => {
         <FlowSchemaPreview title="流程进度" :schema-data="detailData.flowSchema" />
       </div>
     </div>
-  </n-modal>
+  </FormModal>
 
   <n-modal v-model:show="showDelete" preset="dialog" title="删除领料申请" content="确定删除当前领料申请吗？" positive-text="确定" negative-text="取消" @positive-click="confirmDelete" />
 
-  <ErpFormModal v-model:show="showItems" title="选择物料" size="lg">
+  <FormModal v-model:show="showItems" title="选择物料" size="lg">
 
     <div class="space-y-3">
       <div class="flex items-center gap-3 flex-wrap">
@@ -587,5 +588,5 @@ onMounted(() => {
         <n-button type="primary" @click="confirmSelectItems">确定添加</n-button>
       </n-flex>
     </template>
-  </ErpFormModal>
+  </FormModal>
 </template>

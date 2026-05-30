@@ -1,0 +1,1 @@
+import{x as s,l as o}from"./index-YgmN0Go9.js";const c={async select(r){try{const e=s.select.url,t=await o({url:e,method:"POST",data:r});return Promise.resolve(t.data)}catch(e){return Promise.reject(e)}},async detail(r){try{const e=s.detail.url+`/${r}`,t=await o({url:e,method:"POST"});return Promise.resolve(t.data)}catch(e){return Promise.reject(e)}}};export{c as I};

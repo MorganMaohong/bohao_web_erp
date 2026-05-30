@@ -36,6 +36,10 @@ export const ItemDictService = {
     const res = await request({ url: `${templateItemDictApi.picker.url}/${categoryUid}`, method: "POST" })
     return Promise.resolve(res.data)
   },
+  async treePicker(categoryUid: string): Promise<ItemDictPickerVo> {
+    const res = await request({ url: `${templateItemDictApi.treePicker.url}/${categoryUid}`, method: "POST" })
+    return Promise.resolve(res.data)
+  },
   async buildCode(data: ItemCodeBuildForm): Promise<string> {
     const res = await request({ url: templateItemDictApi.buildCode.url, method: "POST", data })
     return Promise.resolve(res.data)

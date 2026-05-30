@@ -4,7 +4,9 @@ import { Add, Reset, Search } from "@vicons/carbon"
 import { FormInst } from "naive-ui"
 import { VxeTableInstance } from "vxe-table"
 import LCard from "@/components/LCard/index.vue"
-import ErpFormModal from "@/components/ErpFormModal/index.vue"
+import ListPageToolbar from "@/components/ListPageToolbar/index.vue"
+import SearchQueryForm from "@/components/SearchQueryForm/index.vue"
+import FormModal from "@/components/FormModal/index.vue"
 import MCard from "@/components/MCard/index.vue"
 import { OptionVo, PageVo } from "@/model"
 import { InventoryOutOrderForm } from "@/model/inventory/outbound"
@@ -275,7 +277,7 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <n-form label-placement="left" class="NaiveForm">
+          <SearchQueryForm label-placement="left" >
             <n-grid :cols="5" x-gap="12" y-gap="12">
               <n-gi>
                 <n-form-item label="关键字:">
@@ -312,15 +314,15 @@ onMounted(() => {
                 </n-form-item>
               </n-gi>
             </n-grid>
-          </n-form>
+          </SearchQueryForm>
         </m-card>
       </template>
       <template #default>
         <m-card class="w-full h-full flex flex-col" padding="0">
-          <m-card padding="0" class="px-2 pt-2 flex items-center justify-between">
+          <ListPageToolbar>
             <n-button type="primary" @click="showUpdateModal()">新增销售订单</n-button>
             <vxe-toolbar ref="VxeToolbarRef" custom />
-          </m-card>
+          </ListPageToolbar>
           <m-card ref="TableCardRef" class="flex-1">
             <vxe-table
               :column-config="{ resizable: true }"
@@ -376,7 +378,7 @@ onMounted(() => {
     </l-card>
   </div>
 
-  <ErpFormModal v-model:show="showUpdate" title="销售订单" size="xl">
+  <FormModal v-model:show="showUpdate" title="销售订单" size="xl">
 
     <n-form :model="formData" ref="formRef" :rules="formRule">
       <n-grid cols="4" x-gap="12">
@@ -462,11 +464,11 @@ onMounted(() => {
         </n-button>
       </n-flex>
     </template>
-  </ErpFormModal>
+  </FormModal>
 
-  <ErpFormModal v-model:show="showItems" title="选择物料" size="lg">
+  <FormModal v-model:show="showItems" title="选择物料" size="lg">
 
-    <n-form inline :size="componentSize">
+    <n-form inline :size="appStore.searchBarSize">
       <n-form-item label="关键字">
         <n-input v-model:value="itemsQuery.key" clearable placeholder="名称/编码" />
       </n-form-item>
@@ -488,9 +490,9 @@ onMounted(() => {
         <n-button type="primary" @click="confirmSelectItems">确定</n-button>
       </n-flex>
     </template>
-  </ErpFormModal>
+  </FormModal>
 
-  <ErpFormModal v-model:show="showOutbound" title="销售出库" size="xl" :loading="submitting">
+  <FormModal v-model:show="showOutbound" title="销售出库" size="xl" :loading="submitting">
     <n-form :model="outboundData" ref="outboundFormRef" :rules="outboundRule">
       <n-grid cols="3" x-gap="12">
         <n-gi>
@@ -533,9 +535,9 @@ onMounted(() => {
         <n-button type="primary" @click="confirmOutbound" :loading="submitting">确认出库</n-button>
       </n-flex>
     </template>
-  </ErpFormModal>
+  </FormModal>
 
-  <n-modal v-model:show="showDetail" preset="card" class="w-[1050px]" title="销售订单详情">
+  <FormModal v-model:show="showDetail" title="销售订单详情" size="lg">
     <n-descriptions :column="4" bordered size="small">
       <n-descriptions-item label="订单号">{{ detailData.code }}</n-descriptions-item>
       <n-descriptions-item label="客户">{{ detailData.customerName }}</n-descriptions-item>
@@ -566,7 +568,7 @@ onMounted(() => {
       <vxe-column field="statusName" title="状态" width="100" />
       <vxe-column field="remark" title="备注" min-width="160" />
     </vxe-table>
-  </n-modal>
+  </FormModal>
 
   <n-modal
     :mask-closable="false"

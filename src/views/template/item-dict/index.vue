@@ -1,6 +1,8 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref } from "vue"
-import ErpFormModal from "@/components/ErpFormModal/index.vue"
+import FormModal from "@/components/FormModal/index.vue"
+import ListPageToolbar from "@/components/ListPageToolbar/index.vue"
+import SearchQueryForm from "@/components/SearchQueryForm/index.vue"
 import LCard from "@/components/LCard/index.vue"
 import MCard from "@/components/MCard/index.vue"
 import { useAppStore } from "@/store/modules/app"
@@ -165,7 +167,7 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <n-form label-placement="left" class="NaiveForm">
+          <SearchQueryForm label-placement="left" >
             <n-grid :cols="4" x-gap="12" y-gap="12">
               <n-gi>
                 <n-form-item label="名称:">
@@ -191,15 +193,15 @@ onMounted(() => {
                 </n-form-item>
               </n-gi>
             </n-grid>
-          </n-form>
+          </SearchQueryForm>
         </m-card>
       </template>
       <template #default>
         <m-card class="w-full h-full flex flex-col" padding="0">
-          <m-card padding="0" class="px-2 pt-2 flex items-center justify-between">
+          <ListPageToolbar>
             <n-button type="primary" @click="showUpdateModal()">新增物料</n-button>
             <vxe-toolbar ref="VxeToolbarRef" custom />
-          </m-card>
+          </ListPageToolbar>
           <m-card ref="TableCardRef" class="flex-1 ItemDict-table">
             <vxe-table
               :column-config="{ resizable: true }"
@@ -250,7 +252,7 @@ onMounted(() => {
       </template>
     </l-card>
   </div>
-  <ErpFormModal v-model:show="showUpdate" title="物料字典" size="md">
+  <FormModal v-model:show="showUpdate" title="物料字典" size="md" height-mode="auto">
     <n-form :model="formData" ref="formRef" :rules="formRule">
       <n-grid cols="1">
         <n-gi>
@@ -305,7 +307,7 @@ onMounted(() => {
         确定
       </n-button>
     </template>
-  </ErpFormModal>
+  </FormModal>
   <n-modal
     :mask-closable="false"
     v-model:show="showDelete"

@@ -781,6 +781,7 @@ export const templateItemDictApi = {
   form: { url: `${apiPrefix.templateItemDict}/form`, permission: "" },
   updateSort: { url: `${apiPrefix.templateItemDict}/updateSort`, permission: "template:itemDict:edit" },
   picker: { url: `${apiPrefix.templateItemDict}/picker`, permission: "" },
+  treePicker: { url: `${apiPrefix.templateItemDict}/treePicker`, permission: "" },
   buildCode: { url: `${apiPrefix.templateItemDict}/buildCode`, permission: "" }
 }
 
