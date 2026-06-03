@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { onMounted, ref, watch } from "vue"
+import { computed, onMounted, ref, watch } from "vue"
 import { useRoute } from "vue-router"
 import LCard from "@/components/LCard/index.vue"
 import ListPageToolbar from "@/components/ListPageToolbar/index.vue"
@@ -13,6 +13,7 @@ import { PageVo } from "@/model"
 import { VxeTableInstance } from "vxe-table"
 import { Reset, Search } from "@vicons/carbon"
 import { PurchaseApplyOrderService } from "@/services/purchase/PurchaseApplyOrderService"
+import { getSpec1Name, getSpec2Name } from "@/utils/itemSpec"
 import {
   PurchaseApplyDetail,
   PurchaseApplyOrderDetailVo,
@@ -23,9 +24,10 @@ import {
   PurchaseOrderQueryData,
   PurchaseOrderVo
 } from "@/model/purchase"
-import { InventoryQueryData, InventoryVo } from "@/model/inventory"
 import { ItemsService } from "@/services/template/ItemsService"
-import { ItemsQuery } from "@/model/template/items"
+import { ItemsQuery, ItemsVo } from "@/model/template/items"
+import { MaterialRequestOrderService } from "@/services/inventory/MaterialRequestOrderService"
+import { FlowInstanceStatusDict } from "@/constants/enum"
 import FlowSchemaPreview from "@/components/FlowSchemaPreview/index.vue"
 import { FlowDefinitionTypeOptions } from "@/constants/flow"
 import {
@@ -63,14 +65,19 @@ const formData = ref<PurchaseApplyOrderForm>({
   expectTime: 0,
   remark: "",
   sourceType: "",
-  warehouseUid: ""
+  detailList: []
 })
 const formRef = ref<FormInst>()
 const loading = ref(false)
 const detailLoading = ref(false)
 const creatingOrder = ref(false)
 const itemsQuery = ref<ItemsQuery>({ currentPage: 1, pageSize: 50 })
-const itemsData = ref<PageVo<InventoryVo, InventoryQueryData>>({})
+const itemsData = ref<PageVo<ItemsVo, void>>({})
+const isResubmit = computed(
+  () => !!formData.value.uid && formData.value.status === FlowInstanceStatusDict.REJECTED
+)
+const canDeleteApply = (status?: string) =>
+  status === FlowInstanceStatusDict.REJECTED || status === FlowInstanceStatusDict.WITHDRAWN
 const formRule = {
   sourceType: {
     required: true,
@@ -95,7 +102,7 @@ const formRule = {
     trigger: ["input", "blur"]
   }
 }
-const query = ref<PurchaseApplyOrderQuery>({ currentPage: 1, pageSize: 50 })
+const query = ref<PurchaseApplyOrderQuery>({ currentPage: 1, pageSize: 50, key: "" })
 const data = ref<PageVo<PurchaseApplyOrderVo, PurchaseApplyOrderQueryData>>({})
 const VxeTableRef = ref<VxeTableInstance>()
 const VxeTableItemsRef = ref<VxeTableInstance>()
@@ -125,7 +132,6 @@ function select() {
     })
     .finally(() => {
       loading.value = false
-      VxeTableRef.value?.setAllTreeExpand(true)
     })
 }
 
@@ -145,7 +151,7 @@ function applyRouteOpen() {
   }
 
   if (openCode) {
-    query.value.name = openCode
+    query.value.key = openCode
     query.value.currentPage = 1
   }
 
@@ -197,6 +203,7 @@ function showUpdateModal(uid?: string) {
   showUpdate.value = true
   PurchaseApplyOrderService.form(uid).then((data) => {
     formData.value = data
+    formData.value.detailList = formData.value.detailList || []
   })
 }
 
@@ -207,8 +214,6 @@ function showItemsModal() {
 }
 
 function selectItems() {
-  itemsQuery.value.key = ""
-  itemsQuery.value.currentPage = 1
   loading.value = true
   ItemsService.select(itemsQuery.value)
     .then((data) => {
@@ -219,6 +224,11 @@ function selectItems() {
     })
 }
 
+function resetItemsQuery() {
+  itemsQuery.value = { currentPage: 1, pageSize: itemsQuery.value.pageSize || 50, key: "" }
+  selectItems()
+}
+
 function confirmUpdateItems() {
   const records = VxeTableItemsRef.value?.getCheckboxRecords() || []
 
@@ -226,12 +236,11 @@ function confirmUpdateItems() {
     formData.value.detailList = []
   }
 
-  const existUidSet = new Set(formData.value.detailList.map((item) => item.itemUid))
+  const existUidSet = new Set(formData.value.detailList.map((item) => item.itemUid).filter(Boolean))
 
   const newDetails: PurchaseApplyOrderDetailVo[] = records
-    .filter((item) => !existUidSet.has(item.itemUid))
+    .filter((item) => !existUidSet.has(item.uid))
     .map((item) => ({
-      // 主数据关联
       ...item,
       itemUid: item.uid,
       uid: "",
@@ -250,17 +259,36 @@ function confirmDeleteItems(_row: PurchaseApplyOrderDetailVo, index: number) {
 function confirmUpdate() {
   formRef.value?.validate((err) => {
     if (err) return
+    if (!formData.value.usageType) {
+      window.$message?.error("请选择用途类型")
+      return
+    }
+    if (!formData.value.bizType) {
+      window.$message?.error("请选择业务对象类型")
+      return
+    }
+    if (formData.value.bizType !== "none" && !formData.value.bizUid) {
+      window.$message?.error("请选择业务对象")
+      return
+    }
     if (isSubmitting.value) return
     isSubmitting.value = true
     PurchaseApplyOrderService.addOrUpdate(formData.value)
       .then(() => {
         showUpdate.value = false
+        window.$message?.success(isResubmit.value ? "重新提交成功，已再次发起审批流程" : "提交成功")
         select()
       })
       .finally(() => {
         isSubmitting.value = false
       })
   })
+}
+
+async function onBizTypeChange(value: string) {
+  formData.value.bizUid = ""
+  formData.value.bizName = ""
+  formData.value.bizObjectOptions = await MaterialRequestOrderService.bizObjectOptions(value)
 }
 
 function showDeleteModal(uid: string) {
@@ -314,11 +342,19 @@ function confirmDelete() {
 }
 
 function search() {
+  query.value.currentPage = 1
   select()
 }
 
 function reset() {
-  query.value = resetRef(query.value)
+  query.value = {
+    currentPage: 1,
+    pageSize: 50,
+    key: "",
+    sourceType: undefined,
+    usageType: undefined,
+    status: undefined
+  }
   select()
 }
 
@@ -343,8 +379,41 @@ onMounted(() => {
           <SearchQueryForm label-placement="left" ref="queryFormRef" >
             <n-grid :cols="4" x-gap="12" y-gap="12">
               <n-gi>
-                <n-form-item label="名称:">
-                  <n-input clearable v-model:value="query.name" />
+                <n-form-item label="关键词:">
+                  <n-input clearable v-model:value="query.key" placeholder="申请编号/备注/业务对象" />
+                </n-form-item>
+              </n-gi>
+              <n-gi>
+                <n-form-item label="需求来源:">
+                  <n-select
+                    clearable
+                    filterable
+                    v-model:value="query.sourceType"
+                    :options="data.extraData?.sourceTypeOptions || []"
+                    placeholder="全部"
+                  />
+                </n-form-item>
+              </n-gi>
+              <n-gi>
+                <n-form-item label="用途类型:">
+                  <n-select
+                    clearable
+                    filterable
+                    v-model:value="query.usageType"
+                    :options="data.extraData?.usageTypeOptions || []"
+                    placeholder="全部"
+                  />
+                </n-form-item>
+              </n-gi>
+              <n-gi>
+                <n-form-item label="流程状态:">
+                  <n-select
+                    clearable
+                    filterable
+                    v-model:value="query.status"
+                    :options="data.extraData?.statusOptions || []"
+                    placeholder="全部"
+                  />
                 </n-form-item>
               </n-gi>
               <n-gi>
@@ -376,7 +445,7 @@ onMounted(() => {
       <template #default>
         <m-card class="w-full h-full flex flex-col" padding="0">
           <ListPageToolbar>
-            <n-button type="primary" @click="showUpdateModal()">新增申请</n-button>
+            <n-button type="primary" :size="appStore.searchBarSize" @click="showUpdateModal()">新增申请</n-button>
           </ListPageToolbar>
           <m-card ref="TableCardRef" class="flex-1">
             <vxe-table
@@ -395,7 +464,9 @@ onMounted(() => {
                   <n-button text type="info" @click="showDetailModal(row.uid)">{{ row.code || "-" }}</n-button>
                 </template>
               </vxe-column>
-              <vxe-column field="sourceTypeName" title="类型" show-overflow="tooltip" align="center" />
+              <vxe-column field="sourceTypeName" title="需求来源" show-overflow="tooltip" align="center" />
+              <vxe-column field="usageTypeName" title="用途类型" show-overflow="tooltip" align="center" />
+              <vxe-column field="bizTypeName" title="业务类型" show-overflow="tooltip" align="center" />
               <vxe-column field="applyTimeName" title="申请时间" show-overflow="tooltip" align="center" />
               <vxe-column field="expectTimeName" title="到货时间" show-overflow="tooltip" align="center" />
               <vxe-column field="statusName" title="流程状态" show-overflow="tooltip" align="center" />
@@ -403,11 +474,28 @@ onMounted(() => {
               <vxe-column field="remark" title="备注" show-overflow="tooltip" align="center" />
               <vxe-column field="createTime" title="创建时间" show-overflow="tooltip" align="center" :visible="false" />
               <vxe-column field="updateTime" title="更新时间" show-overflow="tooltip" align="center" :visible="false" />
-              <vxe-column fixed="right" title="操作" align="center" show-overflow="tooltip" width="180">
+              <vxe-column fixed="right" title="操作" align="center" show-overflow="tooltip" width="220">
                 <template #default="{ row }">
                   <n-flex justify="center">
-                    <n-button type="info" text @click="showDetailModal(row.uid)">详情</n-button>
-                    <n-button type="error" text @click="showDeleteModal(row.uid)">撤回</n-button>
+                    <n-button type="info" text :size="appStore.searchBarSize" @click="showDetailModal(row.uid)">详情</n-button>
+                    <n-button
+                      v-if="row.status === FlowInstanceStatusDict.REJECTED"
+                      type="info"
+                      text
+                      :size="appStore.searchBarSize"
+                      @click="showUpdateModal(row.uid)"
+                    >
+                      重新提交
+                    </n-button>
+                    <n-button
+                      v-if="canDeleteApply(row.status)"
+                      type="error"
+                      text
+                      :size="appStore.searchBarSize"
+                      @click="showDeleteModal(row.uid)"
+                    >
+                      删除
+                    </n-button>
                   </n-flex>
                 </template>
               </vxe-column>
@@ -489,6 +577,44 @@ onMounted(() => {
                 />
               </n-form-item>
             </n-gi>
+            <n-gi>
+              <n-form-item label="用途类型">
+                <n-select
+                  filterable
+                  clearable
+                  placeholder="请选择用途类型"
+                  v-model:value="formData.usageType"
+                  :options="formData.usageTypeOptions || []"
+                  class="w-full"
+                />
+              </n-form-item>
+            </n-gi>
+            <n-gi>
+              <n-form-item label="业务对象类型">
+                <n-select
+                  filterable
+                  clearable
+                  placeholder="请选择业务对象类型"
+                  v-model:value="formData.bizType"
+                  :options="formData.bizTypeOptions || []"
+                  class="w-full"
+                  @update:value="onBizTypeChange"
+                />
+              </n-form-item>
+            </n-gi>
+            <n-gi>
+              <n-form-item label="业务对象">
+                <n-select
+                  filterable
+                  clearable
+                  placeholder="请选择业务对象"
+                  v-model:value="formData.bizUid"
+                  :options="formData.bizObjectOptions || []"
+                  :disabled="!formData.bizType || formData.bizType === 'none'"
+                  class="w-full"
+                />
+              </n-form-item>
+            </n-gi>
             <n-gi span="2">
               <n-form-item label="到货地址">
                 <n-input placeholder="请输入到货地址" v-model:value="formData.address" />
@@ -548,7 +674,12 @@ onMounted(() => {
                       </vxe-column>
                       <vxe-column field="typeName" title="类型" show-overflow="tooltip" align="center" width="15%" />
                       <vxe-column field="unitName" title="单位" show-overflow="tooltip" align="center" width="15%" />
-                      <vxe-column field="spec" title="规格" show-overflow="tooltip" align="center" width="15%" />
+                      <vxe-column title="规格1" show-overflow="tooltip" align="center" width="15%">
+                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+              </vxe-column>
+              <vxe-column title="规格2" show-overflow="tooltip" align="center" width="15%">
+                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+              </vxe-column>
                       <vxe-column field="material" title="材质" show-overflow="tooltip" align="center" width="15%" />
 
                       <vxe-column field="remark" title="备注" show-overflow="tooltip" align="center" width="30%" />
@@ -594,7 +725,9 @@ onMounted(() => {
     <template #footer>
       <n-flex justify="end">
         <n-button @click="showUpdate = false">取消</n-button>
-            <n-button type="primary" @click="confirmUpdate" :loading="isSubmitting" :disabled="isSubmitting">提交申请</n-button>
+            <n-button type="primary" @click="confirmUpdate" :loading="isSubmitting" :disabled="isSubmitting">
+              {{ isResubmit ? "重新提交" : "提交申请" }}
+            </n-button>
       </n-flex>
     </template>
   </FormModal>
@@ -608,7 +741,7 @@ onMounted(() => {
         <n-form-item>
           <div class="flex gap-2">
             <n-button type="info" secondary strong @click="selectItems">查询</n-button>
-            <n-button secondary strong @click="selectItems()"> 重置</n-button>
+            <n-button secondary strong @click="resetItemsQuery"> 重置</n-button>
           </div>
         </n-form-item>
       </n-form>
@@ -647,7 +780,12 @@ onMounted(() => {
           align="center"
           width="20%"
         />
-        <vxe-column field="spec" title="规格" show-overflow="tooltip" align="center" width="15%" />
+        <vxe-column title="规格1" show-overflow="tooltip" align="center" width="15%">
+                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+              </vxe-column>
+              <vxe-column title="规格2" show-overflow="tooltip" align="center" width="15%">
+                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+              </vxe-column>
         <vxe-column field="material" title="材质" show-overflow="tooltip" align="center" width="15%" />
         <vxe-column field="remark" title="备注" show-overflow="tooltip" align="center" width="30%" />
         <vxe-column
@@ -698,7 +836,7 @@ onMounted(() => {
     preset="dialog"
     type="error"
     title="提示信息"
-    content="确定删除吗?"
+    content="确定删除该采购申请吗？"
     positive-text="确定"
     @positive-click="confirmDelete"
    
@@ -712,6 +850,9 @@ onMounted(() => {
             <n-descriptions-item label="申请日期">{{ detailData.applyTimeName || "-" }}</n-descriptions-item>
             <n-descriptions-item label="到货日期">{{ detailData.expectTimeName || "-" }}</n-descriptions-item>
             <n-descriptions-item label="需求来源">{{ detailData.sourceTypeName || "-" }}</n-descriptions-item>
+            <n-descriptions-item label="用途类型">{{ detailData.usageTypeName || "-" }}</n-descriptions-item>
+            <n-descriptions-item label="业务类型">{{ detailData.bizTypeName || "-" }}</n-descriptions-item>
+            <n-descriptions-item label="业务对象">{{ detailData.bizName || "-" }}</n-descriptions-item>
             <n-descriptions-item label="当前节点">{{ detailData.currentNodeName || "-" }}</n-descriptions-item>
             <n-descriptions-item label="到货地址" :span="2">{{ detailData.address || "-" }}</n-descriptions-item>
             <n-descriptions-item label="备注" :span="2">{{ detailData.remark || "-" }}</n-descriptions-item>
@@ -755,7 +896,12 @@ onMounted(() => {
             <vxe-column field="supplierName" title="供应商" min-width="140" />
             <vxe-column field="typeName" title="类型" min-width="120" />
             <vxe-column field="unitName" title="单位" min-width="100" />
-            <vxe-column field="spec" title="规格" min-width="140" />
+            <vxe-column title="规格1" min-width="140">
+              <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+            </vxe-column>
+            <vxe-column title="规格2" min-width="140">
+              <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+            </vxe-column>
             <vxe-column field="material" title="材质" min-width="120" />
             <vxe-column field="quantity" title="采购数量" min-width="100" />
             <vxe-column field="purchasePriceWithTax" title="含税单价" min-width="110" />

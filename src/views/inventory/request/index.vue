@@ -5,6 +5,7 @@ import { Add, Reset, Search } from "@vicons/carbon"
 import { NButton, useMessage } from "naive-ui"
 import { PageVo } from "@/model"
 import LCard from "@/components/LCard/index.vue"
+import ListPageToolbar from "@/components/ListPageToolbar/index.vue"
 import SearchQueryForm from "@/components/SearchQueryForm/index.vue"
 import FormModal from "@/components/FormModal/index.vue"
 import MCard from "@/components/MCard/index.vue"
@@ -12,6 +13,7 @@ import { useAppStore } from "@/store/modules/app"
 import { VxePagerEvents, VxeTableEvents, VxeTableInstance } from "vxe-pc-ui"
 import { InventoryOverviewService } from "@/services/inventory/InventoryOverviewService"
 import { InventoryQuery, InventoryQueryData, InventoryVo } from "@/model/inventory"
+import { getSpec1Name, getSpec2Name } from "@/utils/itemSpec"
 import {
   MaterialRequestDetail,
   MaterialRequestOrderDetailVo,
@@ -21,6 +23,7 @@ import {
   MaterialRequestOrderVo
 } from "@/model/inventory/request"
 import { MaterialRequestOrderService } from "@/services/inventory/MaterialRequestOrderService"
+import { MaterialRequestOrderStatusDict } from "@/constants/enum"
 import FlowSchemaPreview from "@/components/FlowSchemaPreview/index.vue"
 import { FlowDefinitionTypeOptions } from "@/constants/flow"
 import {
@@ -42,7 +45,7 @@ const showDelete = ref(false)
 const showDetail = ref(false)
 const showItems = ref(false)
 
-const query = ref<MaterialRequestOrderQuery>({ currentPage: 1, pageSize: 20 })
+const query = ref<MaterialRequestOrderQuery>({ currentPage: 1, pageSize: 20, key: "" })
 const data = ref<PageVo<MaterialRequestOrderVo, MaterialRequestOrderQueryData>>({})
 const formData = ref<MaterialRequestOrderForm>({ warehouse: {}, detailList: [] })
 const detailData = ref<MaterialRequestDetail>({ detailList: [] })
@@ -76,7 +79,15 @@ function search() {
 }
 
 function reset() {
-  query.value = { currentPage: 1, pageSize: 20 }
+  query.value = {
+    currentPage: 1,
+    pageSize: 20,
+    key: "",
+    status: undefined,
+    warehouseUid: undefined,
+    usageType: undefined,
+    bizType: undefined
+  }
   select()
 }
 
@@ -111,6 +122,11 @@ async function confirmUpdate() {
   for (const row of formData.value.detailList) {
     if (!row.itemUid || !row.quantity || Number(row.quantity) <= 0) {
       message.error("请完整填写领料明细数量")
+      return
+    }
+    const available = Number(row.availableQuantity) || 0
+    if (Number(row.quantity) > available) {
+      message.error(`【${row.name}】申请数量不能超过可用库存 ${available}`)
       return
     }
   }
@@ -166,8 +182,6 @@ function onWarehouseUidChange(uid: string | null) {
 }
 
 async function selectItems() {
-  itemsQuery.key = ''
-  itemsQuery.currentPage = 1
   loading.value = true
   try {
     itemsData.value = await InventoryOverviewService.select(itemsQuery.value)
@@ -176,24 +190,41 @@ async function selectItems() {
   }
 }
 
+function resetItemsQuery() {
+  itemsQuery.value.key = ""
+  itemsQuery.value.currentPage = 1
+  selectItems()
+}
+
 function showItemsModal() {
   if (!formData.value.warehouseUid) {
     message.error("请先选择领料仓库")
     return
   }
   showItems.value = true
-  itemsQuery.value.warehouseUidList = [formData.value.warehouseUid]
+  itemsQuery.value = { currentPage: 1, pageSize: 50, key: "", warehouseUidList: [formData.value.warehouseUid] }
   selectItems()
+}
+
+function statusTagType(status?: string) {
+  if (status === MaterialRequestOrderStatusDict.REJECTED) return "error"
+  if (status === MaterialRequestOrderStatusDict.WAIT_ISSUE) return "warning"
+  if (status === MaterialRequestOrderStatusDict.PART_ISSUED) return "info"
+  if (status === MaterialRequestOrderStatusDict.ALL_ISSUED) return "success"
+  return "default"
 }
 
 function confirmSelectItems() {
   const records = VxeTableItemsRef.value?.getCheckboxRecords() || []
   const currentMap = new Map((formData.value.detailList || []).map((item) => [item.itemUid, item]))
+  let skipped = 0
   records.forEach((row) => {
+    if (!row.itemUid) return
     const existing = currentMap.get(row.itemUid)
     if (existing) {
       existing.totalQuantity = row.totalQuantity
       existing.availableQuantity = row.availableQuantity
+      skipped++
       return
     }
     currentMap.set(row.itemUid, {
@@ -214,6 +245,9 @@ function confirmSelectItems() {
       remark: ""
     })
   })
+  if (skipped > 0) {
+    message.warning("已跳过重复物料")
+  }
   formData.value.detailList = Array.from(currentMap.values())
   showItems.value = false
 }
@@ -255,20 +289,31 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="LayoutContainer">
-    <l-card class="w-full h-full" border shadow rounded padding="0">
+  <div class="LayoutContainer inventory-request">
+    <l-card class="w-full inventory-request__shell" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <SearchQueryForm label-placement="left" >
-            <n-grid :cols="4" x-gap="12" y-gap="12">
+          <SearchQueryForm label-placement="left" class="inventory-request__search">
+            <n-grid :cols="4" :x-gap="12" :y-gap="12">
               <n-gi>
-                <n-form-item label="搜索:">
-                  <n-input v-model:value="query.key" clearable placeholder="单号/备注/关联对象" />
+                <n-form-item label="关键字:">
+                  <n-input
+                    v-model:value="query.key"
+                    clearable
+                    placeholder="单号 / 备注 / 关联对象"
+                    @keyup.enter="search"
+                  />
                 </n-form-item>
               </n-gi>
               <n-gi>
                 <n-form-item label="状态:">
-                  <n-select v-model:value="query.status" :options="data.extraData?.statusOptions || []" clearable placeholder="状态" />
+                  <n-select
+                    v-model:value="query.status"
+                    :options="data.extraData?.statusOptions || []"
+                    clearable
+                    filterable
+                    placeholder="状态"
+                  />
                 </n-form-item>
               </n-gi>
               <n-gi>
@@ -294,20 +339,14 @@ onMounted(() => {
               </n-gi>
               <n-gi :span="4">
                 <n-form-item>
-                  <div class="flex items-center justify-between gap-3 flex-wrap w-full">
-                    <div class="flex gap-2">
-                      <n-button type="primary" @click="search">
-                        <template #icon><Search /></template>
-                        查询
-                      </n-button>
-                      <n-button @click="reset">
-                        <template #icon><Reset /></template>
-                        重置
-                      </n-button>
-                    </div>
-                    <n-button type="primary" @click="showUpdateModal()">
-                      <template #icon><Add /></template>
-                      我要领料
+                  <div class="inventory-request__search-actions">
+                    <n-button type="primary" @click="search">
+                      <template #icon><n-icon :component="Search" /></template>
+                      搜索
+                    </n-button>
+                    <n-button @click="reset">
+                      <template #icon><n-icon :component="Reset" /></template>
+                      重置
                     </n-button>
                   </div>
                 </n-form-item>
@@ -318,55 +357,96 @@ onMounted(() => {
       </template>
 
       <template #default>
-        <m-card ref="TableCardRef" class="w-full h-full flex flex-col" padding="0">
-          <vxe-table
-            ref="VxeTableRef"
-            :data="data.list || []"
-            border
-            stripe
-            :loading="loading"
-            :cell-config="{ height: 45 }"
-            :size="componentSize"
-            :row-config="{ isHover: true }"
-            :height="TableCardMaxHeight"
-          >
-            <vxe-column type="seq" width="70" align="center" title="序号" />
-            <vxe-column field="code" title="申请单号" min-width="180" align="center" />
-            <vxe-column field="warehouseName" title="领料仓库" min-width="140" align="center" />
-            <vxe-column field="usageTypeName" title="用途类型" min-width="140" align="center" />
-            <vxe-column field="bizName" title="关联对象" min-width="160" align="center" />
-            <vxe-column field="statusName" title="状态" width="120" align="center" />
-            <vxe-column field="currentNodeName" title="当前节点" min-width="150" align="center" />
-            <vxe-column field="totalQuantity" title="总数量" width="100" align="center" />
-            <vxe-column field="applyTimeName" title="申请时间" min-width="170" align="center" />
-            <vxe-column title="操作" fixed="right" width="220" align="center">
-              <template #default="{ row }">
-                <n-space justify="center" size="small">
-                  <n-button type="primary" text @click="showDetailModal(row.uid)">详情</n-button>
-                  <n-button
-                    v-if="['rejected'].includes(row.status)"
-                    type="info"
-                    text
-                    @click="showUpdateModal(row.uid)"
-                  >
-                    重新提交
-                  </n-button>
-                  <n-button
-                    v-if="['rejected'].includes(row.status)"
-                    type="error"
-                    text
-                    @click="showDeleteModal(row.uid)"
-                  >
-                    删除
-                  </n-button>
-                </n-space>
-              </template>
-            </vxe-column>
-          </vxe-table>
+        <div class="inventory-request__page">
+          <ListPageToolbar>
+            <n-button type="primary" :size="appStore.searchBarSize" @click="showUpdateModal()">
+              <template #icon><n-icon :component="Add" /></template>
+              我要领料
+            </n-button>
+          </ListPageToolbar>
+
+          <div class="inventory-request__table-head">
+            <div class="inventory-request__table-title">
+              <span>申请列表</span>
+            </div>
+          </div>
+
+          <div class="inventory-request__table-zone">
+            <m-card ref="TableCardRef" class="w-full" padding="0">
+              <vxe-table
+                ref="VxeTableRef"
+                :data="data.list || []"
+                border="inner"
+                stripe
+                :loading="loading"
+                :cell-config="{ height: 45 }"
+                :size="componentSize"
+                :row-config="{ isHover: true }"
+                :height="TableCardMaxHeight"
+              >
+                <vxe-column type="seq" width="70" align="center" title="序号" />
+                <vxe-column field="code" title="申请单号" min-width="180" align="center" />
+                <vxe-column field="warehouseName" title="领料仓库" min-width="140" align="center" />
+                <vxe-column field="usageTypeName" title="用途类型" min-width="140" align="center" />
+                <vxe-column field="bizName" title="关联对象" min-width="160" align="center" show-overflow="tooltip" />
+                <vxe-column field="statusName" title="状态" width="120" align="center">
+                  <template #default="{ row }">
+                    <n-tag size="small" :type="statusTagType(row.status)" :bordered="false">
+                      {{ row.statusName || "-" }}
+                    </n-tag>
+                  </template>
+                </vxe-column>
+                <vxe-column field="currentNodeName" title="当前节点" min-width="150" align="center" show-overflow="tooltip" />
+                <vxe-column field="totalQuantity" title="总数量" width="100" align="center" />
+                <vxe-column field="applyTimeName" title="申请时间" min-width="170" align="center" />
+                <vxe-column title="操作" fixed="right" width="220" align="center">
+                  <template #default="{ row }">
+                    <n-space justify="center" size="small">
+                      <n-button type="primary" text @click="showDetailModal(row.uid)">详情</n-button>
+                      <n-button
+                        v-if="row.status === MaterialRequestOrderStatusDict.REJECTED"
+                        type="info"
+                        text
+                        @click="showUpdateModal(row.uid)"
+                      >
+                        重新提交
+                      </n-button>
+                      <n-button
+                        v-if="row.status === MaterialRequestOrderStatusDict.REJECTED"
+                        type="error"
+                        text
+                        @click="showDeleteModal(row.uid)"
+                      >
+                        删除
+                      </n-button>
+                    </n-space>
+                  </template>
+                </vxe-column>
+              </vxe-table>
+            </m-card>
+          </div>
+        </div>
+      </template>
+
+      <template #footer>
+        <m-card class="w-full flex items-center justify-end inventory-request__pager" padding="8">
           <vxe-pager
-            :current-page="query.currentPage"
-            :page-size="query.pageSize"
+            :size="componentSize"
+            v-model:currentPage="data.currentPage"
+            v-model:pageSize="data.pageSize"
             :total="data.count || 0"
+            :layouts="[
+              'Home',
+              'PrevJump',
+              'PrevPage',
+              'Number',
+              'NextPage',
+              'NextJump',
+              'End',
+              'Sizes',
+              'FullJump',
+              'Total'
+            ]"
             @page-change="pageChange"
           />
         </m-card>
@@ -434,12 +514,12 @@ onMounted(() => {
           </n-gi>
           <n-gi>
             <n-form-item label="申请时间">
-              <n-date-picker v-model:value="formData.applyTime" type="datetime" value-format="timestamp" class="w-full" />
+              <n-date-picker v-model:value="formData.applyTime" type="datetime" class="w-full" />
             </n-form-item>
           </n-gi>
           <n-gi>
             <n-form-item label="期望时间">
-              <n-date-picker v-model:value="formData.expectTime" type="datetime" value-format="timestamp" class="w-full" />
+              <n-date-picker v-model:value="formData.expectTime" type="datetime" class="w-full" />
             </n-form-item>
           </n-gi>
           <n-gi span="2">
@@ -457,14 +537,25 @@ onMounted(() => {
               <m-card class="w-full" padding="0">
                 <vxe-table :data="formData.detailList || []" border stripe :max-height="TEMPLATE_MODAL_TABLE_MAX">
             <vxe-column field="name" title="名称" min-width="180" align="center" />
-            <vxe-column field="spec" title="规格" min-width="120" align="center" />
+            <vxe-column title="规格1" min-width="120" align="center">
+                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+              </vxe-column>
+              <vxe-column title="规格2" min-width="120" align="center">
+                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+              </vxe-column>
             <vxe-column field="material" title="材质" min-width="120" align="center" />
             <vxe-column field="typeName" title="类型" min-width="120" align="center" />
             <vxe-column field="unitName" title="单位" width="90" align="center" />
             <vxe-column field="availableQuantity" title="可用库存" width="110" align="center" />
             <vxe-column field="quantity" title="申请数量" width="120" align="center">
               <template #default="{ row }">
-                <vxe-number-input v-model="row.quantity" :show-button="false" :min="1" :controls="false" />
+                <vxe-number-input
+                  v-model="row.quantity"
+                  :show-button="false"
+                  :min="1"
+                  :max="Number(row.availableQuantity || 0)"
+                  :controls="false"
+                />
               </template>
             </vxe-column>
             <vxe-column field="remark" title="备注" min-width="180" align="center">
@@ -517,7 +608,12 @@ onMounted(() => {
         <n-card title="领料明细" :bordered="false" class="detail-card">
           <vxe-table :data="detailData.detailList || []" border stripe :max-height="TEMPLATE_MODAL_TABLE_DETAIL_MAX">
             <vxe-column field="name" title="名称" min-width="180" align="center" />
-            <vxe-column field="spec" title="规格" min-width="120" align="center" />
+            <vxe-column title="规格1" min-width="120" align="center">
+                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+              </vxe-column>
+              <vxe-column title="规格2" min-width="120" align="center">
+                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+              </vxe-column>
             <vxe-column field="material" title="材质" min-width="120" align="center" />
             <vxe-column field="typeName" title="类型" min-width="120" align="center" />
             <vxe-column field="unitName" title="单位" width="90" align="center" />
@@ -540,21 +636,13 @@ onMounted(() => {
 
     <div class="space-y-3">
       <div class="flex items-center gap-3 flex-wrap">
-        <n-input v-model:value="itemsQuery.key" clearable placeholder="名称/规格/材质" class="w-[280px]" />
+        <n-input v-model:value="itemsQuery.key" clearable placeholder="名称 / 材质" class="w-[280px]" @keyup.enter="selectItems" />
         <n-button type="info" secondary strong @click="selectItems">
-          <template #icon><Search /></template>
+          <template #icon><n-icon :component="Search" /></template>
           查询
         </n-button>
-        <n-button
-          type="tertiary"
-          secondary
-          strong
-          @click="
-
-            selectItems()
-          "
-        >
-          <template #icon><Reset /></template>
+        <n-button type="tertiary" secondary strong @click="resetItemsQuery">
+          <template #icon><n-icon :component="Reset" /></template>
           重置
         </n-button>
       </div>
@@ -568,7 +656,12 @@ onMounted(() => {
       >
       <vxe-column type="checkbox" width="60" align="center" />
       <vxe-column field="name" title="名称" min-width="180" align="center" />
-      <vxe-column field="spec" title="规格" min-width="140" align="center" />
+      <vxe-column title="规格1" min-width="140" align="center">
+                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+              </vxe-column>
+              <vxe-column title="规格2" min-width="140" align="center">
+                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+              </vxe-column>
       <vxe-column field="material" title="材质" min-width="120" align="center" />
       <vxe-column field="typeName" title="类型" min-width="120" align="center" />
       <vxe-column field="unitName" title="单位" width="90" align="center" />
@@ -576,8 +669,8 @@ onMounted(() => {
       <vxe-column field="supplierName" title="供应商" min-width="160" align="center" />
       </vxe-table>
       <vxe-pager
-        :current-page="itemsQuery.currentPage"
-        :page-size="itemsQuery.pageSize"
+        v-model:currentPage="itemsData.currentPage"
+        v-model:pageSize="itemsData.pageSize"
         :total="itemsData.count || 0"
         @page-change="itemsPageChange"
       />
@@ -590,3 +683,51 @@ onMounted(() => {
     </template>
   </FormModal>
 </template>
+
+<style lang="scss" scoped>
+.inventory-request {
+  &__shell {
+    background: linear-gradient(180deg, var(--n-color-modal) 0%, var(--n-body-color) 120px);
+  }
+
+  &__page {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  &__search-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__table-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 4px 0;
+  }
+
+  &__table-zone {
+    border-radius: 10px;
+    border: 1px solid var(--n-border-color);
+    background: var(--n-color-modal);
+    overflow: hidden;
+  }
+
+  &__table-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  &__pager {
+    padding: 0 12px 8px;
+  }
+}
+</style>

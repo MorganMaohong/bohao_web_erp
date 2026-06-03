@@ -18,6 +18,7 @@ import { ItemsService } from "@/services/template/ItemsService"
 import { WarehouseService } from "@/services/template/WarehouseService"
 import { useAppStore } from "@/store/modules/app"
 import { formatMoney } from "@/utils/purchasePrice"
+import { formatItemSpecLabel, getSpec1Name, getSpec2Name } from "@/utils/itemSpec"
 
 const SalesOrderStatus = {
   WAIT_CONFIRM: "wait_confirm",
@@ -212,7 +213,9 @@ function confirmSelectItems() {
       typeName: item.typeName,
       unit: item.unit,
       unitName: item.unitName,
-      spec: item.spec,
+      spec: formatItemSpecLabel(item),
+      spec1Name: item.spec1Name,
+      spec2Name: item.spec2Name,
       material: item.material,
       vatTaxRate: item.vatTaxRate ? item.vatTaxRate * 100 : 0,
       salePriceWithTax: item.purchasePriceWithTax || 0,
@@ -320,7 +323,7 @@ onMounted(() => {
       <template #default>
         <m-card class="w-full h-full flex flex-col" padding="0">
           <ListPageToolbar>
-            <n-button type="primary" @click="showUpdateModal()">新增销售订单</n-button>
+            <n-button type="primary" :size="appStore.searchBarSize" @click="showUpdateModal()">新增销售订单</n-button>
             <vxe-toolbar ref="VxeToolbarRef" custom />
           </ListPageToolbar>
           <m-card ref="TableCardRef" class="flex-1">
@@ -350,12 +353,12 @@ onMounted(() => {
               <vxe-column fixed="right" title="操作" align="center" width="250">
                 <template #default="{ row }">
                   <n-flex justify="center">
-                    <n-button text type="info" @click="showDetailModal(row.uid)">详情</n-button>
-                    <n-button v-if="row.status === SalesOrderStatus.WAIT_CONFIRM" text type="primary" @click="showUpdateModal(row.uid)">编辑</n-button>
-                    <n-button v-if="canOutbound(row)" text type="success" @click="showOutboundModal(row.uid)">出库</n-button>
-                    <n-button v-if="row.status === SalesOrderStatus.WAIT_CONFIRM" text type="warning" @click="cancelOrder(row.uid)">取消</n-button>
-                    <n-button v-if="row.status !== SalesOrderStatus.WAIT_CONFIRM" text type="warning" @click="closeOrder(row.uid)">关闭</n-button>
-                    <n-button v-if="row.status === SalesOrderStatus.WAIT_CONFIRM" text type="error" @click="showDeleteModal(row.uid)">删除</n-button>
+                    <n-button text type="info" :size="appStore.searchBarSize" @click="showDetailModal(row.uid)">详情</n-button>
+                    <n-button v-if="row.status === SalesOrderStatus.WAIT_CONFIRM" text type="primary" :size="appStore.searchBarSize" @click="showUpdateModal(row.uid)">编辑</n-button>
+                    <n-button v-if="canOutbound(row)" text type="success" :size="appStore.searchBarSize" @click="showOutboundModal(row.uid)">出库</n-button>
+                    <n-button v-if="row.status === SalesOrderStatus.WAIT_CONFIRM" text type="warning" :size="appStore.searchBarSize" @click="cancelOrder(row.uid)">取消</n-button>
+                    <n-button v-if="row.status !== SalesOrderStatus.WAIT_CONFIRM" text type="warning" :size="appStore.searchBarSize" @click="closeOrder(row.uid)">关闭</n-button>
+                    <n-button v-if="row.status === SalesOrderStatus.WAIT_CONFIRM" text type="error" :size="appStore.searchBarSize" @click="showDeleteModal(row.uid)">删除</n-button>
                   </n-flex>
                 </template>
               </vxe-column>
@@ -424,7 +427,12 @@ onMounted(() => {
           </div>
           <vxe-table :data="formData.detailList" border :size="componentSize">
             <vxe-column field="name" title="物料" min-width="160" show-overflow="tooltip" />
-            <vxe-column field="spec" title="规格" width="120" show-overflow="tooltip" />
+            <vxe-column title="规格1" width="120" show-overflow="tooltip">
+                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+              </vxe-column>
+              <vxe-column title="规格2" width="120" show-overflow="tooltip">
+                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+              </vxe-column>
             <vxe-column field="unitName" title="单位" width="90" />
             <vxe-column field="quantity" title="数量" width="140">
               <template #default="{ row }">
@@ -480,7 +488,12 @@ onMounted(() => {
       <vxe-column type="checkbox" width="50" />
       <vxe-column field="code" title="编码" width="130" />
       <vxe-column field="name" title="名称" min-width="160" />
-      <vxe-column field="spec" title="规格" width="130" />
+      <vxe-column title="规格1" width="130">
+                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+              </vxe-column>
+              <vxe-column title="规格2" width="130">
+                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+              </vxe-column>
       <vxe-column field="unitName" title="单位" width="90" />
       <vxe-column field="purchasePriceWithTax" title="参考含税价" width="130" />
     </vxe-table>
@@ -551,7 +564,12 @@ onMounted(() => {
     <div class="mt-4 font-medium">销售明细</div>
     <vxe-table :data="detailData.detailList" border :size="componentSize" max-height="300">
       <vxe-column field="name" title="物料" min-width="160" />
-      <vxe-column field="spec" title="规格" width="120" />
+      <vxe-column title="规格1" width="120">
+                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+              </vxe-column>
+              <vxe-column title="规格2" width="120">
+                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+              </vxe-column>
       <vxe-column field="unitName" title="单位" width="90" />
       <vxe-column field="quantity" title="数量" width="100" />
       <vxe-column field="outboundQuantity" title="已出库" width="100" />

@@ -17,6 +17,7 @@ import { ItemDictService } from "@/services/template/ItemDictService"
 import { ItemsForm, ItemsQuery, ItemsQueryData, ItemsVo } from "@/model/template/items"
 import FastUpload from "@/components/FastUpload/FastUpload.vue"
 import { AddPhotoAlternateRound } from "@vicons/material"
+import { getSpec1Name, getSpec2Name } from "@/utils/itemSpec"
 
 const appStore = useAppStore()
 const componentSize = computed(() => appStore.componentSize as any)
@@ -65,7 +66,8 @@ const data = ref<PageVo<ItemsVo, ItemsQueryData>>({
   extraData: {}
 })
 const queryFormData = ref<ItemsForm>({})
-const querySpecOptions = ref(queryFormData.value.specOptions || [])
+const querySpec1Options = ref(queryFormData.value.spec1Options || [])
+const querySpec2Options = ref(queryFormData.value.spec2Options || [])
 const queryBrandOptions = ref(queryFormData.value.brandOptions || [])
 /** 重置时递增，强制规格/品牌下拉重建，避免无 options 时展示 uid */
 const queryCascadeKey = ref(0)
@@ -82,10 +84,12 @@ function select() {
     .then((res) => {
       data.value = res
       if (query.value.type) {
-        querySpecOptions.value = res.extraData?.specOptions || querySpecOptions.value
+        querySpec1Options.value = res.extraData?.spec1Options || querySpec1Options.value
+        querySpec2Options.value = res.extraData?.spec2Options || querySpec2Options.value
         queryBrandOptions.value = res.extraData?.brandOptions || queryBrandOptions.value
       } else {
-        querySpecOptions.value = []
+        querySpec1Options.value = []
+        querySpec2Options.value = []
         queryBrandOptions.value = []
       }
     })
@@ -103,12 +107,14 @@ function loadQueryOptions() {
 
 function showUpdateModal(uid?: string) {
   formData.value = resetRef(formData.value)
+  formData.value.spec1Uid = undefined
+  formData.value.spec2Uid = undefined
   formData.value.specUidList = []
   codePreview.value = ""
   showUpdate.value = true
   ItemsService.form(uid).then((data) => {
     formData.value = data
-    formData.value.specUidList = Array.isArray(data.specUidList) ? [...data.specUidList] : []
+    syncSpecFieldsFromList(data)
     codePreview.value = data.code || ""
     refreshCodePreview()
   })
@@ -117,12 +123,29 @@ function showUpdateModal(uid?: string) {
 function showCopyModal(uid: string) {
   showUpdate.value = true
   formData.value = resetRef(formData.value)
+  codePreview.value = ""
   ItemsService.form(uid).then((res) => {
     formData.value = res
+    syncSpecFieldsFromList(res)
     formData.value.uid = undefined
     formData.value.id = undefined
     formData.value.code = undefined
+    refreshCodePreview()
   })
+}
+
+function syncSpecFieldsFromList(data: ItemsForm) {
+  const list = Array.isArray(data.specUidList) ? [...data.specUidList] : []
+  formData.value.specUidList = list
+  formData.value.spec1Uid = list[0]
+  formData.value.spec2Uid = list[1]
+}
+
+function buildSpecUidList() {
+  const list: string[] = []
+  if (formData.value.spec1Uid) list.push(formData.value.spec1Uid)
+  if (formData.value.spec2Uid) list.push(formData.value.spec2Uid)
+  return list
 }
 
 function confirmUpdate() {
@@ -131,7 +154,15 @@ function confirmUpdate() {
     if (err) return
     if (isSubmitting.value) return
     isSubmitting.value = true
-    ItemsService.addOrUpdate(formData.value)
+    refreshCodePreview()
+      .then(() => {
+        // 提交前以最新字典重算编码，避免字典变更后仍提交旧编码
+        if (codePreview.value) {
+          formData.value.code = codePreview.value
+        }
+        formData.value.specUidList = buildSpecUidList()
+        return ItemsService.addOrUpdate(formData.value)
+      })
       .then(() => {
         showUpdate.value = false
         select()
@@ -166,9 +197,11 @@ function search() {
 }
 
 function clearQueryCascade() {
-  query.value.specUid = undefined
+  query.value.spec1Uid = undefined
+  query.value.spec2Uid = undefined
   query.value.brandUid = undefined
-  querySpecOptions.value = []
+  querySpec1Options.value = []
+  querySpec2Options.value = []
   queryBrandOptions.value = []
 }
 
@@ -240,10 +273,14 @@ function normalizePrice() {
 }
 
 async function handleUpdateTypeValue(v: string | null) {
+  formData.value.spec1Uid = undefined
+  formData.value.spec2Uid = undefined
   formData.value.specUidList = []
   formData.value.brandUid = undefined
   if (!v) {
     formData.value.specOptions = []
+    formData.value.spec1Options = []
+    formData.value.spec2Options = []
     formData.value.brandOptions = []
     codePreview.value = ""
     return
@@ -251,9 +288,13 @@ async function handleUpdateTypeValue(v: string | null) {
   try {
     const picker = await ItemDictService.picker(v)
     formData.value.specOptions = picker.specOptions || []
+    formData.value.spec1Options = picker.spec1Options || []
+    formData.value.spec2Options = picker.spec2Options || []
     formData.value.brandOptions = picker.brandOptions || []
   } catch {
     formData.value.specOptions = []
+    formData.value.spec1Options = []
+    formData.value.spec2Options = []
     formData.value.brandOptions = []
   }
   refreshCodePreview()
@@ -264,18 +305,30 @@ async function handleQueryTypeValue(v: string | null) {
   if (!v) return
   try {
     const picker = await ItemDictService.treePicker(v)
-    querySpecOptions.value = picker.specOptions || []
+    querySpec1Options.value = picker.spec1Options || []
+    querySpec2Options.value = picker.spec2Options || []
     queryBrandOptions.value = picker.brandOptions || []
   } catch {
-    querySpecOptions.value = []
+    querySpec1Options.value = []
+    querySpec2Options.value = []
     queryBrandOptions.value = []
   }
 }
 
-function handleUpdateSpecValue(v: string[] | null) {
-  if (!v || v.length <= 2) return
-  formData.value.specUidList = v.slice(0, 2)
-  window.$message?.warning("规格最多选择两个")
+function handleUpdateSpec1Value(v: string | null) {
+  if (!v) {
+    formData.value.spec2Uid = undefined
+  }
+  refreshCodePreview()
+}
+
+function handleUpdateSpec2Value(v: string | null) {
+  if (v && !formData.value.spec1Uid) {
+    formData.value.spec2Uid = undefined
+    window.$message?.warning("请先选择规格1")
+    return
+  }
+  refreshCodePreview()
 }
 
 function handleUpdateUnitValue(v: string) {}
@@ -292,7 +345,7 @@ async function refreshCodePreview() {
   try {
     codePreview.value = await ItemDictService.buildCode({
       categoryUid: formData.value.type,
-      specUids: formData.value.specUidList || [],
+      specUids: buildSpecUidList(),
       brandUid: formData.value.brandUid
     })
   } catch {
@@ -301,11 +354,17 @@ async function refreshCodePreview() {
 }
 
 watch(
-  () => [formData.value.specUidList, formData.value.brandUid],
+  () => query.value.spec1Uid,
+  (v) => {
+    if (!v) query.value.spec2Uid = undefined
+  }
+)
+
+watch(
+  () => [formData.value.spec1Uid, formData.value.spec2Uid, formData.value.brandUid],
   () => {
     refreshCodePreview()
-  },
-  { deep: true }
+  }
 )
 
 onMounted(() => {
@@ -354,17 +413,32 @@ onMounted(() => {
                 </n-form-item>
               </n-gi>
               <n-gi>
-                <n-form-item label="规格:">
+                <n-form-item label="规格1:">
                   <n-select
-                    :key="`query-spec-${queryCascadeKey}`"
+                    :key="`query-spec1-${queryCascadeKey}`"
                     clearable
                     filterable
-                    v-model:value="query.specUid"
-                    :options="querySpecOptions"
+                    v-model:value="query.spec1Uid"
+                    :options="querySpec1Options"
                     label-field="label"
                     value-field="value"
                     :disabled="!query.type"
                     placeholder="请先选择品类"
+                  />
+                </n-form-item>
+              </n-gi>
+              <n-gi>
+                <n-form-item label="规格2:">
+                  <n-select
+                    :key="`query-spec2-${queryCascadeKey}`"
+                    clearable
+                    filterable
+                    v-model:value="query.spec2Uid"
+                    :options="querySpec2Options"
+                    label-field="label"
+                    value-field="value"
+                    :disabled="!query.type || !query.spec1Uid"
+                    placeholder="请先选择规格1"
                   />
                 </n-form-item>
               </n-gi>
@@ -412,7 +486,7 @@ onMounted(() => {
       <template #default>
         <m-card class="w-full h-full flex flex-col" padding="0">
           <ListPageToolbar>
-            <n-button type="primary" @click="showUpdateModal()">新增物料</n-button>
+            <n-button type="primary" :size="appStore.searchBarSize" @click="showUpdateModal()">新增物料</n-button>
             <vxe-toolbar ref="VxeToolbarRef" custom />
           </ListPageToolbar>
           <m-card ref="TableCardRef" class="flex-1">
@@ -442,14 +516,11 @@ onMounted(() => {
               <vxe-column field="unitName" title="单位" show-overflow="tooltip" align="center" width="10%" />
               <vxe-column field="brand" title="品牌" show-overflow="tooltip" align="center" width="10%" />
 
-              <vxe-column field="spec" title="规格" align="center" width="15%">
-                <template #default="{ row }">
-                  <n-flex justify="center" size="small">
-                    <n-tag v-for="spec in (row.spec || '').split('、').filter(Boolean)" :key="spec" type="info">
-                      {{ spec }}
-                    </n-tag>
-                  </n-flex>
-                </template>
+              <vxe-column title="规格1" show-overflow="tooltip" align="center" width="15%">
+                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+              </vxe-column>
+              <vxe-column title="规格2" show-overflow="tooltip" align="center" width="15%">
+                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
               </vxe-column>
               <vxe-column field="material" title="材质" show-overflow="tooltip" align="center" width="15%" />
               <vxe-column field="vatTaxRate" title="增值税率" show-overflow="tooltip" align="center" width="15%" />
@@ -502,9 +573,9 @@ onMounted(() => {
               <vxe-column fixed="right" title="操作" align="center" show-overflow="tooltip" width="180">
                 <template #default="{ row }">
                   <n-flex justify="center">
-                    <n-button type="primary" text @click="showCopyModal(row.uid)">复制</n-button>
-                    <n-button type="info" text @click="showUpdateModal(row.uid)">编辑</n-button>
-                    <n-button type="error" text @click="showDeleteModal(row.uid)">删除</n-button>
+                    <n-button type="primary" text :size="appStore.searchBarSize" @click="showCopyModal(row.uid)">复制</n-button>
+                    <n-button type="info" text :size="appStore.searchBarSize" @click="showUpdateModal(row.uid)">编辑</n-button>
+                    <n-button type="error" text :size="appStore.searchBarSize" @click="showDeleteModal(row.uid)">删除</n-button>
                   </n-flex>
                 </template>
               </vxe-column>
@@ -562,7 +633,7 @@ onMounted(() => {
         </n-gi>
         <n-gi>
           <n-form-item label="物料编码">
-            <n-input :value="codePreview || formData.code" disabled placeholder="选择品类、规格、品牌后自动生成" />
+            <n-input :value="codePreview || formData.code" disabled placeholder="选择品类、规格1/规格2、品牌后自动生成" />
           </n-form-item>
         </n-gi>
         <n-gi>
@@ -638,17 +709,32 @@ onMounted(() => {
           </n-form-item>
         </n-gi>
         <n-gi>
-          <n-form-item label="规格">
+          <n-form-item label="规格1">
             <n-select
-              v-model:value="formData.specUidList"
-              :options="formData.specOptions || []"
+              v-model:value="formData.spec1Uid"
+              :options="formData.spec1Options || []"
               label-field="label"
               value-field="value"
-              multiple
+              clearable
               filterable
               :disabled="!formData.type"
-              placeholder="可多选，按选择顺序参与编码"
-              @update:value="handleUpdateSpecValue"
+              placeholder="请选择规格1"
+              @update:value="handleUpdateSpec1Value"
+            />
+          </n-form-item>
+        </n-gi>
+        <n-gi>
+          <n-form-item label="规格2">
+            <n-select
+              v-model:value="formData.spec2Uid"
+              :options="formData.spec2Options || []"
+              label-field="label"
+              value-field="value"
+              clearable
+              filterable
+              :disabled="!formData.type || !formData.spec1Uid"
+              placeholder="请先选择规格1"
+              @update:value="handleUpdateSpec2Value"
             />
           </n-form-item>
         </n-gi>

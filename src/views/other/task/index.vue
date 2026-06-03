@@ -2,6 +2,7 @@
 import FormModal from "@/components/FormModal/index.vue"
 import { computed, h, onMounted, ref, watch } from "vue"
 import { NButton, NTab, NTabs, NTag, useDialog, useMessage } from "naive-ui"
+import { getSpec1Name, getSpec2Name } from "@/utils/itemSpec"
 import {
   BizTask,
   BizTaskSubmitForm,
@@ -309,8 +310,15 @@ function buildApprovePayload() {
 
   if (getFlowActionField("approve", "priceDetailList")) {
     syncPurchasePriceRows(purchaseDetailList.value)
+    for (const row of purchaseDetailList.value) {
+      if (!row.supplierUid) {
+        message.error(`【${row.name || "物料"}】请选择供应商`)
+        return false
+      }
+    }
     const priceDetailList = purchaseDetailList.value.map((row: any) => ({
       uid: row.uid,
+      name: row.name,
       supplierUid: row.supplierUid,
       vatTaxRate: row.vatTaxRate,
       purchasePriceWithTax: row.purchasePriceWithTax,
@@ -634,6 +642,15 @@ watch(currentTab, () => {
           <n-descriptions-item label="需求来源">
             {{ detailData.data.sourceTypeName }}
           </n-descriptions-item>
+          <n-descriptions-item label="用途类型">
+            {{ detailData.data.usageTypeName || "-" }}
+          </n-descriptions-item>
+          <n-descriptions-item label="业务类型">
+            {{ detailData.data.bizTypeName || "-" }}
+          </n-descriptions-item>
+          <n-descriptions-item label="业务对象">
+            {{ detailData.data.bizName || "-" }}
+          </n-descriptions-item>
           <n-descriptions-item label="申请时间">
             {{ detailData.data.applyTimeName }}
           </n-descriptions-item>
@@ -657,9 +674,12 @@ watch(currentTab, () => {
               <vxe-column field="name" title="名称" show-overflow="tooltip" align="center" width="20%" />
               <vxe-column field="supplierName" title="供应商名称" show-overflow="tooltip" align="center" width="15%">
                 <template #default="{ row }">
-                  <vxe-select
-                    :options="detailData.data.supplierOptions"
-                    v-model="row.supplierUid"
+                  <n-select
+                    filterable
+                    clearable
+                    :size="componentSize"
+                    :options="detailData.data.supplierOptions || []"
+                    v-model:value="row.supplierUid"
                     :disabled="!canEditPrice"
                   />
                 </template>
@@ -723,7 +743,12 @@ watch(currentTab, () => {
               </vxe-column>
               <vxe-column field="typeName" title="类型" show-overflow="tooltip" align="center" width="15%" />
               <vxe-column field="unitName" title="单位" show-overflow="tooltip" align="center" width="15%" />
-              <vxe-column field="spec" title="规格" show-overflow="tooltip" align="center" width="15%" />
+              <vxe-column title="规格1" show-overflow="tooltip" align="center" width="15%">
+                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+              </vxe-column>
+              <vxe-column title="规格2" show-overflow="tooltip" align="center" width="15%">
+                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+              </vxe-column>
               <vxe-column field="material" title="材质" show-overflow="tooltip" align="center" width="15%" />
               <vxe-column field="remark" title="备注" show-overflow="tooltip" align="center" width="30%" />
               <vxe-column
@@ -769,7 +794,12 @@ watch(currentTab, () => {
             >
               <vxe-column field="name" title="名称" align="center" min-width="180" show-overflow="tooltip" />
               <vxe-column field="supplierName" title="供应商" align="center" min-width="150" show-overflow="tooltip" />
-              <vxe-column field="spec" title="规格" align="center" min-width="140" show-overflow="tooltip" />
+              <vxe-column title="规格1" align="center" min-width="140" show-overflow="tooltip">
+                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+              </vxe-column>
+              <vxe-column title="规格2" align="center" min-width="140" show-overflow="tooltip">
+                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+              </vxe-column>
               <vxe-column field="material" title="材质" align="center" min-width="120" show-overflow="tooltip" />
               <vxe-column field="typeName" title="类型" align="center" min-width="120" show-overflow="tooltip" />
               <vxe-column field="unitName" title="单位" align="center" width="90" />
@@ -838,7 +868,12 @@ watch(currentTab, () => {
               max-height="420"
             >
               <vxe-column field="name" title="名称" align="center" min-width="180" />
-              <vxe-column field="spec" title="规格" align="center" min-width="140" />
+              <vxe-column title="规格1" align="center" min-width="140">
+                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+              </vxe-column>
+              <vxe-column title="规格2" align="center" min-width="140">
+                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+              </vxe-column>
               <vxe-column field="material" title="材质" align="center" min-width="120" />
               <vxe-column field="typeName" title="类型" align="center" min-width="120" />
               <vxe-column field="unitName" title="单位" align="center" width="90" />
@@ -894,7 +929,12 @@ watch(currentTab, () => {
               <vxe-column field="name" title="成品" align="center" min-width="180" />
               <vxe-column field="warehouseName" title="仓库" align="center" min-width="160" />
               <vxe-column field="typeName" title="类型" align="center" min-width="120" />
-              <vxe-column field="spec" title="规格" align="center" min-width="140" />
+              <vxe-column title="规格1" align="center" min-width="140">
+                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+              </vxe-column>
+              <vxe-column title="规格2" align="center" min-width="140">
+                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+              </vxe-column>
               <vxe-column field="material" title="材质" align="center" min-width="120" />
               <vxe-column field="quantity" title="生产数量" align="center" width="140">
                 <template #default="{ row }">
@@ -1132,7 +1172,12 @@ watch(currentTab, () => {
               max-height="420"
             >
               <vxe-column field="name" title="名称" align="center" min-width="180" />
-              <vxe-column field="spec" title="规格" align="center" min-width="140" />
+              <vxe-column title="规格1" align="center" min-width="140">
+                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+              </vxe-column>
+              <vxe-column title="规格2" align="center" min-width="140">
+                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+              </vxe-column>
               <vxe-column field="material" title="材质" align="center" min-width="120" />
               <vxe-column field="typeName" title="类型" align="center" min-width="120" />
               <vxe-column field="unitName" title="单位" align="center" width="90" />

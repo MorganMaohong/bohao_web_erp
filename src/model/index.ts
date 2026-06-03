@@ -76,4 +76,6 @@ export interface UpdateDragSortForm {
   newSort?: number
   oldUid?: string
   oldSort?: number
+  /** 拖拽落点：top-插入目标前，bottom-插入目标后 */
+  dragPos?: "top" | "bottom" | string
 }

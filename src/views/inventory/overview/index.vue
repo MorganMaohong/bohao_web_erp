@@ -1,47 +1,42 @@
 <script lang="ts" setup>
-import { onMounted, ref } from "vue"
+import { computed, nextTick, onMounted, ref, watch } from "vue"
 import LCard from "@/components/LCard/index.vue"
-import SearchQueryForm from "@/components/SearchQueryForm/index.vue"
 import MCard from "@/components/MCard/index.vue"
+import FormModal from "@/components/FormModal/index.vue"
+import SearchQueryForm from "@/components/SearchQueryForm/index.vue"
 import { useAppStore } from "@/store/modules/app"
-import { FormInst, NButton } from "naive-ui"
+import { NButton, NTag } from "naive-ui"
 import { PageVo } from "@/model"
-import { VxeTableInstance, VxeTablePropTypes, VxeToolbarInstance } from "vxe-table"
-import { Reset, Search } from "@vicons/carbon"
+import { VxeTableInstance, VxeTablePropTypes } from "vxe-table"
+import { Box, ChartPie, ChevronDown, ChevronUp, Reset, Search, Store } from "@vicons/carbon"
 import { VxePagerEvents } from "vxe-pc-ui"
-import { ProductForm } from "@/model/template/product"
+import { ItemDictService } from "@/services/template/ItemDictService"
 import { InventoryOverviewService } from "@/services/inventory/InventoryOverviewService"
-import { InventoryQuery, InventoryQueryData, InventoryVo } from "@/model/inventory"
+import {
+  InventoryOverviewDetail,
+  InventoryOverviewSummary,
+  InventoryQuery,
+  InventoryQueryData,
+  InventoryVo
+} from "@/model/inventory"
+import { TEMPLATE_MODAL_TABLE_MAX } from "@/constants/template-ui"
+import { formatItemSpecLabel, getSpec1Name, getSpec2Name } from "@/utils/itemSpec"
 
 const appStore = useAppStore()
-const TableCardRef = ref()
-const TableCardMaxHeight = ref(0)
-const isSubmitting = ref(false)
+const showAdvancedFilter = ref(false)
 const showDetail = ref(false)
-const formData = ref<ProductForm>({})
-const formRef = ref<FormInst>()
+const detailLoading = ref(false)
 const loading = ref(false)
-const formRule = {
-  type: {
-    required: true,
-    message: "请选择类型",
-    trigger: ["input", "blur"]
-  },
-  name: {
-    required: true,
-    message: "请输入名称",
-    trigger: ["input", "blur"]
-  }
-}
 const query = ref<InventoryQuery>({
   key: "",
-  supplierUidList: [],
-  types: [],
-  units: [],
   warehouseUidList: [],
   currentPage: 1,
   pageSize: 50
 })
+const querySpec1Options = ref<InventoryQueryData["spec1Options"]>([])
+const querySpec2Options = ref<InventoryQueryData["spec2Options"]>([])
+const queryBrandOptions = ref<InventoryQueryData["brandOptions"]>([])
+const queryCascadeKey = ref(0)
 const data = ref<PageVo<InventoryVo, InventoryQueryData>>({
   list: [],
   count: 0,
@@ -50,17 +45,115 @@ const data = ref<PageVo<InventoryVo, InventoryQueryData>>({
   extraData: {
     supplierOptions: [],
     typeOptions: [],
+    specOptions: [],
+    brandOptions: [],
     unitOptions: [],
     warehouseOptions: []
   }
 })
-const detailData = ref<InventoryVo>({})
+const detailData = ref<InventoryOverviewDetail>({})
 const VxeTableRef = ref<VxeTableInstance>()
-const VxeToolbarRef = ref<VxeToolbarInstance>()
 const mergeCells = ref<VxeTablePropTypes.MergeCells>([])
 
-function getCardProps() {
-  TableCardMaxHeight.value = TableCardRef.value.$el.clientHeight - 20
+const summary = computed<InventoryOverviewSummary>(() => data.value.extraData?.summary || {})
+
+const advancedFilterCount = computed(() => {
+  let count = 0
+  if (query.value.type) count++
+  if (query.value.spec1Uid) count++
+  if (query.value.spec2Uid) count++
+  if (query.value.brandUid) count++
+  return count
+})
+
+const occupiedQuantity = computed(() => {
+  const locked = Number(detailData.value.lockedQuantity)
+  if (Number.isFinite(locked) && locked >= 0) {
+    return locked
+  }
+  const total = stockQuantity(detailData.value)
+  const available = Number(detailData.value.availableQuantity) || 0
+  return Math.max(total - available, 0)
+})
+
+const statCards = computed(() => [
+  {
+    key: "itemCount",
+    label: "库存品种",
+    value: formatNumber(summary.value.itemCount ?? data.value.count),
+    hint: "符合筛选条件的物料条目",
+    tone: "primary"
+  },
+  {
+    key: "totalQuantity",
+    label: "库存总量",
+    value: formatNumber(summary.value.totalQuantity),
+    hint: "账面库存合计",
+    tone: "info"
+  },
+  {
+    key: "availableQuantity",
+    label: "可用库存",
+    value: formatNumber(summary.value.availableQuantity),
+    hint: "可继续出库/调拨/领料",
+    tone: "success"
+  },
+  {
+    key: "lockedQuantity",
+    label: "占用库存",
+    value: formatNumber(summary.value.lockedQuantity),
+    hint: "草稿出库、待出库领料等锁定",
+    tone: "warning"
+  }
+])
+
+function clearQueryCascade() {
+  query.value.spec1Uid = undefined
+  query.value.spec2Uid = undefined
+  query.value.brandUid = undefined
+  querySpec1Options.value = []
+  querySpec2Options.value = []
+  queryBrandOptions.value = []
+}
+
+async function handleQueryTypeValue(v: string | null) {
+  clearQueryCascade()
+  if (!v) return
+  try {
+    const picker = await ItemDictService.treePicker(v)
+    querySpec1Options.value = picker.spec1Options || []
+    querySpec2Options.value = picker.spec2Options || []
+    queryBrandOptions.value = picker.brandOptions || []
+  } catch {
+    querySpec1Options.value = []
+    querySpec2Options.value = []
+    queryBrandOptions.value = []
+  }
+}
+
+function formatNumber(value?: number | string | null) {
+  const num = Number(value)
+  if (!Number.isFinite(num)) return "0"
+  return Number.isInteger(num) ? String(num) : num.toFixed(2)
+}
+
+function stockQuantity(row: InventoryVo) {
+  const total = row.totalQuantity ?? row.quantity
+  return Number(total) || 0
+}
+
+function rowLockedQuantity(row: InventoryVo) {
+  const locked = Number(row.lockedQuantity)
+  if (Number.isFinite(locked) && locked >= 0) {
+    return locked
+  }
+  return Math.max(stockQuantity(row) - (Number(row.availableQuantity) || 0), 0)
+}
+
+function isLowAvailable(row: InventoryVo) {
+  const available = Number(row.availableQuantity) || 0
+  const total = stockQuantity(row)
+  return total > 0 && available <= total * 0.2
 }
 
 function select() {
@@ -68,17 +161,24 @@ function select() {
   InventoryOverviewService.select(query.value)
     .then((res) => {
       data.value = res
-      mergeCells.value = buildMergeCells(data.value.list)
+      mergeCells.value = buildMergeCells(res.list || [])
+      if (query.value.type) {
+        querySpec1Options.value = res.extraData?.spec1Options || querySpec1Options.value
+        querySpec2Options.value = res.extraData?.spec2Options || querySpec2Options.value
+        queryBrandOptions.value = res.extraData?.brandOptions || queryBrandOptions.value
+      } else {
+        querySpec1Options.value = []
+        querySpec2Options.value = []
+        queryBrandOptions.value = []
+      }
     })
     .finally(() => {
       loading.value = false
-      VxeTableRef.value?.setAllTreeExpand(true)
     })
 }
 
 function buildMergeCells(list: InventoryVo[]) {
-  const merges = []
-
+  const merges: VxeTablePropTypes.MergeCells = []
   let start = 0
   let count = 1
 
@@ -87,43 +187,47 @@ function buildMergeCells(list: InventoryVo[]) {
       count++
     } else {
       if (count > 1) {
-        merges.push({
-          row: start,
-          col: 0, // 第几列合并（warehouseUid那列）
-          rowspan: count,
-          colspan: 1
-        })
+        merges.push({ row: start, col: 0, rowspan: count, colspan: 1 })
       }
-
       start = i
       count = 1
     }
   }
-
   return merges
 }
 
-function showDetailModal(uid: string) {
+async function showDetailModal(uid?: string) {
+  if (!uid) return
   showDetail.value = true
-  InventoryOverviewService.detail(uid).then((res) => {
-    detailData.value = res
-  })
+  detailLoading.value = true
+  detailData.value = {}
+  try {
+    detailData.value = await InventoryOverviewService.detail(uid)
+  } finally {
+    detailLoading.value = false
+  }
 }
 
 function search() {
+  query.value.currentPage = 1
   select()
 }
 
-function reset() {
+async function reset() {
+  clearQueryCascade()
   query.value = {
     currentPage: 1,
     pageSize: 50,
-    key: null,
-    supplierUidList: [],
-    types: [],
-    units: [],
+    key: "",
+    type: undefined,
+    spec1Uid: undefined,
+    spec2Uid: undefined,
+    brandUid: undefined,
     warehouseUidList: []
   }
+  queryCascadeKey.value += 1
+  showAdvancedFilter.value = false
+  await nextTick()
   select()
 }
 
@@ -133,164 +237,268 @@ function pageChange(event: VxePagerEvents) {
   select()
 }
 
-function handlerBeforeUpload(v: string) {
-  formData.value.image = v
-}
-
-/*
-function handleUpdateTypeValue(v: string) {}
-
-function handleUpdateUnitValue(v: string) {}
-*/
+watch(
+  () => query.value.spec1Uid,
+  (v) => {
+    if (!v) query.value.spec2Uid = undefined
+  }
+)
 
 onMounted(() => {
   select()
-  getCardProps()
-  const $table = VxeTableRef.value
-  const $toolbar = VxeToolbarRef.value
-  if ($table && $toolbar) {
-    $table.connect($toolbar)
-  }
 })
 </script>
 
 <template>
-  <div class="LayoutContainer">
-    <l-card class="w-full h-full" border shadow rounded padding="0">
+  <div class="LayoutContainer inventory-overview">
+    <l-card class="w-full inventory-overview__shell" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <SearchQueryForm label-placement="left" ref="queryFormRef" >
-            <n-grid :cols="4" x-gap="12" y-gap="12">
+          <SearchQueryForm label-placement="left" class="inventory-overview__search">
+            <n-grid :cols="4" :x-gap="12" :y-gap="12">
               <n-gi>
                 <n-form-item label="关键字:">
-                  <n-input clearable v-model:value="query.key" placeholder="名称 / 规格 / 材质" />
+                  <n-input
+                    clearable
+                    v-model:value="query.key"
+                    placeholder="名称 / 材质"
+                    @keyup.enter="search"
+                  />
                 </n-form-item>
               </n-gi>
               <n-gi>
-                <n-form-item label="仓库名称:">
+                <n-form-item label="仓库:">
                   <n-select
                     clearable
+                    filterable
+                    multiple
+                    max-tag-count="responsive"
                     v-model:value="query.warehouseUidList"
                     placeholder="选择仓库"
                     :options="data.extraData.warehouseOptions"
-                    multiple
                   />
                 </n-form-item>
               </n-gi>
-              <n-gi>
-                <n-form-item label="供应商名称:">
-                  <n-select
-                    clearable
-                    v-model:value="query.supplierUidList"
-                    placeholder="选择供应商"
-                    :options="data.extraData.supplierOptions"
-                    multiple
-                  />
-                </n-form-item>
-              </n-gi>
-              <n-gi>
+              <n-gi :span="2">
                 <n-form-item>
-                  <div class="flex gap-2">
+                  <div class="inventory-overview__search-actions">
                     <n-button type="primary" @click="search">
                       <template #icon>
-                        <n-icon>
-                          <Search />
-                        </n-icon>
+                        <n-icon :component="Search" />
                       </template>
                       搜索
                     </n-button>
                     <n-button @click="reset">
                       <template #icon>
-                        <n-icon>
-                          <Reset />
-                        </n-icon>
+                        <n-icon :component="Reset" />
                       </template>
                       重置
                     </n-button>
+                    <n-badge
+                      :value="advancedFilterCount"
+                      :show="advancedFilterCount > 0 && !showAdvancedFilter"
+                      type="info"
+                    >
+                      <n-button quaternary @click="showAdvancedFilter = !showAdvancedFilter">
+                        <template #icon>
+                          <n-icon :component="showAdvancedFilter ? ChevronUp : ChevronDown" />
+                        </template>
+                        {{ showAdvancedFilter ? "收起筛选" : "高级筛选" }}
+                      </n-button>
+                    </n-badge>
                   </div>
                 </n-form-item>
               </n-gi>
             </n-grid>
+            <div v-show="showAdvancedFilter" class="inventory-overview__advanced">
+              <n-grid :cols="4" :x-gap="12" :y-gap="12">
+                <n-gi>
+                  <n-form-item label="品类:">
+                    <n-cascader
+                      :key="`query-type-${queryCascadeKey}`"
+                      v-model:value="query.type"
+                      :options="data.extraData.typeOptions"
+                      check-strategy="all"
+                      clearable
+                      filterable
+                      expand-trigger="hover"
+                      :show-path="true"
+                      placeholder="请选择品类"
+                      @update:value="handleQueryTypeValue"
+                    />
+                  </n-form-item>
+                </n-gi>
+                <n-gi>
+                  <n-form-item label="规格1:">
+                    <n-select
+                      :key="`query-spec1-${queryCascadeKey}`"
+                      clearable
+                      filterable
+                      v-model:value="query.spec1Uid"
+                      :options="querySpec1Options"
+                      label-field="label"
+                      value-field="value"
+                      :disabled="!query.type"
+                      placeholder="请先选择品类"
+                    />
+                  </n-form-item>
+                </n-gi>
+                <n-gi>
+                  <n-form-item label="规格2:">
+                    <n-select
+                      :key="`query-spec2-${queryCascadeKey}`"
+                      clearable
+                      filterable
+                      v-model:value="query.spec2Uid"
+                      :options="querySpec2Options"
+                      label-field="label"
+                      value-field="value"
+                      :disabled="!query.type || !query.spec1Uid"
+                      placeholder="请先选择规格1"
+                    />
+                  </n-form-item>
+                </n-gi>
+                <n-gi>
+                  <n-form-item label="品牌:">
+                    <n-select
+                      :key="`query-brand-${queryCascadeKey}`"
+                      clearable
+                      filterable
+                      v-model:value="query.brandUid"
+                      :options="queryBrandOptions"
+                      label-field="label"
+                      value-field="value"
+                      :disabled="!query.type"
+                      placeholder="请先选择品类"
+                    />
+                  </n-form-item>
+                </n-gi>
+              </n-grid>
+            </div>
           </SearchQueryForm>
         </m-card>
       </template>
+
       <template #default>
-        <m-card class="w-full h-full flex flex-col" padding="0">
-          <m-card ref="TableCardRef" class="flex-1">
+        <div class="inventory-overview__page">
+          <div class="inventory-overview__top">
+            <div class="inventory-overview__hero">
+              <div class="inventory-overview__hero-icon">
+                <n-icon size="20" :component="ChartPie" />
+              </div>
+              <div class="inventory-overview__hero-text">
+                <div class="inventory-overview__hero-title">库存概览</div>
+                <div class="inventory-overview__hero-desc">
+                  按仓库查看实时库存、可用量与占用情况
+                </div>
+              </div>
+            </div>
+
+            <div class="inventory-overview__stats">
+              <div
+                v-for="card in statCards"
+                :key="card.key"
+                class="inventory-overview__stat-card"
+                :class="`inventory-overview__stat-card--${card.tone}`"
+              >
+                <div class="inventory-overview__stat-label">{{ card.label }}</div>
+                <div class="inventory-overview__stat-value">{{ card.value }}</div>
+                <div class="inventory-overview__stat-hint">{{ card.hint }}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="inventory-overview__table-head">
+            <div class="inventory-overview__table-title">
+              <n-icon size="18" :component="Box" />
+              <span>库存明细</span>
+              <n-tag size="small" round>共 {{ data.count || 0 }} 条</n-tag>
+            </div>
+            <div class="inventory-overview__legend">
+              <span class="inventory-overview__legend-item">
+                <i class="dot dot--success" />可用充足
+              </span>
+              <span class="inventory-overview__legend-item">
+                <i class="dot dot--warning" />可用偏低
+              </span>
+            </div>
+          </div>
+          <div class="inventory-overview__table-zone">
             <vxe-table
               :column-config="{ resizable: true }"
               :data="data.list"
-              border
+              border="inner"
               stripe
               :loading="loading"
-              :cell-config="{ height: 80 }"
+              :cell-config="{ height: 72 }"
               :row-config="{ isHover: true }"
-              :height="TableCardMaxHeight"
+              :row-class-name="({ row }) => (isLowAvailable(row) ? 'inventory-overview-row--warn' : '')"
               ref="VxeTableRef"
               :merge-cells="mergeCells"
               :size="appStore.componentSize"
             >
-              <vxe-column field="warehouseName" title="仓库" show-overflow="tooltip" align="center" width="15%" />
-              <vxe-column field="name" title="名称" show-overflow="tooltip" align="center" width="15%" />
-              <vxe-column title="图片" show-overflow="tooltip" align="center" width="10%">
+              <vxe-column field="warehouseName" title="仓库" align="left" min-width="130">
                 <template #default="{ row }">
-                  <div class="flex justify-center items-center">
-                    <n-image :src="row.image" class="max-h-[4rem] max-w-[4rem]" />
+                  <div class="inventory-overview__warehouse-cell">
+                    <n-icon size="16" :component="Store" />
+                    <span>{{ row.warehouseName || "-" }}</span>
                   </div>
                 </template>
               </vxe-column>
-              <vxe-column field="typeName" title="类型" show-overflow="tooltip" align="center" width="15%" />
-              <vxe-column field="supplierName" title="供应商" show-overflow="tooltip" align="center" width="15%" />
-              <vxe-column field="unitName" title="单位" show-overflow="tooltip" align="center" width="5%" />
-              <vxe-column field="spec" title="规格" show-overflow="tooltip" align="center" width="15%" />
-              <vxe-column field="material" title="材质" show-overflow="tooltip" align="center" width="15%" />
-              <vxe-column
-                fixed="right"
-                field="quantity"
-                title="库存数量"
-                show-overflow="tooltip"
-                align="center"
-                width="6%"
-              />
-              <vxe-column
-                fixed="right"
-                field="availableQuantity"
-                title="可用库存"
-                show-overflow="tooltip"
-                align="center"
-                width="6%"
-              />
-              <vxe-column
-                field="createTime"
-                title="创建时间"
-                show-overflow="tooltip"
-                align="center"
-                :visible="false"
-                width="20%"
-              />
-              <vxe-column
-                field="updateTime"
-                title="更新时间"
-                show-overflow="tooltip"
-                align="center"
-                :visible="false"
-                width="20%"
-              />
-              <!--              <vxe-column fixed="right" title="操作" align="center" show-overflow="tooltip" width="60">
+              <vxe-column field="name" title="物料" align="left" min-width="160" show-overflow="tooltip" />
+              <vxe-column title="图片" align="center" width="76">
                 <template #default="{ row }">
-                  <n-flex justify="center">
-                    <n-button type="primary" text @click="showDetailModal(row.uid)">
-                      详情
-                    </n-button>
-                  </n-flex>
+                  <n-image
+                    v-if="row.image"
+                    :src="row.image"
+                    class="inventory-overview__thumb"
+                    object-fit="cover"
+                  />
+                  <span v-else class="inventory-overview__thumb-placeholder">-</span>
                 </template>
-              </vxe-column>-->
+              </vxe-column>
+              <vxe-column field="typeName" title="类型" align="center" min-width="100" show-overflow="tooltip" />
+              <vxe-column field="supplierName" title="供应商" align="center" min-width="120" show-overflow="tooltip" />
+              <vxe-column title="规格1" align="center" min-width="110" show-overflow="tooltip">
+                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+              </vxe-column>
+              <vxe-column title="规格2" align="center" min-width="110" show-overflow="tooltip">
+                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+              </vxe-column>
+              <vxe-column field="unitName" title="单位" align="center" width="72" />
+              <vxe-column title="库存数量" align="center" width="100">
+                <template #default="{ row }">
+                  <span class="qty qty--total">{{ stockQuantity(row) }}</span>
+                </template>
+              </vxe-column>
+              <vxe-column title="可用" align="center" width="88">
+                <template #default="{ row }">
+                  <n-tag
+                    size="small"
+                    :type="isLowAvailable(row) ? 'warning' : 'success'"
+                    :bordered="false"
+                  >
+                    {{ row.availableQuantity ?? 0 }}
+                  </n-tag>
+                </template>
+              </vxe-column>
+              <vxe-column title="占用" align="center" width="88">
+                <template #default="{ row }">
+                  <span class="qty qty--locked">{{ rowLockedQuantity(row) }}</span>
+                </template>
+              </vxe-column>
+              <vxe-column fixed="right" title="操作" align="center" width="72">
+                <template #default="{ row }">
+                  <n-button type="primary" text @click="showDetailModal(row.uid)">详情</n-button>
+                </template>
+              </vxe-column>
             </vxe-table>
-          </m-card>
-        </m-card>
+          </div>
+        </div>
       </template>
+
       <template #footer>
-        <m-card class="w-full h-full flex items-center justify-end">
+        <m-card class="w-full flex items-center justify-end inventory-overview__pager" padding="8">
           <vxe-pager
             :size="appStore.componentSize"
             v-model:currentPage="data.currentPage"
@@ -314,12 +522,298 @@ onMounted(() => {
       </template>
     </l-card>
   </div>
-  <!-- 弹窗 -->
-  <n-modal v-model:show="showDetail" preset="card" class="w-[800px]" title="库存信息" />
+
+  <FormModal v-model:show="showDetail" title="库存详情" size="lg">
+    <n-spin :show="detailLoading">
+      <n-space vertical :size="16">
+        <div class="inventory-overview__detail-hero">
+          <n-image
+            v-if="detailData.image"
+            :src="detailData.image"
+            class="inventory-overview__detail-image"
+            object-fit="cover"
+          />
+          <div class="inventory-overview__detail-main">
+            <div class="inventory-overview__detail-name">{{ detailData.name || "-" }}</div>
+            <div class="inventory-overview__detail-meta">
+              {{ detailData.warehouseName || "-" }} · {{ detailData.typeName || "-" }} ·
+              {{ formatItemSpecLabel(detailData) }}
+            </div>
+            <div class="inventory-overview__detail-qty">
+              <n-tag type="info" :bordered="false">库存 {{ stockQuantity(detailData) }}</n-tag>
+              <n-tag type="success" :bordered="false">可用 {{ detailData.availableQuantity ?? 0 }}</n-tag>
+              <n-tag type="warning" :bordered="false">占用 {{ occupiedQuantity }}</n-tag>
+            </div>
+          </div>
+        </div>
+        <n-descriptions bordered :column="2" label-placement="left" size="small">
+          <n-descriptions-item label="供应商">{{ detailData.supplierName || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="单位">{{ detailData.unitName || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="材质">{{ detailData.material || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="增值税率">{{ detailData.vatTaxRate ?? "-" }}%</n-descriptions-item>
+          <n-descriptions-item label="采购单价(含税)">{{ detailData.purchasePriceWithTax ?? "-" }}</n-descriptions-item>
+          <n-descriptions-item label="采购单价(不含税)">{{ detailData.purchasePriceWithoutTax ?? "-" }}</n-descriptions-item>
+        </n-descriptions>
+        <div>
+          <div class="inventory-overview__section-title">最近库存流水</div>
+          <vxe-table
+            :data="detailData.recentFlowList || []"
+            border
+            stripe
+            :max-height="TEMPLATE_MODAL_TABLE_MAX"
+          >
+            <vxe-column field="businessTypeName" title="业务类型" align="center" min-width="120" />
+            <vxe-column field="beforeQuantity" title="变动前" align="center" width="90" />
+            <vxe-column field="changeQuantity" title="变动数量" align="center" width="90" />
+            <vxe-column field="afterQuantity" title="变动后" align="center" width="90" />
+            <vxe-column field="createTime" title="时间" align="center" min-width="150" />
+          </vxe-table>
+        </div>
+      </n-space>
+    </n-spin>
+  </FormModal>
 </template>
 
 <style lang="scss" scoped>
-.vxe-toolbar {
-  padding: 0;
+.inventory-overview {
+  &__shell {
+    background: linear-gradient(180deg, var(--n-color-modal) 0%, var(--n-body-color) 120px);
+  }
+
+  &__page {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  &__top {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  &__hero {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  &__hero-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    color: var(--n-primary-color);
+    background: rgba(24, 160, 88, 0.12);
+    flex-shrink: 0;
+  }
+
+  &__hero-title {
+    font-size: 17px;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  &__hero-desc {
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--n-text-color-3);
+  }
+
+  &__stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  &__stat-card {
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--n-border-color);
+    background: var(--n-color-modal);
+  }
+
+  &__stat-card--primary {
+    border-color: rgba(24, 160, 88, 0.25);
+    background: linear-gradient(135deg, rgba(24, 160, 88, 0.08), transparent);
+  }
+
+  &__stat-card--info {
+    border-color: rgba(32, 128, 240, 0.2);
+    background: linear-gradient(135deg, rgba(32, 128, 240, 0.06), transparent);
+  }
+
+  &__stat-card--success {
+    border-color: rgba(24, 160, 88, 0.2);
+  }
+
+  &__stat-card--warning {
+    border-color: rgba(240, 160, 32, 0.25);
+    background: linear-gradient(135deg, rgba(240, 160, 32, 0.08), transparent);
+  }
+
+  &__stat-label {
+    font-size: 13px;
+    color: var(--n-text-color-3);
+  }
+
+  &__stat-value {
+    margin-top: 4px;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+
+  &__stat-hint {
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--n-text-color-3);
+  }
+
+  &__search-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__advanced {
+    margin-top: 4px;
+    padding-top: 12px;
+    border-top: 1px solid var(--n-border-color);
+  }
+
+  &__table-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 4px 0;
+  }
+
+  &__table-zone {
+    border-radius: 10px;
+    border: 1px solid var(--n-border-color);
+    background: var(--n-color-modal);
+  }
+
+  &__table-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  &__legend {
+    display: flex;
+    gap: 14px;
+    font-size: 12px;
+    color: var(--n-text-color-3);
+  }
+
+  &__legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  &__warehouse-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 500;
+  }
+
+  &__thumb {
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+  }
+
+  &__thumb-placeholder {
+    color: var(--n-text-color-3);
+  }
+
+  &__pager {
+    padding: 0 12px 8px;
+  }
+
+  &__detail-hero {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+
+  &__detail-image {
+    width: 88px;
+    height: 88px;
+    border-radius: 10px;
+    flex-shrink: 0;
+  }
+
+  &__detail-name {
+    font-size: 18px;
+    font-weight: 600;
+  }
+
+  &__detail-meta {
+    margin-top: 6px;
+    font-size: 13px;
+    color: var(--n-text-color-3);
+  }
+
+  &__detail-qty {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  &__section-title {
+    margin-bottom: 8px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+}
+
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.dot--success {
+  background: #18a058;
+}
+
+.dot--warning {
+  background: #f0a020;
+}
+
+.qty {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.qty--total {
+  color: var(--n-text-color-1);
+}
+
+.qty--locked {
+  color: #f0a020;
+}
+
+:deep(.inventory-overview-row--warn) {
+  background-color: rgba(240, 160, 32, 0.06) !important;
+}
+
+@media (max-width: 1200px) {
+  .inventory-overview__stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 </style>

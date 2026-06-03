@@ -1,7 +1,7 @@
 <script lang="ts" setup>
+import { ElConfigProvider } from "element-plus"
 import { computed, ref, useAttrs, useSlots, watch } from "vue"
-import { NConfigProvider } from "naive-ui"
-import { acquireFormModalZIndex, releaseFormModalZIndex } from "@/utils/form-modal-z-index"
+import { closeFormModalLayer, openFormModalLayer } from "@/utils/form-modal-z-index"
 
 type FormModalSize = "sm" | "md" | "lg" | "xl" | "xxl"
 /** fixed（默认）：固定高度，内容区滚动，底部按钮贴右下；auto：小表单随内容增高 */
@@ -50,17 +50,22 @@ const explicitZIndex = computed(() => {
   return typeof z === "number" ? z : undefined
 })
 
-const modalZIndex = ref(3000)
+const modalZIndex = ref(2000)
+const overlayZIndex = ref(3000)
+let activeModalZIndex = 0
 
 watch(showModel, (visible) => {
   if (visible) {
-    modalZIndex.value = acquireFormModalZIndex(explicitZIndex.value)
-  } else {
-    releaseFormModalZIndex(explicitZIndex.value)
+    const layer = openFormModalLayer(explicitZIndex.value)
+    modalZIndex.value = layer.modalZIndex
+    overlayZIndex.value = layer.overlayZIndex
+    activeModalZIndex = layer.modalZIndex
+    return
   }
+  if (!activeModalZIndex) return
+  closeFormModalLayer(activeModalZIndex)
+  activeModalZIndex = 0
 })
-
-const popoverZIndex = computed(() => modalZIndex.value + 1000)
 </script>
 
 <template>
@@ -73,18 +78,18 @@ const popoverZIndex = computed(() => modalZIndex.value + 1000)
     :class="modalClass"
     :z-index="modalZIndex"
   >
-    <div class="FormModal__shell">
-      <div class="FormModal__body">
-        <n-config-provider :z-index="popoverZIndex">
+    <el-config-provider :z-index="overlayZIndex">
+      <div class="FormModal__shell">
+        <div class="FormModal__body">
           <n-spin v-if="loading" :show="true">
             <slot />
           </n-spin>
           <slot v-else />
-        </n-config-provider>
+        </div>
+        <div v-if="slots.footer" class="FormModal__footer">
+          <slot name="footer" />
+        </div>
       </div>
-      <div v-if="slots.footer" class="FormModal__footer">
-        <slot name="footer" />
-      </div>
-    </div>
+    </el-config-provider>
   </n-modal>
 </template>

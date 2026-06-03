@@ -6,6 +6,7 @@ import { PurchaseApplyDetail } from "@/model/purchase"
 import { PurchaseApplyOrderService } from "@/services/purchase/PurchaseApplyOrderService"
 import { TEMPLATE_MODAL_TABLE_DETAIL_MAX } from "@/constants/template-ui"
 import PurchaseModalDetailShell from "@/views/purchase/components/PurchaseModalDetailShell.vue"
+import { getSpec1Name, getSpec2Name } from "@/utils/itemSpec"
 
 const props = defineProps<{
   show: boolean
@@ -87,7 +88,12 @@ watch(() => [props.show, props.uid, props.code], loadDetail, { immediate: true }
             >
               <vxe-column field="name" title="名称" min-width="140" />
               <vxe-column field="supplierName" title="供应商" min-width="140" />
-              <vxe-column field="spec" title="规格" min-width="140" />
+              <vxe-column title="规格1" min-width="140">
+                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+              </vxe-column>
+              <vxe-column title="规格2" min-width="140">
+                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+              </vxe-column>
               <vxe-column field="material" title="材质" min-width="120" />
               <vxe-column field="unitName" title="单位" min-width="90" />
               <vxe-column field="quantity" title="采购数量" min-width="100" />

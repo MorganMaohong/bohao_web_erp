@@ -6,6 +6,7 @@ import { InventoryInOrderService } from "@/services/inventory/InventoryInOrderSe
 import { TEMPLATE_MODAL_TABLE_DETAIL_MAX } from "@/constants/template-ui"
 import { InventInOrderTypeDict } from "@/constants/enum"
 import PurchaseModalDetailShell from "@/views/purchase/components/PurchaseModalDetailShell.vue"
+import { getSpec1Name, getSpec2Name } from "@/utils/itemSpec"
 
 const props = defineProps<{
   show: boolean
@@ -89,7 +90,12 @@ watch(() => [props.show, props.uid, props.code], loadDetail, { immediate: true }
           :max-height="TEMPLATE_MODAL_TABLE_DETAIL_MAX"
         >
           <vxe-column field="name" title="物料名称" min-width="160" />
-          <vxe-column field="spec" title="规格型号" min-width="150" />
+          <vxe-column title="规格1" min-width="150">
+                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+              </vxe-column>
+              <vxe-column title="规格2" min-width="150">
+                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+              </vxe-column>
           <vxe-column field="unitName" title="单位" min-width="90" />
           <vxe-column field="quantity" title="入库数量" min-width="110" />
           <vxe-column field="returnedQuantity" title="已退货数量" min-width="110" />

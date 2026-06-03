@@ -1,7 +1,7 @@
 import { inventoryOverviewApi } from "@/services/api"
 import request from "@/utils/request"
 import { PageVo } from "@/model"
-import { InventoryQuery, InventoryQueryData, InventoryVo } from "@/model/inventory"
+import { InventoryOverviewDetail, InventoryQuery, InventoryQueryData, InventoryVo } from "@/model/inventory"
 
 export const InventoryOverviewService = {
   async select(data: InventoryQuery): Promise<PageVo<InventoryVo, InventoryQueryData>> {
@@ -17,7 +17,7 @@ export const InventoryOverviewService = {
       return Promise.reject(err)
     }
   },
-  async detail(uid: string): Promise<void> {
+  async detail(uid: string): Promise<InventoryOverviewDetail> {
     try {
       const url = inventoryOverviewApi.detail.url + `/${uid}`
       const res = await request({

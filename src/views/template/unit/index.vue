@@ -215,7 +215,7 @@ onMounted(() => {
       <template #default>
         <m-card class="w-full h-full flex flex-col" padding="0">
           <ListPageToolbar>
-            <n-button type="primary" @click="showUpdateModal()">新增单位</n-button>
+            <n-button type="primary" :size="appStore.searchBarSize" @click="showUpdateModal()">新增单位</n-button>
             <vxe-toolbar ref="VxeToolbarRef" custom />
           </ListPageToolbar>
           <m-card ref="TableCardRef" class="flex-1">
@@ -254,9 +254,9 @@ onMounted(() => {
               <vxe-column fixed="right" title="操作" align="center" width="180">
                 <template #default="{ row }">
                   <n-flex justify="center">
-                    <n-button type="primary" text @click="showCopyModal(row.uid)">复制</n-button>
-                    <n-button type="info" text @click="showUpdateModal(row.uid)">编辑</n-button>
-                    <n-button type="error" text @click="showDeleteModal(row.uid)">删除</n-button>
+                    <n-button type="primary" text :size="appStore.searchBarSize" @click="showCopyModal(row.uid)">复制</n-button>
+                    <n-button type="info" text :size="appStore.searchBarSize" @click="showUpdateModal(row.uid)">编辑</n-button>
+                    <n-button type="error" text :size="appStore.searchBarSize" @click="showDeleteModal(row.uid)">删除</n-button>
                   </n-flex>
                 </template>
               </vxe-column>

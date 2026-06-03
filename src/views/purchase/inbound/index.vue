@@ -7,6 +7,7 @@ import SearchQueryForm from "@/components/SearchQueryForm/index.vue"
 import FormModal from "@/components/FormModal/index.vue"
 import MCard from "@/components/MCard/index.vue"
 import { PageVo } from "@/model"
+import { getSpec1Name, getSpec2Name } from "@/utils/itemSpec"
 import {
   InventoryInboundDetail,
   InventoryInOrderForm,
@@ -387,7 +388,12 @@ onMounted(() => {
             :data="formData.detailList || []"
           >
             <vxe-column field="name" title="物料名称" min-width="160" />
-            <vxe-column field="spec" title="规格型号" min-width="150" />
+            <vxe-column title="规格1" min-width="150">
+                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+              </vxe-column>
+              <vxe-column title="规格2" min-width="150">
+                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+              </vxe-column>
             <vxe-column field="unitName" title="单位" min-width="90" />
             <vxe-column field="totalQuantity" title="订单数量" min-width="110" />
             <vxe-column field="availableQuantity" title="剩余可入库" min-width="110" />
@@ -448,7 +454,12 @@ onMounted(() => {
             :max-height="TEMPLATE_MODAL_TABLE_DETAIL_MAX"
           >
             <vxe-column field="name" title="物料名称" min-width="160" />
-            <vxe-column field="spec" title="规格型号" min-width="150" />
+            <vxe-column title="规格1" min-width="150">
+                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+              </vxe-column>
+              <vxe-column title="规格2" min-width="150">
+                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+              </vxe-column>
             <vxe-column field="unitName" title="单位" min-width="90" />
             <vxe-column field="quantity" title="入库数量" min-width="110" />
             <vxe-column field="returnedQuantity" title="已退货数量" min-width="110" />

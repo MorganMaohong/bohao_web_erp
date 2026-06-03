@@ -8,7 +8,10 @@ export interface PurchaseApplyOrder extends BaseEntityLd {
   applyTime?: number
   expectTime?: number
   sourceType?: string
-  warehouseUid?: string
+  usageType?: string
+  bizType?: string
+  bizUid?: string
+  bizName?: string
   remark?: string
   flowInstanceUid?: string
   status?: string
@@ -20,12 +23,17 @@ export interface PurchaseApplyOrderForm extends PurchaseApplyOrder {
   detailList?: PurchaseApplyOrderDetailVo[]
   warehouseOptions?: OptionVo[]
   supplierOptions?: OptionVo[]
+  usageTypeOptions?: OptionVo[]
+  bizTypeOptions?: OptionVo[]
+  bizObjectOptions?: OptionVo[]
 }
 
 export interface PurchaseApplyOrderVo extends PurchaseApplyOrder {
   statusName?: string
   currentNodeName?: string
   sourceTypeName?: string
+  usageTypeName?: string
+  bizTypeName?: string
   expectTimeName?: string
   applyTimeName?: string
 }
@@ -34,6 +42,8 @@ export interface PurchaseApplyDetail extends PurchaseApplyOrder {
   statusName?: string
   currentNodeName?: string
   sourceTypeName?: string
+  usageTypeName?: string
+  bizTypeName?: string
   expectTimeName?: string
   applyTimeName?: string
   allowEditPrice?: boolean
@@ -46,10 +56,18 @@ export interface PurchaseApplyDetail extends PurchaseApplyOrder {
 }
 
 export interface PurchaseApplyOrderQuery extends PageQuery {
-  name?: string
+  key?: string
+  sourceType?: string
+  usageType?: string
+  status?: string
 }
 
-export interface PurchaseApplyOrderQueryData {}
+export interface PurchaseApplyOrderQueryData {
+  statusOptions?: OptionVo[]
+  sourceTypeOptions?: OptionVo[]
+  usageTypeOptions?: OptionVo[]
+  bizTypeOptions?: OptionVo[]
+}
 
 export interface PurchaseApplyOrderDetail extends ItemsBase {
   code?: string

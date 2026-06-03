@@ -1,6 +1,6 @@
 /**
- * 消除浏览器整页滚动条：Naive n-layout 默认 .n-layout-scroll-container 为 overflow:auto。
- * 右侧 n-layout-content 使用 :native-scrollbar="false" 由 NScrollbar 承担主内容区滚动。
+ * 消除浏览器整页滚动条：侧栏 + 顶栏固定，主业务区在 AppMain .app-scrollbar 内纵向滚动。
+ * 右侧 n-layout-content 使用 :native-scrollbar="false"，避免与内容区滚动条叠加。
  */
 
 .erp-main-layout .n-layout-scroll-container {
@@ -42,5 +42,5 @@
   min-height: 0 !important;
   display: flex !important;
   flex-direction: column !important;
-  overflow: hidden !important;
+  overflow: visible !important;
 }

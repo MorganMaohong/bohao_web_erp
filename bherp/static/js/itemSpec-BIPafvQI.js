@@ -1,0 +1,1 @@
+function p(e){const t=(e||"").split("、").map(c=>c.trim()).filter(Boolean);return{spec1Name:t[0]||"",spec2Name:t[1]||""}}function n(e){return e?e.spec1Name?e.spec1Name:p(e.spec).spec1Name||"-":"-"}function a(e){return e?e.spec2Name?e.spec2Name:p(e.spec).spec2Name||"-":"-"}function m(e){const t=n(e),c=a(e);return[t,c].filter(s=>s&&s!=="-").join(" / ")||"-"}export{a,m as f,n as g};

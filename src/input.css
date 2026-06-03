@@ -4,9 +4,9 @@
 @import "tailwindcss";
 
 @layer components {
-  /* 与 AppMain / LCard 的 flex 链配合：占满剩余高度，滚动交给内部表格 */
+  /* 至少铺满内容区；超出时由 AppMain .app-scrollbar 整体纵向滚动 */
   .LayoutContainer {
-    @apply p-2 w-full flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden;
+    @apply p-2 w-full min-h-full min-w-0 flex flex-col;
   }
 
   .LayoutContainerBackGround {

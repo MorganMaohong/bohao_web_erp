@@ -16,17 +16,5 @@ export const InventoryFlowService = {
     } catch (err) {
       return Promise.reject(err)
     }
-  },
-  async detail(uid: string): Promise<void> {
-    try {
-      const url = inventoryFlowApi.detail.url + `/${uid}`
-      const res = await request({
-        url,
-        method: "POST"
-      })
-      return Promise.resolve(res.data)
-    } catch (err) {
-      return Promise.reject(err)
-    }
   }
 }

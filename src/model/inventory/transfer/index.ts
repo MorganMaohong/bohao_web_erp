@@ -51,7 +51,13 @@ export interface InventoryTransferOrderVo extends InventoryTransferOrder {
   statusName?: string
 }
 
-export interface InventoryTransferOrderQuery extends PageQuery {}
+export interface InventoryTransferOrderQuery extends PageQuery {
+  key?: string
+  status?: string
+  inWarehouseUid?: string
+  outWarehouseUid?: string
+  typeList?: string[]
+}
 
 export interface InventoryTransferOrderQueryData {
   warehouseOptions?: OptionVo[]

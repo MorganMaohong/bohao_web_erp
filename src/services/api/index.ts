@@ -782,7 +782,8 @@ export const templateItemDictApi = {
   updateSort: { url: `${apiPrefix.templateItemDict}/updateSort`, permission: "template:itemDict:edit" },
   picker: { url: `${apiPrefix.templateItemDict}/picker`, permission: "" },
   treePicker: { url: `${apiPrefix.templateItemDict}/treePicker`, permission: "" },
-  buildCode: { url: `${apiPrefix.templateItemDict}/buildCode`, permission: "" }
+  buildCode: { url: `${apiPrefix.templateItemDict}/buildCode`, permission: "" },
+  syncItemCodes: { url: `${apiPrefix.templateItemDict}/syncItemCodes`, permission: "template:itemDict:edit" }
 }
 
 export const templateProductApi = {
@@ -836,8 +837,7 @@ export const templateUnitApi = {
 }
 
 export const inventoryFlowApi = {
-  select: { url: `${apiPrefix.inventoryFlow}/select`, permission: "inventory:flow:select" },
-  detail: { url: `${apiPrefix.inventoryFlow}/detail`, permission: "inventory:flow:select" }
+  select: { url: `${apiPrefix.inventoryFlow}/select`, permission: "inventory:flow:select" }
 }
 
 export const inventoryCommonApi = {
@@ -906,7 +906,7 @@ export const inventoryOutboundApi = {
 export const inventoryTransferOrderApi = {
   add: { url: `${apiPrefix.inventoryTransferOrder}/add`, permission: "inventory:transfer:edit" },
   update: { url: `${apiPrefix.inventoryTransferOrder}/update`, permission: "inventory:transfer:edit" },
-  complete: { url: `${apiPrefix.inventoryTransferOrder}/complete`, permission: "inventory:transfer:edit" },
+  complete: { url: `${apiPrefix.inventoryTransferOrder}/confirm`, permission: "inventory:transfer:edit" },
   deleteDetail: { url: `${apiPrefix.inventoryTransferOrder}/deleteDetail`, permission: "inventory:transfer:edit" },
   delete: { url: `${apiPrefix.inventoryTransferOrder}/delete`, permission: "inventory:transfer:delete" },
   cancel: { url: `${apiPrefix.inventoryTransferOrder}/cancel`, permission: "inventory:transfer:edit" },

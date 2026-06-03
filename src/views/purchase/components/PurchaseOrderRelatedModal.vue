@@ -2,7 +2,7 @@
 import FormModal from "@/components/FormModal/index.vue"
 import { ref, watch } from "vue"
 import FlowSchemaPreview from "@/components/FlowSchemaPreview/index.vue"
-import { FlowDefinitionTypeOptions } from "@/constants/flow"
+import { getSpec1Name, getSpec2Name } from "@/utils/itemSpec"
 import {
   TEMPLATE_MODAL_TABLE_DETAIL_MAX,
   TEMPLATE_MODAL_TABLE_RECORD_MAX
@@ -112,6 +112,8 @@ watch(() => [props.show, props.uid, props.code], loadDetail, { immediate: true }
                 <span v-else>-</span>
               </n-descriptions-item>
               <n-descriptions-item label="预计到货">{{ detailData.expectTimeName || "-" }}</n-descriptions-item>
+              <n-descriptions-item label="含税总额">{{ detailData.totalAmount ?? "-" }}</n-descriptions-item>
+              <n-descriptions-item label="不含税总额">{{ detailData.totalAmountWithoutTax ?? "-" }}</n-descriptions-item>
               <n-descriptions-item label="申请状态">{{ detailData.applyOrderStatusName || "-" }}</n-descriptions-item>
               <n-descriptions-item label="备注" :span="2">{{ detailData.remark || "-" }}</n-descriptions-item>
             </n-descriptions>
@@ -127,7 +129,12 @@ watch(() => [props.show, props.uid, props.code], loadDetail, { immediate: true }
               :max-height="TEMPLATE_MODAL_TABLE_DETAIL_MAX"
             >
               <vxe-column field="name" title="物料名称" min-width="160" />
-              <vxe-column field="spec" title="规格型号" min-width="150" />
+              <vxe-column title="规格1" min-width="150">
+                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+              </vxe-column>
+              <vxe-column title="规格2" min-width="150">
+                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+              </vxe-column>
               <vxe-column field="unitName" title="单位" min-width="90" />
               <vxe-column field="applyQuantity" title="申请数量" min-width="100" />
               <vxe-column field="quantity" title="到货数量" min-width="100" />
@@ -159,11 +166,10 @@ watch(() => [props.show, props.uid, props.code], loadDetail, { immediate: true }
             </vxe-table>
           </n-card>
           <template #side>
-          <flow-schema-preview
+          <FlowSchemaPreview
             v-if="detailData.flowSchema"
             title="审批流程"
-            :flow-schema="detailData.flowSchema"
-            :flow-type="FlowDefinitionTypeOptions.PURCHASE_ORDER_FLOW"
+            :schema-data="detailData.flowSchema"
           />
           <n-card v-else title="审批流程" :bordered="false" class="detail-card">
             <n-empty description="暂无流程数据" />

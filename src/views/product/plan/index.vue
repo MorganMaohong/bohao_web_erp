@@ -885,7 +885,7 @@ onMounted(() => {
       <template #default>
         <m-card class="w-full h-full flex flex-col" padding="0">
           <ListPageToolbar>
-            <n-button type="primary" @click="openEdit()">新增计划</n-button>
+            <n-button type="primary" :size="appStore.searchBarSize" @click="openEdit()">新增计划</n-button>
             <vxe-toolbar ref="VxeToolbarRef" custom />
           </ListPageToolbar>
           <m-card ref="TableCardRef" class="flex-1">
@@ -907,12 +907,13 @@ onMounted(() => {
               <vxe-column fixed="right" title="操作" align="center" width="320">
                 <template #default="{ row }">
                   <n-flex justify="center" :wrap="false">
-                    <n-button type="primary" text @click="openDetail(row.uid)">详情</n-button>
-                    <n-button v-if="row.canEditPlan" text @click="openEdit(row.uid)">编辑</n-button>
+                    <n-button type="primary" text :size="appStore.searchBarSize" @click="openDetail(row.uid)">详情</n-button>
+                    <n-button v-if="row.canEditPlan" text :size="appStore.searchBarSize" @click="openEdit(row.uid)">编辑</n-button>
                     <n-button
                       v-if="row.status === 'completed' && !row.inboundCompleted"
                       type="error"
                       text
+                      :size="appStore.searchBarSize"
                       @click="openClose(row.uid)"
                     >
                       关闭

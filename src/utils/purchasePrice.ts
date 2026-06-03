@@ -1,6 +1,7 @@
 export interface PurchasePriceRow {
   uid?: string
   name?: string
+  supplierUid?: string
   quantity?: number | null
   vatTaxRate?: number | null
   purchasePriceWithTax?: number | null

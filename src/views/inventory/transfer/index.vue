@@ -8,11 +8,12 @@ import MCard from "@/components/MCard/index.vue"
 import { useAppStore } from "@/store/modules/app"
 import { FormInst, NButton } from "naive-ui"
 import { resetRef } from "@/utils"
-import { VxeTableInstance } from "vxe-table"
+import { VxeTableInstance, VxeToolbarInstance } from "vxe-table"
 import { Add, Reset, Search } from "@vicons/carbon"
 import { CloseFilled } from "@vicons/material"
 import FastMultipleUpload from "@/components/FastMultipleUpload/FastMultipleUpload.vue"
-import { InventOutOrderStatusDict } from "@/constants/enum"
+import { InventTransferOrderStatusDict } from "@/constants/enum"
+import { getSpec1Name, getSpec2Name } from "@/utils/itemSpec"
 import {
   TEMPLATE_MODAL_TABLE_MAX,
   TEMPLATE_MODAL_TABLE_PICKER_MAX
@@ -22,7 +23,6 @@ import { VxePagerEvents } from "vxe-pc-ui"
 import { applyWarehouseByUid } from "@/utils/warehouse-select"
 import { InventoryOverviewService } from "@/services/inventory/InventoryOverviewService"
 import { InventoryQuery, InventoryQueryData, InventoryVo } from "@/model/inventory"
-import { InventoryOutOrderDetailVo } from "@/model/inventory/outbound"
 import {
   InventoryTransferDetail,
   InventoryTransferOrderForm,
@@ -51,7 +51,7 @@ const tmpImageList = ref([])
 const tmpImageIndex = ref(0)
 const formRef = ref<FormInst>()
 const loading = ref(false)
-const formRule = {
+const formRule = computed(() => ({
   type: {
     required: true,
     message: "请选择类型",
@@ -77,12 +77,16 @@ const formRule = {
     required: true,
     validator() {
       if (!formData.value.detailList || formData.value.detailList.length <= 0) {
-        return new Error("出库明细不能为空！")
+        return new Error("调拨明细不能为空！")
       }
 
       for (const item of formData.value.detailList) {
         if (!item.quantity || item.quantity <= 0) {
-          return new Error(`【${item.name}】出库数量必须大于0！`)
+          return new Error(`【${item.name}】调拨数量必须大于0！`)
+        }
+        const available = Number(item.availableQuantity) || 0
+        if (Number(item.quantity) > available) {
+          return new Error(`【${item.name}】调拨数量不能超过可用库存 ${available}`)
         }
       }
 
@@ -90,8 +94,8 @@ const formRule = {
     },
     trigger: ["input", "blur"]
   }
-}
-const query = ref<InventoryTransferOrderQuery>({ currentPage: 1, pageSize: 50 })
+}))
+const query = ref<InventoryTransferOrderQuery>({ currentPage: 1, pageSize: 50, key: "" })
 const data = ref<PageVo<InventoryTransferOrderVo, InventoryTransferOrderQueryData>>({})
 const VxeTableRef = ref<VxeTableInstance>()
 const VxeToolbarRef = ref<VxeToolbarInstance>()
@@ -112,16 +116,20 @@ function select() {
     })
     .finally(() => {
       loading.value = false
-      VxeTableRef.value?.setAllTreeExpand(true)
     })
 }
 
 function search() {
+  query.value.currentPage = 1
   select()
 }
 
 function reset() {
-  query.value = resetRef(query.value)
+  query.value = {
+    currentPage: 1,
+    pageSize: 50,
+    key: ""
+  }
   select()
 }
 
@@ -134,8 +142,6 @@ function showUpdateModal(uid?: string) {
 }
 
 function confirmUpdate() {
-  console.log(formData.value)
-  // return
   formRef.value?.validate((err) => {
     if (err) return
     if (isSubmitting.value) return
@@ -253,17 +259,20 @@ function confirmUpdateItems() {
     formData.value.detailList = []
   }
 
-  const existUidSet = new Set(formData.value.detailList.map((item) => item.itemUid))
+  const existUidSet = new Set(formData.value.detailList.map((item) => item.itemUid).filter(Boolean))
 
-  const newDetails: InventoryOutOrderDetailVo[] = records
-    .filter((item) => !existUidSet.has(item.itemUid))
+  const newDetails: InventoryTransferOrderDetailVo[] = records
+    .filter((item) => item.itemUid && !existUidSet.has(item.itemUid))
     .map((item) => ({
-      // 主数据关联
       ...item,
       itemUid: item.itemUid,
-      uid: "",
+      uid: undefined,
       quantity: 1
     }))
+
+  if (newDetails.length < records.length) {
+    window.$message?.warning("已跳过重复物料")
+  }
 
   formData.value.detailList.push(...newDetails)
 
@@ -336,17 +345,29 @@ function showCancelModal(uid: string) {
 }
 
 function confirmCancel() {
-  InventoryTransferOrderService.cancel(formData.value.uid).then(() => {
-    showCancel.value = false
-    formData.value.uid = ""
-    select()
-  })
+  if (isSubmitting.value) return
+  isSubmitting.value = true
+  InventoryTransferOrderService.cancel(formData.value.uid)
+    .then(() => {
+      showCancel.value = false
+      formData.value.uid = ""
+      select()
+    })
+    .finally(() => {
+      isSubmitting.value = false
+    })
 }
 
 function pageChange(event: VxePagerEvents) {
   query.value.currentPage = event.currentPage
   query.value.pageSize = event.pageSize
   select()
+}
+
+function itemsPageChange(event: VxePagerEvents) {
+  itemsQuery.value.currentPage = event.currentPage
+  itemsQuery.value.pageSize = event.pageSize
+  selectItems()
 }
 
 onMounted(() => {
@@ -368,8 +389,8 @@ onMounted(() => {
           <SearchQueryForm label-placement="left" ref="queryFormRef" >
             <n-grid :cols="4" x-gap="12" y-gap="12">
               <n-gi>
-                <n-form-item label="名称:">
-                  <n-input clearable v-model:value="query.name" />
+                <n-form-item label="编号/备注:">
+                  <n-input clearable v-model:value="query.key" placeholder="编号或备注" />
                 </n-form-item>
               </n-gi>
               <n-gi>
@@ -401,7 +422,7 @@ onMounted(() => {
       <template #default>
         <m-card class="w-full h-full flex flex-col" padding="0">
           <ListPageToolbar>
-            <n-button type="primary" @click="showUpdateModal()">
+            <n-button type="primary" :size="appStore.searchBarSize" @click="showUpdateModal()">
               <n-icon size="18">
                 <Add />
               </n-icon>
@@ -437,21 +458,21 @@ onMounted(() => {
                   <vxe-text
                     style="font-weight: bold"
                     status="error"
-                    v-if="row.status === InventOutOrderStatusDict.WAIT_COMPLETE"
+                    v-if="row.status === InventTransferOrderStatusDict.WAIT_COMPLETE"
                   >
                     {{ row.statusName }}
                   </vxe-text>
                   <vxe-text
                     style="font-weight: bold"
                     status="success"
-                    v-else-if="row.status === InventOutOrderStatusDict.COMPLETE"
+                    v-else-if="row.status === InventTransferOrderStatusDict.COMPLETE"
                   >
                     {{ row.statusName }}
                   </vxe-text>
                   <vxe-text
                     style="font-weight: bold"
                     status="perfect"
-                    v-else-if="row.status === InventOutOrderStatusDict.CANCEL"
+                    v-else-if="row.status === InventTransferOrderStatusDict.CANCEL"
                   >
                     {{ row.statusName }}
                   </vxe-text>
@@ -479,14 +500,14 @@ onMounted(() => {
               <vxe-column fixed="right" title="操作" align="center" show-overflow="tooltip" width="120">
                 <template #default="{ row }">
                   <n-flex justify="center">
-                    <template v-if="row.status === InventOutOrderStatusDict.WAIT_COMPLETE">
+                    <template v-if="row.status === InventTransferOrderStatusDict.WAIT_COMPLETE">
                       <n-button type="info" text @click="showUpdateModal(row.uid)">编辑</n-button>
                       <n-button type="error" text @click="showCancelModal(row.uid)">取消</n-button>
                     </template>
-                    <template v-else-if="row.status === InventOutOrderStatusDict.COMPLETE">
+                    <template v-else-if="row.status === InventTransferOrderStatusDict.COMPLETE">
                       <n-button type="info" text @click="showDetailModal(row.uid)">详情</n-button>
                     </template>
-                    <template v-else-if="row.status === InventOutOrderStatusDict.CANCEL">
+                    <template v-else-if="row.status === InventTransferOrderStatusDict.CANCEL">
                       <n-button type="info" text @click="showDetailModal(row.uid)">详情</n-button>
                       <!--                      <n-button type="error" text @click="showDeleteModal(row.uid)">删除</n-button>-->
                     </template>
@@ -500,8 +521,9 @@ onMounted(() => {
       <template #footer>
         <m-card class="w-full h-full flex items-center justify-end">
           <vxe-pager
-            v-model:currentPage="query.currentPage"
-            v-model:pageSize="query.pageSize"
+            :size="appStore.componentSize"
+            v-model:currentPage="data.currentPage"
+            v-model:pageSize="data.pageSize"
             :total="data.count"
             :layouts="[
               'Home',
@@ -522,7 +544,7 @@ onMounted(() => {
     </l-card>
   </div>
   <!-- 弹窗 -->
-  <FormModal v-model:show="showUpdate" title="调拨单" size="lg">
+  <FormModal v-model:show="showUpdate" title="调拨单" size="xl">
 
     <n-form :model="formData" ref="formRef" :rules="formRule" class="TemplateForm">
         <n-alert type="info" :show-icon="false" class="mb-3">
@@ -550,7 +572,7 @@ onMounted(() => {
             </n-form-item>
           </n-gi>
           <n-gi>
-            <n-form-item label="调拨申请时间" class="w-full" path="time">
+            <n-form-item label="调拨申请时间" class="w-full" path="applyTime">
               <n-date-picker
                 type="datetime"
                 placeholder="请选择时间"
@@ -561,7 +583,7 @@ onMounted(() => {
             </n-form-item>
           </n-gi>
           <n-gi>
-            <n-form-item label="期望到货时间" class="w-full" path="time">
+            <n-form-item label="期望到货时间" class="w-full" path="expectTime">
               <n-date-picker
                 type="datetime"
                 placeholder="请选择时间"
@@ -674,7 +696,12 @@ onMounted(() => {
                       </template>
                     </vxe-column>
                     <vxe-column field="unitName" title="单位" show-overflow="tooltip" align="center" width="15%" />
-                    <vxe-column field="spec" title="规格" show-overflow="tooltip" align="center" width="15%" />
+                    <vxe-column title="规格1" show-overflow="tooltip" align="center" width="15%">
+                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+              </vxe-column>
+              <vxe-column title="规格2" show-overflow="tooltip" align="center" width="15%">
+                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+              </vxe-column>
                     <vxe-column field="material" title="材质" show-overflow="tooltip" align="center" width="15%" />
                     <vxe-column field="remark" title="备注" show-overflow="tooltip" align="center" width="30%" />
                     <vxe-column
@@ -791,7 +818,7 @@ onMounted(() => {
       </n-flex>
     </template>
   </FormModal>
-  <FormModal v-model:show="showItems" title="物料信息" size="lg">
+  <FormModal v-model:show="showItems" title="物料信息" size="xl">
 
     <l-card class="w-full h-full" shadow rounded padding="0">
       <vxe-table
@@ -804,7 +831,7 @@ onMounted(() => {
         :checkbox-config="{ trigger: 'row' }"
         ref="VxeTableItemsRef"
       >
-        <vxe-column fixed="left" type="checkbox" width="30" align="center" />
+        <vxe-column fixed="left" type="checkbox" width="70" align="center" />
         <vxe-column field="name" title="名称" show-overflow="tooltip" align="center" width="15%" />
         <vxe-column field="supplierName" title="供应商名称" show-overflow="tooltip" align="center" width="15%" />
         <vxe-column field="typeName" title="类型" show-overflow="tooltip" align="center" width="15%" />
@@ -824,7 +851,12 @@ onMounted(() => {
           align="center"
           width="20%"
         />
-        <vxe-column field="spec" title="规格" show-overflow="tooltip" align="center" width="15%" />
+        <vxe-column title="规格1" show-overflow="tooltip" align="center" width="15%">
+                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+              </vxe-column>
+              <vxe-column title="规格2" show-overflow="tooltip" align="center" width="15%">
+                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+              </vxe-column>
         <vxe-column field="material" title="材质" show-overflow="tooltip" align="center" width="15%" />
         <vxe-column field="remark" title="备注" show-overflow="tooltip" align="center" width="30%" />
         <vxe-column
@@ -882,9 +914,9 @@ onMounted(() => {
     content="确定删除吗?"
     positive-text="确定"
     @positive-click="confirmDelete"
-   
+
   />
-  <FormModal v-model:show="showDetail" title="调拨详情" size="lg">
+  <FormModal v-model:show="showDetail" title="调拨详情" size="xl">
     <n-space vertical :size="12">
         <n-descriptions bordered :column="4" title="单据信息">
           <n-descriptions-item label="编号">{{ detailData.code }}</n-descriptions-item>
@@ -950,13 +982,18 @@ onMounted(() => {
               <vxe-column
                 fixed="right"
                 field="quantity"
-                title="出库数量"
+                title="调拨数量"
                 align="center"
                 show-overflow="tooltip"
                 width="10%"
               />
               <vxe-column field="unitName" title="单位" show-overflow="tooltip" align="center" width="15%" />
-              <vxe-column field="spec" title="规格" show-overflow="tooltip" align="center" width="15%" />
+              <vxe-column title="规格1" show-overflow="tooltip" align="center" width="15%">
+                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+              </vxe-column>
+              <vxe-column title="规格2" show-overflow="tooltip" align="center" width="15%">
+                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+              </vxe-column>
               <vxe-column field="material" title="材质" show-overflow="tooltip" align="center" width="15%" />
               <vxe-column field="remark" title="备注" show-overflow="tooltip" align="center" width="30%" />
             </vxe-table>
@@ -967,10 +1004,10 @@ onMounted(() => {
             {{ detailData.totalQuantity }}
           </n-descriptions-item>
           <n-descriptions-item label="调拨总采购价（含税）/元">
-            {{ detailData.totalPurchasePriceWithTax }}
+            {{ detailData.totalAmountWithTax }}
           </n-descriptions-item>
           <n-descriptions-item label="调拨总采购价（不含税）/元">
-            {{ detailData.totalAmountWithoutTax }}
+            {{ detailData.totalPurchasePriceWithTax }}
           </n-descriptions-item>
           <n-descriptions-item label="本次调拨总税额/元">
             {{ detailData.totalTaxAmount }}

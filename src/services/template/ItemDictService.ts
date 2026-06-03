@@ -43,5 +43,9 @@ export const ItemDictService = {
   async buildCode(data: ItemCodeBuildForm): Promise<string> {
     const res = await request({ url: templateItemDictApi.buildCode.url, method: "POST", data })
     return Promise.resolve(res.data)
+  },
+  async syncItemCodes(): Promise<void> {
+    const res = await request({ url: templateItemDictApi.syncItemCodes.url, method: "POST" })
+    return Promise.resolve(res.data)
   }
 }

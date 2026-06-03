@@ -64,10 +64,13 @@
     -webkit-overflow-scrolling: touch;
   }
 
-  .FormModal__body > .n-config-provider {
-    display: block;
+  .FormModal__shell > .el-config-provider,
+  .n-card__content > .el-config-provider {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
     width: 100%;
-    min-height: min-content;
   }
 
   .FormModal__footer {
@@ -160,4 +163,12 @@
 body .n-modal .n-card.FormModal.n-modal > .n-card__content,
 .n-modal .n-card.FormModal.n-modal > .n-card__content {
   padding: 0 !important;
+}
+
+// FormModal 打开时，提升挂载在 body 上的外部浮层（如 n-image 预览、el-image-viewer）
+html.FormModal--overlay-active {
+  .n-image-preview-container,
+  .el-image-viewer__wrapper {
+    z-index: var(--form-modal-overlay-z-index) !important;
+  }
 }

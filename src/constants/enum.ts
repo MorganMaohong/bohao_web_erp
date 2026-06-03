@@ -282,11 +282,44 @@ export enum InventOutOrderStatusDict {
   COMPLETE = "complete"
 }
 
+export enum InventTransferOrderStatusDict {
+  CANCEL = "cancel",
+  WAIT_COMPLETE = "wait_complete",
+  COMPLETE = "complete"
+}
+
+export enum InventCheckOrderStatusDict {
+  CANCEL = "cancel",
+  WAIT_COMPLETE = "wait_complete",
+  COMPLETE = "complete"
+}
+
+export enum FlowInstanceStatusDict {
+  RUNNING = "running",
+  WITHDRAWN = "withdrawn",
+  REJECTED = "rejected",
+  COMPLETED = "completed"
+}
+
+export enum MaterialRequestOrderStatusDict {
+  DRAFT = "draft",
+  WAIT_REVIEW = "wait_review",
+  WAIT_ISSUE = "wait_issue",
+  PART_ISSUED = "part_issued",
+  ALL_ISSUED = "all_issued",
+  REJECTED = "rejected",
+  CLOSED = "closed",
+  RUNNING = "running",
+  COMPLETED = "completed"
+}
+
 export enum InventOutOrderTypeDict {
+  MATERIAL_REQUEST = "material_request",
+  SALES_OUTBOUND = "sales_outbound",
   PURCHASE_RETURN = "purchase_return",
   EXCHANGE = "exchange",
   REPORT_OVER = "report_loss",
-  BORROW = "BORROW",
+  BORROW = "borrow",
   INITIAL = "initial",
   INVENTORY_LOSS = "inventory_loss",
   TRANSFER = "transfer",
@@ -296,6 +329,18 @@ export enum InventOutOrderTypeDict {
 export enum PurchaseOrderTypeDict {
   NORMAL = "normal",
   RESEND = "resend"
+}
+
+export enum PurchaseOrderStatusDict {
+  WAIT_CONFIRM = "wait_confirm",
+  WAIT_APPROVE = "wait_approve",
+  APPROVED = "approved",
+  REJECT = "reject",
+  PART_IN = "part_in",
+  ALL_IN = "all_in",
+  PART_RETURN = "part_return",
+  ALL_RETURN = "all_return",
+  CLOSED = "closed"
 }
 
 export enum PurchaseReturnTypeDict {

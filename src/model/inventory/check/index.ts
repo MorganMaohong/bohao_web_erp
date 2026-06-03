@@ -1,12 +1,11 @@
 import { BaseEntityLd, OptionVo, PageQuery } from "@/model"
 import { Warehouse } from "@/model/stock"
-import { InventoryOutOrderDetailVo } from "@/model/inventory/outbound"
 
 export interface InventoryCheckOrder extends BaseEntityLd {
   code?: string
   type?: string
-  startTime?: string
-  endTime?: string
+  startTime?: number
+  endTime?: number
   warehouseUid?: string
   images?: string
   remark?: string
@@ -44,6 +43,8 @@ export interface InventoryCheckOrderVo extends InventoryCheckOrder {
 
 export interface InventoryCheckOrderQuery extends PageQuery {
   key?: string
+  status?: string
+  warehouseUid?: string
 }
 
 export interface InventoryCheckOrderQueryData {

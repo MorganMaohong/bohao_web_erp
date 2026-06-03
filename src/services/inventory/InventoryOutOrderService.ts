@@ -2,6 +2,7 @@ import { inventoryOutboundApi } from "@/services/api"
 import request from "@/utils/request"
 import { PageVo } from "@/model"
 import {
+  InventoryOutboundDetail,
   InventoryOutOrderForm,
   InventoryOutOrderQuery,
   InventoryOutOrderQueryData,
@@ -96,7 +97,7 @@ export const InventoryOutOrderService = {
       return Promise.reject(err)
     }
   },
-  async detail(uid: string): Promise<InventoryOutOrderForm> {
+  async detail(uid: string): Promise<InventoryOutboundDetail> {
     try {
       const url = inventoryOutboundApi.detail.url + `/${uid}`
       const res = await request({

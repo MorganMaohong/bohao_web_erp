@@ -32,7 +32,7 @@ const settingsStore = useSettingsStore()
 <style lang="scss">
 @import "@/styles/mixins.scss";
 
-/* 占满内容区高度，由内部表格/列表自行滚动 */
+/* 占满侧栏右侧内容区高度，纵向滚动由 .app-scrollbar 统一承担 */
 .app-main {
   width: 100%;
   flex: 1;
@@ -45,7 +45,8 @@ const settingsStore = useSettingsStore()
 .app-scrollbar {
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   @extend %scrollbar;
@@ -56,12 +57,10 @@ const settingsStore = useSettingsStore()
 }
 
 .router-page {
-  flex: 1;
-  min-height: 0;
+  min-height: 100%;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 
 /* 主内容区路由切换动画（需避免 App.vue 整壳 key 频繁变化） */

@@ -8,6 +8,7 @@ import FormModal from "@/components/FormModal/index.vue"
 import MCard from "@/components/MCard/index.vue"
 import FlowSchemaPreview from "@/components/FlowSchemaPreview/index.vue"
 import { PageVo } from "@/model"
+import { getSpec1Name, getSpec2Name } from "@/utils/itemSpec"
 import {
   PurchaseOrderDetail,
   PurchaseOrderDetailVo,
@@ -22,8 +23,7 @@ import {
 import { PurchaseOrderService } from "@/services/purchase/PurchaseOrderService"
 import { PurchasePriceAnalysisService } from "@/services/purchase/PurchasePriceAnalysisService"
 import { useAppStore } from "@/store/modules/app"
-import { resetRef } from "@/utils"
-import { FlowDefinitionTypeOptions } from "@/constants/flow"
+import { PurchaseOrderStatusDict } from "@/constants/enum"
 import {
   TEMPLATE_MODAL_TABLE_MAX_TALL,
   TEMPLATE_MODAL_TABLE_DETAIL_MAX,
@@ -44,14 +44,11 @@ import PurchaseInboundRelatedModal from "@/views/purchase/components/PurchaseInb
 import PurchaseModalDetailShell from "@/views/purchase/components/PurchaseModalDetailShell.vue"
 import PurchaseOrderRelatedModal from "@/views/purchase/components/PurchaseOrderRelatedModal.vue"
 
-const PurchaseOrderStatus = {
-  WAIT_CONFIRM: "wait_confirm",
-  REJECT: "reject"
-} as const
-
 const appStore = useAppStore()
 const route = useRoute()
 const loading = ref(false)
+const detailLoading = ref(false)
+const confirmLoading = ref(false)
 const submitting = ref(false)
 const priceCompareLoading = ref(false)
 const priceHistoryLoading = ref(false)
@@ -162,9 +159,13 @@ function search() {
 }
 
 function reset() {
-  query.value = resetRef(query.value)
-  query.value.currentPage = 1
-  query.value.pageSize = 20
+  query.value = {
+    currentPage: 1,
+    pageSize: 20,
+    key: "",
+    status: undefined,
+    orderType: undefined
+  }
   select()
 }
 
@@ -177,20 +178,20 @@ function pageChange(event: { currentPage: number; pageSize: number }) {
 function showDetailModal(uid?: string) {
   if (!uid) return
   showDetail.value = true
-  loading.value = true
+  detailLoading.value = true
   PurchaseOrderService.detail(uid)
     .then((res) => {
       detailData.value = res
     })
     .finally(() => {
-      loading.value = false
+      detailLoading.value = false
     })
 }
 
 function showConfirmModal(uid?: string) {
   if (!uid) return
   showConfirm.value = true
-  submitting.value = true
+  confirmLoading.value = true
   priceCompareList.value = []
   PurchaseOrderService.form(uid)
     .then((res) => {
@@ -198,7 +199,7 @@ function showConfirmModal(uid?: string) {
       loadPriceCompare()
     })
     .finally(() => {
-      submitting.value = false
+      confirmLoading.value = false
     })
 }
 
@@ -302,7 +303,9 @@ function priceReasonTip(row: PurchaseOrderDetailVo) {
 }
 
 function canConfirm(row?: PurchaseOrderVo) {
-  return row?.status === PurchaseOrderStatus.WAIT_CONFIRM || row?.status === PurchaseOrderStatus.REJECT
+  return (
+    row?.status === PurchaseOrderStatusDict.WAIT_CONFIRM || row?.status === PurchaseOrderStatusDict.REJECT
+  )
 }
 
 function validateConfirmForm() {
@@ -402,9 +405,9 @@ onBeforeUnmount(() => {
                   <n-select
                     v-model:value="query.orderType"
                     clearable
+                    filterable
+                    placeholder="全部"
                     :options="data.extraData?.orderTypeOptions || []"
-                    label-field="name"
-                    value-field="uid"
                   />
                 </n-form-item>
               </n-gi>
@@ -413,9 +416,9 @@ onBeforeUnmount(() => {
                   <n-select
                     v-model:value="query.status"
                     clearable
+                    filterable
+                    placeholder="全部"
                     :options="data.extraData?.statusOptions || []"
-                    label-field="name"
-                    value-field="uid"
                   />
                 </n-form-item>
               </n-gi>
@@ -492,6 +495,7 @@ onBeforeUnmount(() => {
         </vxe-column>
         <vxe-column field="supplierName" title="供应商" min-width="140" />
         <vxe-column field="totalAmount" title="含税金额" min-width="120" />
+        <vxe-column field="totalAmountWithoutTax" title="不含税金额" min-width="120" />
         <vxe-column field="expectTimeName" title="预计到货" min-width="120" />
         <vxe-column field="statusName" title="状态" min-width="110" />
         <vxe-column field="createTime" title="创建时间" min-width="170" />
@@ -530,7 +534,7 @@ onBeforeUnmount(() => {
     </l-card>
 
     <FormModal v-model:show="showDetail" title="采购订单详情" size="xxl">
-      <PurchaseModalDetailShell :loading="loading">
+      <PurchaseModalDetailShell :loading="detailLoading">
             <n-card title="订单详情" :bordered="false" class="detail-card">
               <n-descriptions bordered :column="2" label-placement="left">
                 <n-descriptions-item label="订单编号">{{ detailData.code || "-" }}</n-descriptions-item>
@@ -560,6 +564,8 @@ onBeforeUnmount(() => {
                   <span v-else>-</span>
                 </n-descriptions-item>
                 <n-descriptions-item label="预计到货">{{ detailData.expectTimeName || "-" }}</n-descriptions-item>
+                <n-descriptions-item label="含税总额">{{ formatMoney(detailData.totalAmount) }}</n-descriptions-item>
+                <n-descriptions-item label="不含税总额">{{ formatMoney(detailData.totalAmountWithoutTax) }}</n-descriptions-item>
                 <n-descriptions-item label="申请状态">{{ detailData.applyOrderStatusName || "-" }}</n-descriptions-item>
                 <n-descriptions-item label="备注" :span="2">{{ detailData.remark || "-" }}</n-descriptions-item>
               </n-descriptions>
@@ -575,7 +581,12 @@ onBeforeUnmount(() => {
                 :max-height="TEMPLATE_MODAL_TABLE_DETAIL_MAX"
               >
                 <vxe-column field="name" title="物料名称" min-width="160" />
-                <vxe-column field="spec" title="规格型号" min-width="150" />
+                <vxe-column title="规格1" min-width="150">
+                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+              </vxe-column>
+              <vxe-column title="规格2" min-width="150">
+                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+              </vxe-column>
                 <vxe-column field="unitName" title="单位" min-width="90" />
                 <vxe-column field="applyQuantity" title="申请数量" min-width="100" />
                 <vxe-column field="quantity" title="到货数量" min-width="100" />
@@ -635,11 +646,10 @@ onBeforeUnmount(() => {
               </vxe-table>
             </n-card>
           <template #side>
-            <flow-schema-preview
+            <FlowSchemaPreview
               v-if="detailData.flowSchema"
               title="审批流程"
-              :flow-schema="detailData.flowSchema"
-              :flow-type="FlowDefinitionTypeOptions.PURCHASE_ORDER_FLOW"
+              :schema-data="detailData.flowSchema"
             />
             <n-card v-else title="审批流程" :bordered="false" class="detail-card">
               <n-empty description="暂无流程数据" />
@@ -656,7 +666,7 @@ onBeforeUnmount(() => {
       :code="relatedInbound.code"
     />
 
-    <FormModal v-model:show="showConfirm" title="确认采购订单" size="xxl" :loading="submitting">
+    <FormModal v-model:show="showConfirm" title="确认采购订单" size="xxl" :loading="confirmLoading">
 <n-form :model="confirmData" class="TemplateForm" label-placement="left" label-width="96">
           <n-grid cols="2" x-gap="16" y-gap="0">
             <n-gi span="2">
@@ -714,7 +724,12 @@ onBeforeUnmount(() => {
               :cell-config="{ height: 160 }"
             >
               <vxe-column field="name" title="物料名称" min-width="160" />
-              <vxe-column field="spec" title="规格型号" min-width="150" />
+              <vxe-column title="规格1" min-width="150">
+                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+              </vxe-column>
+              <vxe-column title="规格2" min-width="150">
+                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+              </vxe-column>
               <vxe-column field="unitName" title="单位" min-width="90" />
               <vxe-column field="applyQuantity" title="申请数量" min-width="100" />
               <vxe-column title="到货数量" min-width="120">

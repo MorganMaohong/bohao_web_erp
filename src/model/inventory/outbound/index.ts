@@ -69,6 +69,7 @@ export interface InventoryOutOrderQuery extends PageQuery {
   warehouseUid?: string
   status?: string
   purchaseReturnType?: string
+  excludeTypeList?: string[]
 }
 
 export interface InventoryOutOrderQueryData {

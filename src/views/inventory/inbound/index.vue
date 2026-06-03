@@ -8,11 +8,12 @@ import MCard from "@/components/MCard/index.vue"
 import { useAppStore } from "@/store/modules/app"
 import { FormInst, NButton } from "naive-ui"
 import { resetRef } from "@/utils"
-import { VxeTableInstance } from "vxe-table"
+import { VxeTableInstance, VxeToolbarInstance } from "vxe-table"
 import { Add, Reset, Search } from "@vicons/carbon"
 import { CloseFilled } from "@vicons/material"
 import FastMultipleUpload from "@/components/FastMultipleUpload/FastMultipleUpload.vue"
 import { InventoryInOrderService } from "@/services/inventory/InventoryInOrderService"
+import { getSpec1Name, getSpec2Name } from "@/utils/itemSpec"
 import {
   InventoryInboundDetail,
   InventoryInOrderDetailVo,
@@ -21,7 +22,7 @@ import {
   InventoryInOrderQueryData,
   InventoryInOrderVo
 } from "@/model/inventory/inbound"
-import { InventInOrderStatusDict, InventInOrderTypeDict, InventOutOrderStatusDict } from "@/constants/enum"
+import { InventInOrderStatusDict, InventInOrderTypeDict } from "@/constants/enum"
 import {
   TEMPLATE_MODAL_TABLE_MAX,
   TEMPLATE_MODAL_TABLE_PICKER_MAX
@@ -51,15 +52,16 @@ const tmpImageList = ref([])
 const tmpImageIndex = ref(0)
 const formRef = ref<FormInst>()
 const loading = ref(false)
-const formRule = {
+const OTHER_INBOUND_EXCLUDE_TYPES = [
+  InventInOrderTypeDict.PURCHASE_INBOUND,
+  InventInOrderTypeDict.TRANSFER,
+  InventInOrderTypeDict.PRODUCTION_INBOUND
+]
+
+const formRule = computed(() => ({
   type: {
     required: true,
     message: "请选择类型",
-    trigger: ["input", "blur"]
-  },
-  name: {
-    required: true,
-    message: "请输入名称",
     trigger: ["input", "blur"]
   },
   time: {
@@ -69,7 +71,7 @@ const formRule = {
     trigger: ["input", "blur"]
   },
   otherType: {
-    required: true,
+    required: formData.value.type === InventInOrderTypeDict.OTHER,
     message: "请输入其他类型名称",
     trigger: ["input", "blur"]
   },
@@ -95,8 +97,13 @@ const formRule = {
     },
     trigger: ["input", "blur"]
   }
-}
-const query = ref<InventoryInOrderQuery>({ currentPage: 1, pageSize: 50 })
+}))
+const query = ref<InventoryInOrderQuery>({
+  currentPage: 1,
+  pageSize: 50,
+  key: "",
+  excludeTypeList: [...OTHER_INBOUND_EXCLUDE_TYPES]
+})
 const data = ref<PageVo<InventoryInOrderVo, InventoryInOrderQueryData>>({})
 const VxeTableRef = ref<VxeTableInstance>()
 const VxeToolbarRef = ref<VxeToolbarInstance>()
@@ -117,30 +124,36 @@ function select() {
     })
     .finally(() => {
       loading.value = false
-      VxeTableRef.value?.setAllTreeExpand(true)
     })
 }
 
 function search() {
+  query.value.currentPage = 1
   select()
 }
 
 function reset() {
-  query.value = resetRef(query.value)
+  query.value = {
+    currentPage: 1,
+    pageSize: 50,
+    key: "",
+    excludeTypeList: [...OTHER_INBOUND_EXCLUDE_TYPES]
+  }
   select()
 }
 
 function showUpdateModal(uid?: string) {
   formData.value = resetRef(formData.value)
   showUpdate.value = true
-  InventoryInOrderService.form(uid).then((data) => {
-    formData.value = data
+  InventoryInOrderService.form(uid).then((res) => {
+    formData.value = res
+    if (!uid && !formData.value.type) {
+      formData.value.type = InventInOrderTypeDict.OTHER
+    }
   })
 }
 
 function confirmUpdate() {
-  console.log(formData.value)
-  // return
   formRef.value?.validate((err) => {
     if (err) return
     if (isSubmitting.value) return
@@ -259,12 +272,19 @@ function confirmUpdateItems() {
     formData.value.detailList = []
   }
 
-  const newDetails = records.map((item) => ({
-    ...item,
-    itemUid: item.uid,
-    uid: undefined,
-    quantity: 1
-  }))
+  const existingUids = new Set(formData.value.detailList.map((item) => item.itemUid).filter(Boolean))
+  const newDetails = records
+    .filter((item) => !existingUids.has(item.uid))
+    .map((item) => ({
+      ...item,
+      itemUid: item.uid,
+      uid: undefined,
+      quantity: 1
+    }))
+
+  if (newDetails.length < records.length) {
+    window.$message?.warning("已跳过重复物料")
+  }
 
   formData.value.detailList.push(...newDetails)
 
@@ -360,8 +380,8 @@ onMounted(() => {
           <SearchQueryForm label-placement="left" ref="queryFormRef" >
             <n-grid :cols="4" x-gap="12" y-gap="12">
               <n-gi>
-                <n-form-item label="名称:">
-                  <n-input clearable v-model:value="query.name" />
+                <n-form-item label="编号/备注:">
+                  <n-input clearable v-model:value="query.key" placeholder="编号或备注" />
                 </n-form-item>
               </n-gi>
               <n-gi>
@@ -393,7 +413,7 @@ onMounted(() => {
       <template #default>
         <m-card class="w-full h-full flex flex-col" padding="0">
           <ListPageToolbar>
-            <n-button type="primary" @click="showUpdateModal()">
+            <n-button type="primary" :size="appStore.searchBarSize" @click="showUpdateModal()">
               <n-icon size="18">
                 <Add />
               </n-icon>
@@ -525,7 +545,7 @@ onMounted(() => {
     </l-card>
   </div>
   <!-- 弹窗 -->
-  <FormModal v-model:show="showUpdate" title="其他入库单" size="lg">
+  <FormModal v-model:show="showUpdate" title="其他入库单" size="xl">
 
     <n-form :model="formData" ref="formRef" :rules="formRule" class="TemplateForm">
         <n-grid cols="2" x-gap="16" y-gap="0">
@@ -722,7 +742,12 @@ onMounted(() => {
                     </template>
                   </vxe-column>
                   <vxe-column field="unitName" title="单位" show-overflow="tooltip" align="center" width="10%" />
-                  <vxe-column field="spec" title="规格" show-overflow="tooltip" align="center" width="10%" />
+                  <vxe-column title="规格1" show-overflow="tooltip" align="center" width="10%">
+                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+              </vxe-column>
+              <vxe-column title="规格2" show-overflow="tooltip" align="center" width="10%">
+                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+              </vxe-column>
                   <vxe-column field="material" title="材质" show-overflow="tooltip" align="center" width="10%" />
                   <vxe-column field="remark" title="备注" show-overflow="tooltip" align="center" width="15%" />
                   <vxe-column
@@ -808,7 +833,7 @@ onMounted(() => {
       </n-flex>
     </template>
   </FormModal>
-  <FormModal v-model:show="showItems" title="物料信息" size="lg">
+  <FormModal v-model:show="showItems" title="物料信息" size="xl">
 
     <l-card class="w-full h-full" shadow rounded padding="0">
       <vxe-table
@@ -821,7 +846,7 @@ onMounted(() => {
         :checkbox-config="{ trigger: 'row' }"
         ref="VxeTableItemsRef"
       >
-        <vxe-column type="checkbox" width="30" align="center" />
+        <vxe-column type="checkbox" width="70" align="center" />
         <vxe-column field="name" title="名称" show-overflow="tooltip" align="center" width="15%" />
         <vxe-column field="supplierName" title="供应商名称" show-overflow="tooltip" align="center" width="15%" />
         <vxe-column field="typeName" title="类型" show-overflow="tooltip" align="center" width="15%" />
@@ -841,7 +866,12 @@ onMounted(() => {
           align="center"
           width="15%"
         />
-        <vxe-column field="spec" title="规格" show-overflow="tooltip" align="center" width="15%" />
+        <vxe-column title="规格1" show-overflow="tooltip" align="center" width="15%">
+                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+              </vxe-column>
+              <vxe-column title="规格2" show-overflow="tooltip" align="center" width="15%">
+                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+              </vxe-column>
         <vxe-column field="material" title="材质" show-overflow="tooltip" align="center" width="15%" />
         <vxe-column field="remark" title="备注" show-overflow="tooltip" align="center" width="30%" />
         <vxe-column
@@ -899,9 +929,9 @@ onMounted(() => {
     content="确定删除吗?"
     positive-text="确定"
     @positive-click="confirmDelete"
-   
+
   />
-  <FormModal v-model:show="showDetail" title="入库信息" size="lg">
+  <FormModal v-model:show="showDetail" title="入库信息" size="xl">
     <n-space vertical :size="12">
         <n-descriptions bordered :column="4" title="单据信息">
           <n-descriptions-item label="编号">{{ detailData.code }}</n-descriptions-item>
@@ -974,7 +1004,12 @@ onMounted(() => {
                 width="10%"
               />
               <vxe-column field="unitName" title="单位" show-overflow="tooltip" align="center" width="15%" />
-              <vxe-column field="spec" title="规格" show-overflow="tooltip" align="center" width="15%" />
+              <vxe-column title="规格1" show-overflow="tooltip" align="center" width="15%">
+                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+              </vxe-column>
+              <vxe-column title="规格2" show-overflow="tooltip" align="center" width="15%">
+                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+              </vxe-column>
               <vxe-column field="material" title="材质" show-overflow="tooltip" align="center" width="15%" />
               <vxe-column field="remark" title="备注" show-overflow="tooltip" align="center" width="30%" />
             </vxe-table>
@@ -985,19 +1020,19 @@ onMounted(() => {
             {{ detailData.totalQuantity }}
           </n-descriptions-item>
           <n-descriptions-item label="入库总采购价（含税）/元">
-            {{ detailData.totalPurchasePriceWithTax }}
-          </n-descriptions-item>
-          <n-descriptions-item label="入库总采购价（不含税）/元">
             {{ detailData.totalAmountWithTax }}
           </n-descriptions-item>
+          <n-descriptions-item label="入库总采购价（不含税）/元">
+            {{ detailData.totalPurchasePriceWithTax }}
+          </n-descriptions-item>
           <n-descriptions-item label="本次入库品总税额/元">
-            {{ detailData.totalQuantity }}
+            {{ detailData.totalTaxAmount }}
           </n-descriptions-item>
         </n-descriptions>
         <div
           v-if="
             detailData.type === InventInOrderTypeDict.TRANSFER &&
-            detailData.status === InventOutOrderStatusDict.WAIT_COMPLETE
+            detailData.status === InventInOrderStatusDict.WAIT_COMPLETE
           "
           class="TemplateForm-actions"
         >
