@@ -34,7 +34,9 @@ export const MaterialRequestOrderService = {
     })
     return Promise.resolve(res.data)
   },
-  async select(data: MaterialRequestOrderQuery): Promise<PageVo<MaterialRequestOrderVo, MaterialRequestOrderQueryData>> {
+  async select(
+    data: MaterialRequestOrderQuery
+  ): Promise<PageVo<MaterialRequestOrderVo, MaterialRequestOrderQueryData>> {
     const res = await request({
       url: inventoryMaterialRequestApi.select.url,
       method: "POST",

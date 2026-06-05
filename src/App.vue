@@ -35,13 +35,16 @@ const themeOverrides: GlobalThemeOverrides = {
   Modal: {
     borderRadius: "14px"
   },
+  Popover: {
+    zIndex: 4000
+  },
   Input: {
     borderRadius: "8px",
     heightMedium: "36px",
     paddingMedium: "0 12px"
   },
   Button: {
-    borderRadiusMedium: "8px",
+    borderRadiusMedium: "4px",
     heightMedium: "36px",
     paddingMedium: "0 18px"
   },

@@ -1,7 +1,10 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref } from "vue"
+import { useAutoListSearch } from "@/hooks/useAutoListSearch"
 import FormModal from "@/components/FormModal/index.vue"
+import ListPageTable from "@/components/ListPageTable/index.vue"
 import ListPageToolbar from "@/components/ListPageToolbar/index.vue"
+import ListSearchActions from "@/components/ListSearchActions/index.vue"
 import SearchQueryForm from "@/components/SearchQueryForm/index.vue"
 import LCard from "@/components/LCard/index.vue"
 import MCard from "@/components/MCard/index.vue"
@@ -10,11 +13,10 @@ import { FormInst, NButton } from "naive-ui"
 import { ItemDictService } from "@/services/template/ItemDictService"
 import { ItemDictForm, ItemDictQuery, ItemDictVo } from "@/model/template/item-dict"
 import type { OptionVo } from "@/model"
-import { resetRef } from "@/utils"
 import { UpdateDragSortForm } from "@/model"
+import { resetRef } from "@/utils"
+import { ERP_UID_TREE_TABLE_CONFIG } from "@/constants/list-table"
 import { VxeTableInstance, VxeToolbarInstance } from "vxe-table"
-import { Reset, Search } from "@vicons/carbon"
-
 const appStore = useAppStore()
 const componentSize = computed(() => appStore.componentSize as any)
 const TableCardRef = ref()
@@ -47,6 +49,8 @@ const data = ref<ItemDictVo[]>([])
 const updateDragSortForm = ref<UpdateDragSortForm>({})
 const VxeTableRef = ref<VxeTableInstance>()
 const VxeToolbarRef = ref<VxeToolbarInstance>()
+const tagMenu = ref({ show: false, x: 0, y: 0, uid: "" })
+const tagMenuOptions = [{ label: "复制", key: "copy" }]
 
 const parentTreeOptions = computed(() => formData.value.treeOptions || [])
 
@@ -111,7 +115,6 @@ function select() {
     })
     .finally(() => {
       loading.value = false
-      VxeTableRef.value?.setAllTreeExpand(true)
     })
 }
 
@@ -131,6 +134,25 @@ function showCopyModal(uid: string) {
     formData.value.uid = undefined
     formData.value.id = undefined
   })
+}
+
+function onTagContextMenu(event: MouseEvent, tagUid?: string) {
+  event.preventDefault()
+  event.stopPropagation()
+  if (!tagUid) return
+  tagMenu.value = { show: true, x: event.clientX, y: event.clientY, uid: tagUid }
+}
+
+function closeTagMenu() {
+  tagMenu.value.show = false
+}
+
+function handleTagMenuSelect(key: string) {
+  const uid = tagMenu.value.uid
+  closeTagMenu()
+  if (key === "copy" && uid) {
+    showCopyModal(uid)
+  }
 }
 
 function syncItemsCodesAfterDictChange() {
@@ -169,6 +191,7 @@ function confirmDelete() {
     .then(() => syncItemsCodesAfterDictChange())
     .then(() => {
       showDelete.value = false
+      showUpdate.value = false
       select()
     })
     .finally(() => {
@@ -185,13 +208,16 @@ function updateSort() {
     .catch((err) => Promise.reject(err))
 }
 
-function search() {
+function doSearch() {
   select()
 }
 
-function reset() {
-  query.value = resetRef(query.value)
-  select()
+const { triggerInputSearch, flushInputSearch, withResetSuppressed } = useAutoListSearch(doSearch)
+
+async function reset() {
+  await withResetSuppressed(async () => {
+    query.value = resetRef(query.value)
+  })
 }
 
 function rowName(row: ItemDictVo) {
@@ -249,8 +275,7 @@ function rowClassName({ row }: { row: ItemDictVo }) {
 
 const rowDragConfig = {
   showIcon: true,
-  showGuidesStatus: true,
-  // 允许跨过规格/品牌展示行，在同父级品类之间排序（含子品类）
+  showGuidesStatus: true, // 允许跨过规格/品牌展示行，在同父级品类之间排序（含子品类）
   isCrossDrag: true,
   visibleMethod({ row }: { row: ItemDictVo }) {
     return canDragRow(row)
@@ -297,7 +322,7 @@ onMounted(() => {
   const $table = VxeTableRef.value
   const $toolbar = VxeToolbarRef.value
   if ($table && $toolbar) {
-    $table.connect($toolbar)
+    $table?.connect?.($toolbar)
   }
 })
 </script>
@@ -307,74 +332,69 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <SearchQueryForm label-placement="left" >
-            <n-grid :cols="4" x-gap="12" y-gap="12">
-              <n-gi>
-                <n-form-item label="名称:">
-                  <n-input clearable v-model:value="query.name" />
-                </n-form-item>
-              </n-gi>
-              <n-gi>
-                <n-form-item label="规格1:">
-                  <n-input clearable v-model:value="query.spec1Name" placeholder="规格1名称" />
-                </n-form-item>
-              </n-gi>
-              <n-gi>
-                <n-form-item label="规格2:">
-                  <n-input clearable v-model:value="query.spec2Name" placeholder="规格2名称" />
-                </n-form-item>
-              </n-gi>
-              <n-gi>
-                <n-form-item>
-                  <div class="flex gap-2">
-                    <n-button type="primary" @click="search">
-                      <template #icon>
-                        <n-icon><Search /></n-icon>
-                      </template>
-                      搜索
-                    </n-button>
-                    <n-button @click="reset">
-                      <template #icon>
-                        <n-icon><Reset /></n-icon>
-                      </template>
-                      重置
-                    </n-button>
-                  </div>
-                </n-form-item>
-              </n-gi>
-            </n-grid>
+          <SearchQueryForm label-placement="left" label-align="right" label-width="70" class="list-search-form">
+            <div class="flex gap-4">
+              <n-grid :cols="3" :x-gap="12" :y-gap="12">
+                <n-gi>
+                  <n-form-item label="名称">
+                    <n-input
+                      class="w-full"
+                      clearable
+                      v-model:value="query.name"
+                      @update:value="triggerInputSearch"
+                      @keyup.enter="flushInputSearch"
+                    />
+                  </n-form-item>
+                </n-gi>
+                <n-gi>
+                  <n-form-item label="规格1">
+                    <n-input
+                      class="w-full"
+                      clearable
+                      v-model:value="query.spec1Name"
+                      placeholder="规格1名称"
+                      @update:value="triggerInputSearch"
+                      @keyup.enter="flushInputSearch"
+                    />
+                  </n-form-item>
+                </n-gi>
+                <n-gi>
+                  <n-form-item label="规格2">
+                    <n-input
+                      class="w-full"
+                      clearable
+                      v-model:value="query.spec2Name"
+                      placeholder="规格2名称"
+                      @update:value="triggerInputSearch"
+                      @keyup.enter="flushInputSearch"
+                    />
+                  </n-form-item>
+                </n-gi>
+              </n-grid>
+              <ListSearchActions @reset="reset" />
+            </div>
           </SearchQueryForm>
         </m-card>
       </template>
       <template #default>
         <m-card class="w-full h-full flex flex-col" padding="0">
           <ListPageToolbar>
-            <n-button type="primary" :size="appStore.searchBarSize" @click="showUpdateModal()">新增</n-button>
+            <n-button type="primary" :size="appStore.searchBarSize" @click="showUpdateModal()">新增字典</n-button>
             <vxe-toolbar ref="VxeToolbarRef" custom />
           </ListPageToolbar>
-          <m-card ref="TableCardRef" class="flex-1 ItemDict-table">
-            <vxe-table
-              :column-config="{ resizable: true }"
+          <m-card ref="TableCardRef" class="flex-1 ItemDict-table erp-list-table-wrap">
+            <ListPageTable
               :data="data"
-              border
-              stripe
               :loading="loading"
               :size="componentSize"
-              :tree-config="{ transform: true, rowField: 'uid', parentField: 'parentUid' }"
+              :tree-config="ERP_UID_TREE_TABLE_CONFIG"
               :row-config="{ drag: true, isHover: true }"
               :height="TableCardMaxHeight"
               :row-drag-config="rowDragConfig"
               :row-class-name="rowClassName"
               ref="VxeTableRef"
             >
-              <vxe-column
-                field="name"
-                title="名称"
-                tree-node
-                drag-sort
-                min-width="360"
-                :show-overflow="false"
-              >
+              <vxe-column field="name" title="名称" tree-node drag-sort min-width="360" :show-overflow="false">
                 <template #default="{ row }">
                   <div v-if="isTagDisplayRow(row)" class="ItemDict-tagRow">
                     <div class="ItemDict-tagRow__label">{{ row.name }}：</div>
@@ -387,6 +407,7 @@ onMounted(() => {
                           :type="tagType(row)"
                           class="ItemDict-tag"
                           @click="showUpdateModal(tag.value)"
+                          @contextmenu.prevent="onTagContextMenu($event, tag.value)"
                         >
                           {{ tag.label }}
                         </n-tag>
@@ -403,13 +424,19 @@ onMounted(() => {
               <vxe-column fixed="right" title="操作" align="center" width="180">
                 <template #default="{ row }">
                   <n-flex v-if="canOperate(row)" justify="center">
-                    <n-button type="primary" text :size="appStore.searchBarSize" @click="showCopyModal(row.uid)">复制</n-button>
-                    <n-button type="info" text :size="appStore.searchBarSize" @click="showUpdateModal(row.uid)">编辑</n-button>
-                    <n-button type="error" text :size="appStore.searchBarSize" @click="showDeleteModal(row.uid)">删除</n-button>
+                    <n-button type="primary" text :size="appStore.searchBarSize" @click="showCopyModal(row.uid)"
+                      >复制
+                    </n-button>
+                    <n-button type="info" text :size="appStore.searchBarSize" @click="showUpdateModal(row.uid)"
+                      >编辑
+                    </n-button>
+                    <n-button type="error" text :size="appStore.searchBarSize" @click="showDeleteModal(row.uid)"
+                      >删除
+                    </n-button>
                   </n-flex>
                 </template>
               </vxe-column>
-            </vxe-table>
+            </ListPageTable>
           </m-card>
         </m-card>
       </template>
@@ -449,13 +476,13 @@ onMounted(() => {
           </n-form-item>
         </n-gi>
         <n-gi>
-          <n-form-item label="编码" path="code">
-            <n-input v-model:value="formData.code" placeholder="如 DQ、1P；同级不可重复" />
+          <n-form-item label="名称" path="name">
+            <n-input v-model:value="formData.name" />
           </n-form-item>
         </n-gi>
         <n-gi>
-          <n-form-item label="名称" path="name">
-            <n-input v-model:value="formData.name" />
+          <n-form-item label="编码" path="code">
+            <n-input v-model:value="formData.code" placeholder="如 DQ、1P；同级不可重复" />
           </n-form-item>
         </n-gi>
         <n-gi>
@@ -467,7 +494,7 @@ onMounted(() => {
     </n-form>
     <template #footer>
       <n-flex justify="end" :size="12">
-        <n-button v-if="formData.uid" type="error" quaternary @click="showDeleteModal(formData.uid!)">删除</n-button>
+        <n-button v-if="formData.uid" type="error" tertiary @click="showDeleteModal(formData.uid!)">删除</n-button>
         <n-button type="primary" @click="confirmUpdate" :loading="isSubmitting" :disabled="isSubmitting">
           确定
         </n-button>
@@ -483,6 +510,16 @@ onMounted(() => {
     content="确定删除吗?"
     positive-text="确定"
     @positive-click="confirmDelete"
+  />
+  <n-dropdown
+    trigger="manual"
+    placement="bottom-start"
+    :show="tagMenu.show"
+    :x="tagMenu.x"
+    :y="tagMenu.y"
+    :options="tagMenuOptions"
+    @select="handleTagMenuSelect"
+    @clickoutside="closeTagMenu"
   />
 </template>
 
@@ -595,5 +632,6 @@ onMounted(() => {
 
 .ItemDict-tag {
   cursor: pointer;
+  user-select: none;
 }
 </style>

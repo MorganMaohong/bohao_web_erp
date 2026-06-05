@@ -1,4 +1,4 @@
-import { BaseEntityLd, OptionVo, PageQuery } from "@/model"
+import { BaseEntityLd, OptionVo, PageQuery, TreeOptionVo } from "@/model"
 import { FlowDefinitionSchemaVo } from "@/model/flow/schema"
 
 export interface ProductionBomItemVo extends BaseEntityLd {
@@ -10,6 +10,8 @@ export interface ProductionBomItemVo extends BaseEntityLd {
   unit?: string
   unitName?: string
   spec?: string
+  spec1Name?: string
+  spec2Name?: string
   material?: string
   quantity?: number
   remark?: string
@@ -29,6 +31,8 @@ export interface ProductionBomProductVo extends BaseEntityLd {
   image?: string
   typeName?: string
   unitName?: string
+  spec1Name?: string
+  spec2Name?: string
   bomCount?: number
 }
 
@@ -54,6 +58,7 @@ export interface ProductionProcessTemplateForm extends BaseEntityLd {
   category?: string
   remark?: string
   categoryOptions?: OptionVo[]
+  categoryTree?: TreeOptionVo[]
   leaderOptions?: OptionVo[]
   durationUnitOptions?: OptionVo[]
   startRuleOptions?: OptionVo[]
@@ -63,6 +68,7 @@ export interface ProductionProcessTemplateForm extends BaseEntityLd {
 export interface ProductionProcessTemplateVo extends BaseEntityLd {
   name?: string
   category?: string
+  categoryName?: string
   remark?: string
   nodeCount?: number
 }
@@ -82,6 +88,8 @@ export interface ProductionPlanProductItem {
   type?: string
   typeName?: string
   spec?: string
+  spec1Name?: string
+  spec2Name?: string
   material?: string
   itemBizType?: string
   itemBizTypeName?: string
@@ -182,6 +190,8 @@ export interface ProductionPlanFinishDetailItem {
   productName?: string
   productImage?: string
   productSpec?: string
+  spec1Name?: string
+  spec2Name?: string
   productMaterial?: string
   productTypeName?: string
   planQuantity?: number

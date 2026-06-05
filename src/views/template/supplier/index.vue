@@ -1,7 +1,10 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref } from "vue"
+import { useAutoListSearch } from "@/hooks/useAutoListSearch"
 import FormModal from "@/components/FormModal/index.vue"
+import ListPageTable from "@/components/ListPageTable/index.vue"
 import ListPageToolbar from "@/components/ListPageToolbar/index.vue"
+import ListSearchActions from "@/components/ListSearchActions/index.vue"
 import SearchQueryForm from "@/components/SearchQueryForm/index.vue"
 import LCard from "@/components/LCard/index.vue"
 import MCard from "@/components/MCard/index.vue"
@@ -10,7 +13,6 @@ import { FormInst, NButton } from "naive-ui"
 import { resetRef } from "@/utils"
 import { PageVo } from "@/model"
 import { VxeTableInstance, VxeToolbarInstance } from "vxe-table"
-import { Reset, Search } from "@vicons/carbon"
 import { SupplierForm, SupplierQuery, SupplierVo } from "@/model/template/supplier"
 import { SupplierService } from "@/services/template/SupplierService"
 import { VxePagerEvents } from "vxe-pc-ui"
@@ -55,7 +57,7 @@ function select() {
     })
     .finally(() => {
       loading.value = false
-      VxeTableRef.value?.setAllTreeExpand(true)
+      VxeTableRef.value?.setAllTreeExpand?.(true)
     })
 }
 
@@ -101,13 +103,17 @@ function confirmDelete() {
     })
 }
 
-function search() {
+function doSearch() {
+  query.value.currentPage = 1
   select()
 }
 
-function reset() {
-  query.value = { currentPage: 1, pageSize: 50 }
-  select()
+const { triggerInputSearch, flushInputSearch, withResetSuppressed } = useAutoListSearch(doSearch)
+
+async function reset() {
+  await withResetSuppressed(async () => {
+    query.value = { currentPage: 1, pageSize: 50 }
+  })
 }
 
 function pageChange(event: { currentPage: number; pageSize: number }) {
@@ -122,7 +128,7 @@ onMounted(() => {
   const $table = VxeTableRef.value
   const $toolbar = VxeToolbarRef.value
   if ($table && $toolbar) {
-    $table.connect($toolbar)
+    $table?.connect?.($toolbar)
   }
 })
 </script>
@@ -132,36 +138,29 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <SearchQueryForm label-placement="left" ref="queryFormRef" >
-            <n-grid :cols="4" x-gap="12" y-gap="12">
-              <n-gi>
-                <n-form-item label="名称:">
-                  <n-input clearable v-model:value="query.name" />
-                </n-form-item>
-              </n-gi>
-              <n-gi>
-                <n-form-item>
-                  <div class="flex gap-2">
-                    <n-button type="primary" @click="search">
-                      <template #icon>
-                        <n-icon>
-                          <Search />
-                        </n-icon>
-                      </template>
-                      搜索
-                    </n-button>
-                    <n-button @click="reset">
-                      <template #icon>
-                        <n-icon>
-                          <Reset />
-                        </n-icon>
-                      </template>
-                      重置
-                    </n-button>
-                  </div>
-                </n-form-item>
-              </n-gi>
-            </n-grid>
+          <SearchQueryForm
+            label-placement="left"
+            label-align="right"
+            label-width="70"
+            ref="queryFormRef"
+            class="list-search-form"
+          >
+            <div class="flex gap-4">
+              <n-grid :cols="3" :x-gap="12" :y-gap="12">
+                <n-gi>
+                  <n-form-item label="名称">
+                    <n-input
+                      class="w-full"
+                      clearable
+                      v-model:value="query.name"
+                      @update:value="triggerInputSearch"
+                      @keyup.enter="flushInputSearch"
+                    />
+                  </n-form-item>
+                </n-gi>
+              </n-grid>
+              <ListSearchActions @reset="reset" />
+            </div>
           </SearchQueryForm>
         </m-card>
       </template>
@@ -171,15 +170,11 @@ onMounted(() => {
             <n-button type="primary" :size="appStore.searchBarSize" @click="showUpdateModal()">新增供应商</n-button>
             <vxe-toolbar ref="VxeToolbarRef" custom />
           </ListPageToolbar>
-          <m-card ref="TableCardRef" class="flex-1">
-            <vxe-table
-              :column-config="{ resizable: true }"
+          <m-card ref="TableCardRef" class="flex-1 erp-list-table-wrap">
+            <ListPageTable
               :data="data.list"
-              border
-              stripe
               :loading="loading"
               :size="componentSize"
-              :row-config="{ isHover: true }"
               :height="TableCardMaxHeight"
               ref="VxeTableRef"
             >
@@ -191,10 +186,22 @@ onMounted(() => {
               <vxe-column field="categoryName" title="供应商分类" show-overflow="tooltip" align="center" width="15%" />
               <vxe-column field="levelName" title="供应商等级" show-overflow="tooltip" align="center" width="15%" />
               <vxe-column field="settlementName" title="结算期限" show-overflow="tooltip" align="center" width="15%" />
-              <vxe-column field="settlementMethod" title="结算方式" show-overflow="tooltip" align="center" width="15%" />
+              <vxe-column
+                field="settlementMethod"
+                title="结算方式"
+                show-overflow="tooltip"
+                align="center"
+                width="15%"
+              />
               <vxe-column field="creditLimit" title="信用额度" show-overflow="tooltip" align="center" width="15%" />
               <vxe-column field="bankName" title="开户银行" show-overflow="tooltip" align="center" width="16%" />
-              <vxe-column field="bankAccountName" title="银行账户名" show-overflow="tooltip" align="center" width="16%" />
+              <vxe-column
+                field="bankAccountName"
+                title="银行账户名"
+                show-overflow="tooltip"
+                align="center"
+                width="16%"
+              />
               <vxe-column field="bankAccountNo" title="银行账号" show-overflow="tooltip" align="center" width="18%" />
               <vxe-column
                 field="startTimeName"
@@ -225,12 +232,16 @@ onMounted(() => {
               <vxe-column fixed="right" title="操作" align="center" show-overflow="tooltip" width="180">
                 <template #default="{ row }">
                   <n-flex justify="center">
-                    <n-button type="info" text :size="appStore.searchBarSize" @click="showUpdateModal(row.uid)">编辑</n-button>
-                    <n-button type="error" text :size="appStore.searchBarSize" @click="showDeleteModal(row.uid)">删除</n-button>
+                    <n-button type="info" text :size="appStore.searchBarSize" @click="showUpdateModal(row.uid)"
+                      >编辑</n-button
+                    >
+                    <n-button type="error" text :size="appStore.searchBarSize" @click="showDeleteModal(row.uid)"
+                      >删除</n-button
+                    >
                   </n-flex>
                 </template>
               </vxe-column>
-            </vxe-table>
+            </ListPageTable>
           </m-card>
         </m-card>
       </template>
@@ -352,10 +363,7 @@ onMounted(() => {
         </n-gi>
         <n-gi>
           <n-form-item label="结算方式">
-            <n-input
-              v-model:value="formData.settlementMethod"
-              placeholder="如银行转账、商业汇票等"
-            />
+            <n-input v-model:value="formData.settlementMethod" placeholder="如银行转账、商业汇票等" />
           </n-form-item>
         </n-gi>
         <n-gi>

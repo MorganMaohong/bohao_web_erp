@@ -1,28 +1,28 @@
 <script lang="ts" setup>
-import { computed, nextTick, onMounted, ref, watch } from "vue"
+import { computed, onMounted, ref, watch } from "vue"
+import { useAutoListSearch } from "@/hooks/useAutoListSearch"
 import FormModal from "@/components/FormModal/index.vue"
+import ListPageTable from "@/components/ListPageTable/index.vue"
 import ListPageToolbar from "@/components/ListPageToolbar/index.vue"
+import ListSearchActions from "@/components/ListSearchActions/index.vue"
 import SearchQueryForm from "@/components/SearchQueryForm/index.vue"
 import LCard from "@/components/LCard/index.vue"
 import MCard from "@/components/MCard/index.vue"
 import { useAppStore } from "@/store/modules/app"
 import { FormInst, NButton } from "naive-ui"
-import { resetRef } from "@/utils"
+import { formatDateTime, resetRef } from "@/utils"
 import { PageVo } from "@/model"
 import { VxeTableInstance, VxeToolbarInstance } from "vxe-table"
-import { Reset, Search } from "@vicons/carbon"
-import { VxePagerEvents } from "vxe-pc-ui"
 import { ItemsService } from "@/services/template/ItemsService"
 import { ItemDictService } from "@/services/template/ItemDictService"
 import { ItemsForm, ItemsQuery, ItemsQueryData, ItemsVo } from "@/model/template/items"
 import FastUpload from "@/components/FastUpload/FastUpload.vue"
 import { AddPhotoAlternateRound } from "@vicons/material"
 import { getSpec1Name, getSpec2Name } from "@/utils/itemSpec"
+import { formatMoney } from "@/utils/purchasePrice"
 
 const appStore = useAppStore()
 const componentSize = computed(() => appStore.componentSize as any)
-const TableCardRef = ref()
-const TableCardMaxHeight = ref(0)
 const isSubmitting = ref(false)
 const showUpdate = ref(false)
 const showDelete = ref(false)
@@ -73,14 +73,37 @@ const queryBrandOptions = ref(queryFormData.value.brandOptions || [])
 const queryCascadeKey = ref(0)
 const VxeTableRef = ref<VxeTableInstance>()
 const VxeToolbarRef = ref<VxeToolbarInstance>()
+const showAdvancedFilter = ref(false)
 
-function getCardProps() {
-  TableCardMaxHeight.value = TableCardRef.value.$el.clientHeight - 20
+const advancedFilterCount = computed(() => {
+  let count = 0
+  if (query.value.spec1Uid) count++
+  if (query.value.spec2Uid) count++
+  if (query.value.brandUid) count++
+  if (query.value.itemBizType) count++
+  return count
+})
+
+function bizTypeTagType(itemBizType?: string) {
+  if (itemBizType === "finished_product") return "success"
+  if (itemBizType === "component") return "info"
+  return "default"
+}
+
+function buildSelectQuery(): ItemsQuery {
+  const payload: ItemsQuery = { ...query.value }
+  ;(["key", "code", "type", "itemBizType", "spec1Uid", "spec2Uid", "brandUid"] as const).forEach((field) => {
+    const value = payload[field]
+    if (value === "" || value === null) {
+      payload[field] = undefined
+    }
+  })
+  return payload
 }
 
 function select() {
   loading.value = true
-  ItemsService.select(query.value)
+  ItemsService.select(buildSelectQuery())
     .then((res) => {
       data.value = res
       if (query.value.type) {
@@ -95,7 +118,7 @@ function select() {
     })
     .finally(() => {
       loading.value = false
-      VxeTableRef.value?.setAllTreeExpand(true)
+      VxeTableRef.value?.setAllTreeExpand?.(true)
     })
 }
 
@@ -109,12 +132,10 @@ function showUpdateModal(uid?: string) {
   formData.value = resetRef(formData.value)
   formData.value.spec1Uid = undefined
   formData.value.spec2Uid = undefined
-  formData.value.specUidList = []
   codePreview.value = ""
   showUpdate.value = true
   ItemsService.form(uid).then((data) => {
     formData.value = data
-    syncSpecFieldsFromList(data)
     codePreview.value = data.code || ""
     refreshCodePreview()
   })
@@ -126,26 +147,11 @@ function showCopyModal(uid: string) {
   codePreview.value = ""
   ItemsService.form(uid).then((res) => {
     formData.value = res
-    syncSpecFieldsFromList(res)
     formData.value.uid = undefined
     formData.value.id = undefined
     formData.value.code = undefined
     refreshCodePreview()
   })
-}
-
-function syncSpecFieldsFromList(data: ItemsForm) {
-  const list = Array.isArray(data.specUidList) ? [...data.specUidList] : []
-  formData.value.specUidList = list
-  formData.value.spec1Uid = list[0]
-  formData.value.spec2Uid = list[1]
-}
-
-function buildSpecUidList() {
-  const list: string[] = []
-  if (formData.value.spec1Uid) list.push(formData.value.spec1Uid)
-  if (formData.value.spec2Uid) list.push(formData.value.spec2Uid)
-  return list
 }
 
 function confirmUpdate() {
@@ -160,7 +166,6 @@ function confirmUpdate() {
         if (codePreview.value) {
           formData.value.code = codePreview.value
         }
-        formData.value.specUidList = buildSpecUidList()
         return ItemsService.addOrUpdate(formData.value)
       })
       .then(() => {
@@ -191,9 +196,24 @@ function confirmDelete() {
     })
 }
 
-function search() {
+function doSearch() {
   query.value.currentPage = 1
   select()
+}
+
+const { triggerInputSearch, flushInputSearch, triggerSelectSearch, withResetSuppressed } = useAutoListSearch(doSearch)
+
+async function reset() {
+  await withResetSuppressed(async () => {
+    clearQueryCascade()
+    query.value.key = undefined
+    query.value.code = undefined
+    query.value.itemBizType = undefined
+    query.value.type = undefined
+    query.value.currentPage = 1
+    query.value.pageSize = 50
+    queryCascadeKey.value += 1
+  })
 }
 
 function clearQueryCascade() {
@@ -203,18 +223,6 @@ function clearQueryCascade() {
   querySpec1Options.value = []
   querySpec2Options.value = []
   queryBrandOptions.value = []
-}
-
-async function reset() {
-  clearQueryCascade()
-  query.value.key = undefined
-  query.value.itemBizType = undefined
-  query.value.type = undefined
-  query.value.currentPage = 1
-  query.value.pageSize = 50
-  queryCascadeKey.value += 1
-  await nextTick()
-  select()
 }
 
 function pageChange(event: { currentPage: number; pageSize: number }) {
@@ -275,7 +283,6 @@ function normalizePrice() {
 async function handleUpdateTypeValue(v: string | null) {
   formData.value.spec1Uid = undefined
   formData.value.spec2Uid = undefined
-  formData.value.specUidList = []
   formData.value.brandUid = undefined
   if (!v) {
     formData.value.specOptions = []
@@ -302,7 +309,10 @@ async function handleUpdateTypeValue(v: string | null) {
 
 async function handleQueryTypeValue(v: string | null) {
   clearQueryCascade()
-  if (!v) return
+  if (!v) {
+    triggerSelectSearch()
+    return
+  }
   try {
     const picker = await ItemDictService.treePicker(v)
     querySpec1Options.value = picker.spec1Options || []
@@ -313,6 +323,7 @@ async function handleQueryTypeValue(v: string | null) {
     querySpec2Options.value = []
     queryBrandOptions.value = []
   }
+  triggerSelectSearch()
 }
 
 function handleUpdateSpec1Value(v: string | null) {
@@ -345,7 +356,8 @@ async function refreshCodePreview() {
   try {
     codePreview.value = await ItemDictService.buildCode({
       categoryUid: formData.value.type,
-      specUids: buildSpecUidList(),
+      spec1Uid: formData.value.spec1Uid,
+      spec2Uid: formData.value.spec2Uid,
       brandUid: formData.value.brandUid
     })
   } catch {
@@ -361,6 +373,13 @@ watch(
 )
 
 watch(
+  () => [query.value.itemBizType, query.value.spec1Uid, query.value.spec2Uid, query.value.brandUid],
+  () => {
+    triggerSelectSearch()
+  }
+)
+
+watch(
   () => [formData.value.spec1Uid, formData.value.spec2Uid, formData.value.brandUid],
   () => {
     refreshCodePreview()
@@ -370,226 +389,278 @@ watch(
 onMounted(() => {
   loadQueryOptions()
   select()
-  getCardProps()
   const $table = VxeTableRef.value
   const $toolbar = VxeToolbarRef.value
   if ($table && $toolbar) {
-    $table.connect($toolbar)
+    $table?.connect?.($toolbar)
   }
 })
 </script>
 
 <template>
-  <div class="LayoutContainer">
-    <l-card class="w-full h-full" border shadow rounded padding="0">
+  <div class="LayoutContainer items-page">
+    <l-card class="w-full h-full items-page__card" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <SearchQueryForm label-placement="left" ref="queryFormRef">
-            <n-grid :cols="4" x-gap="12" y-gap="12">
-              <n-gi>
-                <n-form-item label="名称:">
-                  <n-input clearable v-model:value="query.key" />
-                </n-form-item>
-              </n-gi>
-              <n-gi>
-                <n-form-item label="业务类型:">
-                  <n-select clearable v-model:value="query.itemBizType" :options="queryFormData.itemBizTypeOptions" />
-                </n-form-item>
-              </n-gi>
-              <n-gi>
-                <n-form-item label="品类:">
-                  <n-cascader
-                    :key="`query-type-${queryCascadeKey}`"
-                    v-model:value="query.type"
-                    :options="queryFormData.typeOptions"
-                    check-strategy="all"
-                    clearable
-                    filterable
-                    expand-trigger="hover"
-                    :show-path="true"
-                    placeholder="请选择品类"
-                    @update:value="handleQueryTypeValue"
-                  />
-                </n-form-item>
-              </n-gi>
-              <n-gi>
-                <n-form-item label="规格1:">
-                  <n-select
-                    :key="`query-spec1-${queryCascadeKey}`"
-                    clearable
-                    filterable
-                    v-model:value="query.spec1Uid"
-                    :options="querySpec1Options"
-                    label-field="label"
-                    value-field="value"
-                    :disabled="!query.type"
-                    placeholder="请先选择品类"
-                  />
-                </n-form-item>
-              </n-gi>
-              <n-gi>
-                <n-form-item label="规格2:">
-                  <n-select
-                    :key="`query-spec2-${queryCascadeKey}`"
-                    clearable
-                    filterable
-                    v-model:value="query.spec2Uid"
-                    :options="querySpec2Options"
-                    label-field="label"
-                    value-field="value"
-                    :disabled="!query.type || !query.spec1Uid"
-                    placeholder="请先选择规格1"
-                  />
-                </n-form-item>
-              </n-gi>
-              <n-gi>
-                <n-form-item label="品牌:">
-                  <n-select
-                    :key="`query-brand-${queryCascadeKey}`"
-                    clearable
-                    filterable
-                    v-model:value="query.brandUid"
-                    :options="queryBrandOptions"
-                    label-field="label"
-                    value-field="value"
-                    :disabled="!query.type"
-                    placeholder="请先选择品类"
-                  />
-                </n-form-item>
-              </n-gi>
-              <n-gi span="2">
-                <n-form-item>
-                  <div class="flex gap-2">
-                    <n-button type="primary" @click="search">
-                      <template #icon>
-                        <n-icon>
-                          <Search />
-                        </n-icon>
-                      </template>
-                      搜索
-                    </n-button>
-                    <n-button @click="reset">
-                      <template #icon>
-                        <n-icon>
-                          <Reset />
-                        </n-icon>
-                      </template>
-                      重置
-                    </n-button>
-                  </div>
-                </n-form-item>
-              </n-gi>
-            </n-grid>
+          <SearchQueryForm
+            label-placement="left"
+            label-align="right"
+            label-width="70"
+            ref="queryFormRef"
+            class="items-page__search list-search-form"
+          >
+            <div class="flex gap-4">
+              <n-grid :cols="3" :x-gap="12" :y-gap="12">
+                <n-gi>
+                  <n-form-item label="名称">
+                    <n-input
+                      class="w-full"
+                      clearable
+                      v-model:value="query.key"
+                      placeholder="请输入名称"
+                      @update:value="triggerInputSearch"
+                      @keyup.enter="flushInputSearch"
+                    />
+                  </n-form-item>
+                </n-gi>
+                <n-gi>
+                  <n-form-item label="物料编码">
+                    <n-input
+                      class="w-full"
+                      clearable
+                      v-model:value="query.code"
+                      placeholder="请输入物料编码"
+                      @update:value="triggerInputSearch"
+                      @keyup.enter="flushInputSearch"
+                    />
+                  </n-form-item>
+                </n-gi>
+
+                <n-gi>
+                  <n-form-item label="品类">
+                    <n-cascader
+                      class="w-full"
+                      :key="`query-type-${queryCascadeKey}`"
+                      v-model:value="query.type"
+                      :options="queryFormData.typeOptions"
+                      check-strategy="all"
+                      clearable
+                      filterable
+                      expand-trigger="hover"
+                      :show-path="true"
+                      placeholder="请选择品类"
+                      @update:value="handleQueryTypeValue"
+                    />
+                  </n-form-item>
+                </n-gi>
+                <template v-if="showAdvancedFilter">
+                  <n-gi>
+                    <n-form-item label="规格1">
+                      <n-select
+                        class="w-full"
+                        :key="`query-spec1-${queryCascadeKey}`"
+                        clearable
+                        filterable
+                        v-model:value="query.spec1Uid"
+                        :options="querySpec1Options"
+                        label-field="label"
+                        value-field="value"
+                        :disabled="!query.type"
+                        placeholder="请先选择品类"
+                      />
+                    </n-form-item>
+                  </n-gi>
+                  <n-gi>
+                    <n-form-item label="规格2">
+                      <n-select
+                        class="w-full"
+                        :key="`query-spec2-${queryCascadeKey}`"
+                        clearable
+                        filterable
+                        v-model:value="query.spec2Uid"
+                        :options="querySpec2Options"
+                        label-field="label"
+                        value-field="value"
+                        :disabled="!query.type || !query.spec1Uid"
+                        placeholder="请先选择规格1"
+                      />
+                    </n-form-item>
+                  </n-gi>
+                  <n-gi>
+                    <n-form-item label="品牌">
+                      <n-select
+                        class="w-full"
+                        :key="`query-brand-${queryCascadeKey}`"
+                        clearable
+                        filterable
+                        v-model:value="query.brandUid"
+                        :options="queryBrandOptions"
+                        label-field="label"
+                        value-field="value"
+                        :disabled="!query.type"
+                        placeholder="请先选择品类"
+                      />
+                    </n-form-item>
+                  </n-gi>
+                  <n-gi>
+                    <n-form-item label="业务类型">
+                      <n-select
+                        class="w-full"
+                        clearable
+                        v-model:value="query.itemBizType"
+                        :options="queryFormData.itemBizTypeOptions"
+                        placeholder="全部类型"
+                      />
+                    </n-form-item>
+                  </n-gi>
+                </template>
+              </n-grid>
+
+              <ListSearchActions
+                show-more
+                :show-advanced-filter="showAdvancedFilter"
+                :advanced-filter-count="advancedFilterCount"
+                @reset="reset"
+                @toggle-advanced="showAdvancedFilter = !showAdvancedFilter"
+              />
+            </div>
           </SearchQueryForm>
         </m-card>
       </template>
       <template #default>
-        <m-card class="w-full h-full flex flex-col" padding="0">
-          <ListPageToolbar>
-            <n-button type="primary" :size="appStore.searchBarSize" @click="showUpdateModal()">新增物料</n-button>
-            <vxe-toolbar ref="VxeToolbarRef" custom />
-          </ListPageToolbar>
-          <m-card ref="TableCardRef" class="flex-1">
-            <vxe-table
-              :column-config="{ resizable: true }"
-              :data="data.list"
-              border
-              stripe
-              :loading="loading"
-              :cell-config="{ height: 80 }"
-              :row-config="{ isHover: true }"
-              :height="TableCardMaxHeight"
-              ref="VxeTableRef"
-              :size="componentSize"
-            >
-              <vxe-column field="code" title="物料编码" show-overflow="tooltip" align="center" width="12%" />
-              <vxe-column field="name" title="名称" show-overflow="tooltip" align="center" width="18%" />
-              <vxe-column title="图片" show-overflow="tooltip" align="center" width="10%">
-                <template #default="{ row }">
-                  <div class="flex justify-center items-center">
-                    <n-image :src="row.image" class="max-h-[4rem] max-w-[4rem]" />
-                  </div>
-                </template>
-              </vxe-column>
-              <vxe-column field="typeName" title="品类" show-overflow="tooltip" align="center" width="10%" />
-              <vxe-column field="itemBizTypeName" title="业务类型" show-overflow="tooltip" align="center" width="10%" />
-              <vxe-column field="unitName" title="单位" show-overflow="tooltip" align="center" width="10%" />
-              <vxe-column field="brand" title="品牌" show-overflow="tooltip" align="center" width="10%" />
-
-              <vxe-column title="规格1" show-overflow="tooltip" align="center" width="15%">
-                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
-              </vxe-column>
-              <vxe-column title="规格2" show-overflow="tooltip" align="center" width="15%">
-                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
-              </vxe-column>
-              <vxe-column field="material" title="材质" show-overflow="tooltip" align="center" width="15%" />
-              <vxe-column field="vatTaxRate" title="增值税率" show-overflow="tooltip" align="center" width="15%" />
-              <vxe-column
-                field="purchasePriceWithTax"
-                title="采购单价（含税）"
-                show-overflow="tooltip"
-                align="center"
-                width="15%"
-              />
-              <vxe-column
-                field="purchasePriceWithoutTax"
-                title="采购单价（不含税）"
-                show-overflow="tooltip"
-                align="center"
-                width="15%"
-              />
-              <vxe-column field="taxAmount" title="税额" show-overflow="tooltip" align="center" width="12%" />
-              <vxe-column
-                field="salePriceWithTax"
-                title="销售单价（含税）"
-                show-overflow="tooltip"
-                align="center"
-                width="15%"
-              />
-              <vxe-column
-                field="salePriceWithoutTax"
-                title="销售单价（不含税）"
-                show-overflow="tooltip"
-                align="center"
-                width="15%"
-              />
-              <vxe-column field="remark" title="备注" show-overflow="tooltip" align="center" width="30%" />
-              <vxe-column
-                field="createTime"
-                title="创建时间"
-                show-overflow="tooltip"
-                align="center"
-                :visible="false"
-                width="20%"
-              />
-              <vxe-column
-                field="updateTime"
-                title="更新时间"
-                show-overflow="tooltip"
-                align="center"
-                :visible="false"
-                width="20%"
-              />
-              <vxe-column fixed="right" title="操作" align="center" show-overflow="tooltip" width="180">
-                <template #default="{ row }">
-                  <n-flex justify="center">
-                    <n-button type="primary" text :size="appStore.searchBarSize" @click="showCopyModal(row.uid)">复制</n-button>
-                    <n-button type="info" text :size="appStore.searchBarSize" @click="showUpdateModal(row.uid)">编辑</n-button>
-                    <n-button type="error" text :size="appStore.searchBarSize" @click="showDeleteModal(row.uid)">删除</n-button>
-                  </n-flex>
-                </template>
-              </vxe-column>
-            </vxe-table>
+        <div class="items-page__body">
+          <m-card class="w-full flex flex-col" padding="0">
+            <ListPageToolbar justify="between" class="items-page__toolbar">
+              <n-button type="primary" :size="appStore.searchBarSize" @click="showUpdateModal()">新增物料</n-button>
+              <vxe-toolbar ref="VxeToolbarRef" custom />
+            </ListPageToolbar>
+            <m-card class="erp-list-table-wrap" padding="0">
+              <ListPageTable
+                :data="data.list"
+                :loading="loading"
+                :cell-height="64"
+                ref="VxeTableRef"
+                :size="componentSize"
+              >
+                <vxe-column field="code" title="物料编码" align="center" min-width="200" />
+                <vxe-column field="name" title="名称" align="center" min-width="200" />
+                <vxe-column title="图片" align="center" width="72">
+                  <template #default="{ row }">
+                    <n-image
+                      v-if="row.image"
+                      :src="row.image"
+                      width="48"
+                      height="48"
+                      object-fit="cover"
+                      class="items-page__thumb"
+                      preview-disabled
+                    />
+                    <span v-else class="items-page__thumb-empty">—</span>
+                  </template>
+                </vxe-column>
+                <vxe-column field="typeName" title="品类" align="center" min-width="200" />
+                <vxe-column title="业务类型" align="center" min-width="100">
+                  <template #default="{ row }">
+                    <n-tag
+                      v-if="row.itemBizTypeName"
+                      size="small"
+                      :type="bizTypeTagType(row.itemBizType)"
+                      :bordered="false"
+                    >
+                      {{ row.itemBizTypeName }}
+                    </n-tag>
+                    <span v-else>—</span>
+                  </template>
+                </vxe-column>
+                <vxe-column field="unitName" title="单位" align="center" min-width="70" />
+                <vxe-column field="brand" title="品牌" align="center" min-width="110" />
+                <vxe-column title="规格1" align="center" min-width="110">
+                  <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+                </vxe-column>
+                <vxe-column title="规格2" align="center" min-width="110">
+                  <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+                </vxe-column>
+                <vxe-column field="material" title="材质" align="center" min-width="200" />
+                <vxe-column title="采购含税" align="center" min-width="116">
+                  <template #default="{ row }">
+                    <span class="erp-list-table__money">{{ formatMoney(row.purchasePriceWithTax) }}</span>
+                  </template>
+                </vxe-column>
+                <vxe-column title="销售含税" align="center" min-width="116">
+                  <template #default="{ row }">
+                    <span class="erp-list-table__money">{{ formatMoney(row.salePriceWithTax) }}</span>
+                  </template>
+                </vxe-column>
+                <vxe-column
+                  field="vatTaxRate"
+                  title="税率%"
+                  align="center"
+                  min-width="88"
+                  class-name="erp-list-table__col-secondary"
+                >
+                  <template #default="{ row }">
+                    <span>{{ row.vatTaxRate != null && row.vatTaxRate !== "" ? `${row.vatTaxRate}%` : "—" }}</span>
+                  </template>
+                </vxe-column>
+                <vxe-column title="采购不含税" align="center" min-width="116" class-name="erp-list-table__col-secondary">
+                  <template #default="{ row }">
+                    <span class="erp-list-table__money">{{ formatMoney(row.purchasePriceWithoutTax) }}</span>
+                  </template>
+                </vxe-column>
+                <vxe-column title="税额" align="center" min-width="100" class-name="erp-list-table__col-secondary">
+                  <template #default="{ row }">
+                    <span class="erp-list-table__money">{{ formatMoney(row.taxAmount) }}</span>
+                  </template>
+                </vxe-column>
+                <vxe-column title="销售不含税" align="center" min-width="116" class-name="erp-list-table__col-secondary">
+                  <template #default="{ row }">
+                    <span class="erp-list-table__money">{{ formatMoney(row.salePriceWithoutTax) }}</span>
+                  </template>
+                </vxe-column>
+                <vxe-column
+                  field="remark"
+                  title="备注"
+                  align="center"
+                  min-width="200"
+                  class-name="erp-list-table__col-secondary"
+                />
+                <vxe-column title="创建时间" align="center" min-width="168" class-name="erp-list-table__col-secondary">
+                  <template #default="{ row }">
+                    <span class="erp-list-table__time">{{ row.createTime ? formatDateTime(row.createTime) : "—" }}</span>
+                  </template>
+                </vxe-column>
+                <vxe-column title="更新时间" align="center" min-width="168" class-name="erp-list-table__col-secondary">
+                  <template #default="{ row }">
+                    <span class="erp-list-table__time">{{ row.updateTime ? formatDateTime(row.updateTime) : "—" }}</span>
+                  </template>
+                </vxe-column>
+                <vxe-column fixed="right" title="操作" align="center" width="180">
+                  <template #default="{ row }">
+                    <n-flex justify="center">
+                      <n-button type="primary" text :size="appStore.searchBarSize" @click="showCopyModal(row.uid)"
+                        >复制
+                      </n-button>
+                      <n-button type="info" text :size="appStore.searchBarSize" @click="showUpdateModal(row.uid)"
+                        >编辑
+                      </n-button>
+                      <n-button type="error" text :size="appStore.searchBarSize" @click="showDeleteModal(row.uid)"
+                        >删除
+                      </n-button>
+                    </n-flex>
+                  </template>
+                </vxe-column>
+              </ListPageTable>
+            </m-card>
           </m-card>
-        </m-card>
+        </div>
       </template>
       <template #footer>
-        <m-card class="w-full h-full flex items-center justify-end">
+        <m-card class="w-full h-full flex items-center justify-end items-page__pager">
           <vxe-pager
             :size="componentSize"
-            v-model:currentPage="data.currentPage"
-            v-model:pageSize="data.pageSize"
-            :total="data.count"
+            :current-page="query.currentPage"
+            :page-size="query.pageSize"
+            :total="data.count || 0"
             :layouts="[
               'Home',
               'PrevJump',
@@ -633,7 +704,11 @@ onMounted(() => {
         </n-gi>
         <n-gi>
           <n-form-item label="物料编码">
-            <n-input :value="codePreview || formData.code" disabled placeholder="选择品类、规格1/规格2、品牌后自动生成" />
+            <n-input
+              :value="codePreview || formData.code"
+              disabled
+              placeholder="选择品类、规格1/规格2、品牌后自动生成"
+            />
           </n-form-item>
         </n-gi>
         <n-gi>
@@ -887,4 +962,82 @@ onMounted(() => {
   color: var(--n-text-color-3);
   background: var(--n-action-color);
 }
+
+.items-page {
+  height: 100%;
+  min-height: 0;
+
+  &__card {
+    height: 100%;
+    min-height: 0;
+
+    // LCard 主体：搜索栏展开后在此区域滚动，避免表格被压扁
+    :deep(> .flex-1.min-h-0) {
+      overflow-y: auto !important;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+    }
+  }
+
+  &__body {
+    min-height: min(100%, 480px);
+  }
+}
+
+.items-page__search {
+  padding: 8px 8px 4px;
+
+  :deep(.n-form-item) {
+    width: 100%;
+  }
+
+  :deep(.n-form-item .n-form-item-blank) {
+    flex: 1;
+    min-width: 0;
+  }
+
+  :deep(.n-form-item-label) {
+    padding-right: 8px;
+  }
+}
+
+.items-page__search-actions-item {
+  :deep(.n-form-item-blank) {
+    display: flex;
+    align-items: center;
+  }
+}
+
+.items-page__search-actions {
+  display: flex;
+  //flex-wrap: wrap;
+  gap: 8px;
+}
+
+.items-page__advanced {
+  padding: 4px 0 8px;
+  border-top: 1px dashed var(--n-divider-color);
+  margin-top: 4px;
+}
+
+.items-page__head-title {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--n-text-color-1);
+}
+
+.items-page__thumb {
+  border-radius: 8px;
+}
+
+.items-page__thumb-empty {
+  color: var(--n-text-color-3);
+  font-size: 13px;
+}
+
+.items-page__pager {
+  padding: 0 12px 8px;
+}
+
 </style>

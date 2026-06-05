@@ -93,6 +93,12 @@ body .n-modal .n-dialog__title,
   font-weight: 600;
 }
 
+/* Select / TreeSelect 下拉菜单默认高度上限（与 menu-props 互补） */
+.n-tree-select-menu,
+.n-base-select-menu {
+  max-height: min(280px, 40vh);
+}
+
 body .n-modal .n-dialog__action,
 .n-modal .n-dialog__action {
   display: flex;

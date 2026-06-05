@@ -32,3 +32,20 @@ $erp-control-sizes: (
     }
   }
 }
+
+.list-search-form {
+  padding: 8px 8px 4px;
+
+  :deep(.n-form-item) {
+    width: 100%;
+  }
+
+  :deep(.n-form-item .n-form-item-blank) {
+    flex: 1;
+    min-width: 0;
+  }
+
+  :deep(.n-form-item-label) {
+    padding-right: 8px;
+  }
+}

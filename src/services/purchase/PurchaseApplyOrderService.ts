@@ -35,7 +35,9 @@ export const PurchaseApplyOrderService = {
       return Promise.reject(err)
     }
   },
-  async createPurchaseOrder(uid: string): Promise<{ createdCount?: number; skippedCount?: number; orderUids?: string[] }> {
+  async createPurchaseOrder(
+    uid: string
+  ): Promise<{ createdCount?: number; skippedCount?: number; orderUids?: string[] }> {
     try {
       const url = purchaseApplyOrderApi.createOrder.url + `/${uid}`
       const res = await request({

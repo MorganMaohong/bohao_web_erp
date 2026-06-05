@@ -1,9 +1,11 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref } from "vue"
-import { Reset, Search } from "@vicons/carbon"
+import { useAutoListSearch } from "@/hooks/useAutoListSearch"
 import { NButton, useMessage } from "naive-ui"
 import { PageVo } from "@/model"
 import LCard from "@/components/LCard/index.vue"
+import ListPageTable from "@/components/ListPageTable/index.vue"
+import ListSearchActions from "@/components/ListSearchActions/index.vue"
 import SearchQueryForm from "@/components/SearchQueryForm/index.vue"
 import FormModal from "@/components/FormModal/index.vue"
 import MCard from "@/components/MCard/index.vue"
@@ -55,21 +57,24 @@ async function select() {
   }
 }
 
-function search() {
+function doSearch() {
   query.value.currentPage = 1
   select()
 }
 
-function reset() {
-  query.value = {
-    currentPage: 1,
-    pageSize: 20,
-    key: "",
-    warehouseUid: undefined,
-    usageType: undefined,
-    bizType: undefined
-  }
-  select()
+const { triggerInputSearch, flushInputSearch, triggerSelectSearch, withResetSuppressed } = useAutoListSearch(doSearch)
+
+async function reset() {
+  await withResetSuppressed(async () => {
+    query.value = {
+      currentPage: 1,
+      pageSize: 20,
+      key: "",
+      warehouseUid: undefined,
+      usageType: undefined,
+      bizType: undefined
+    }
+  })
 }
 
 async function showDetailModal(uid?: string) {
@@ -218,54 +223,54 @@ onMounted(() => {
     <l-card class="w-full inventory-request-issue__shell" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <SearchQueryForm label-placement="left" class="inventory-request-issue__search">
-            <n-grid :cols="4" :x-gap="12" :y-gap="12">
-              <n-gi>
-                <n-form-item label="关键字:">
-                  <n-input
-                    v-model:value="query.key"
-                    placeholder="申请单号 / 备注 / 关联对象"
-                    clearable
-                    @keyup.enter="search"
-                  />
-                </n-form-item>
-              </n-gi>
-              <n-gi>
-                <n-form-item label="领料仓库:">
-                  <n-select
-                    v-model:value="query.warehouseUid"
-                    :options="data.extraData?.warehouseOptions || []"
-                    placeholder="请选择仓库"
-                    filterable
-                    clearable
-                  />
-                </n-form-item>
-              </n-gi>
-              <n-gi>
-                <n-form-item label="用途类型:">
-                  <n-select
-                    v-model:value="query.usageType"
-                    :options="data.extraData?.usageTypeOptions || []"
-                    placeholder="请选择用途"
-                    clearable
-                  />
-                </n-form-item>
-              </n-gi>
-              <n-gi>
-                <n-form-item>
-                  <div class="inventory-request-issue__search-actions">
-                    <n-button type="primary" @click="search">
-                      <template #icon><n-icon :component="Search" /></template>
-                      搜索
-                    </n-button>
-                    <n-button @click="reset">
-                      <template #icon><n-icon :component="Reset" /></template>
-                      重置
-                    </n-button>
-                  </div>
-                </n-form-item>
-              </n-gi>
-            </n-grid>
+          <SearchQueryForm
+            label-placement="left"
+            label-align="right"
+            label-width="70"
+            class="inventory-request-issue__search list-search-form"
+          >
+            <div class="flex gap-4">
+              <n-grid :cols="3" :x-gap="12" :y-gap="12">
+                <n-gi>
+                  <n-form-item label="关键字">
+                    <n-input
+                      class="w-full"
+                      v-model:value="query.key"
+                      placeholder="申请单号 / 备注 / 关联对象"
+                      clearable
+                      @update:value="triggerInputSearch"
+                      @keyup.enter="flushInputSearch"
+                    />
+                  </n-form-item>
+                </n-gi>
+                <n-gi>
+                  <n-form-item label="领料仓库">
+                    <n-select
+                      class="w-full"
+                      v-model:value="query.warehouseUid"
+                      :options="data.extraData?.warehouseOptions || []"
+                      placeholder="请选择仓库"
+                      filterable
+                      clearable
+                      @update:value="triggerSelectSearch"
+                    />
+                  </n-form-item>
+                </n-gi>
+                <n-gi>
+                  <n-form-item label="用途类型">
+                    <n-select
+                      class="w-full"
+                      v-model:value="query.usageType"
+                      :options="data.extraData?.usageTypeOptions || []"
+                      placeholder="请选择用途"
+                      clearable
+                      @update:value="triggerSelectSearch"
+                    />
+                  </n-form-item>
+                </n-gi>
+              </n-grid>
+              <ListSearchActions @reset="reset" />
+            </div>
           </SearchQueryForm>
         </m-card>
       </template>
@@ -277,17 +282,13 @@ onMounted(() => {
             </div>
           </div>
 
-          <div class="inventory-request-issue__table-zone">
+          <div class="inventory-request-issue__table-zone erp-list-table-wrap">
             <m-card ref="TableCardRef" class="w-full" padding="0">
-              <vxe-table
-                :column-config="{ resizable: true }"
+              <ListPageTable
                 :data="data.list || []"
-                border="inner"
-                stripe
                 :loading="loading"
-                :cell-config="{ height: 48 }"
+                :cell-height="48"
                 :size="componentSize"
-                :row-config="{ isHover: true }"
                 :height="TableCardMaxHeight"
               >
                 <vxe-column type="seq" width="70" align="center" title="序号" />
@@ -315,7 +316,7 @@ onMounted(() => {
                     </n-space>
                   </template>
                 </vxe-column>
-              </vxe-table>
+              </ListPageTable>
             </m-card>
           </div>
         </div>
@@ -347,34 +348,39 @@ onMounted(() => {
   </div>
 
   <FormModal v-model:show="showIssue" :title="issueTitle()" size="xl">
-
     <n-alert v-if="issueMode === 'all'" type="success" :show-icon="false" class="mb-3">
       全部出库会按剩余未出库数量扣减库存，若库存不足会直接提示。
     </n-alert>
     <n-alert v-else-if="issueMode === 'unable'" type="warning" :show-icon="false" class="mb-3">
       无法出库会关闭当前领料申请，请填写原因，方便后续追踪。
     </n-alert>
-      <div class="TemplateForm-section">
-        <div class="TemplateForm-section__title">申请信息</div>
-      </div>
-      <n-descriptions bordered column="4">
+    <div class="TemplateForm-section">
+      <div class="TemplateForm-section__title">申请信息</div>
+    </div>
+    <n-descriptions bordered column="4">
       <n-descriptions-item label="申请单号">{{ detailData.code || "-" }}</n-descriptions-item>
       <n-descriptions-item label="领料仓库">{{ detailData.warehouseName || "-" }}</n-descriptions-item>
       <n-descriptions-item label="用途类型">{{ detailData.usageTypeName || "-" }}</n-descriptions-item>
       <n-descriptions-item label="关联对象">{{ detailData.bizName || "-" }}</n-descriptions-item>
       <n-descriptions-item label="备注" :span="4">{{ detailData.remark || "-" }}</n-descriptions-item>
     </n-descriptions>
-      <div class="TemplateForm-section">
-        <div class="TemplateForm-section__title">出库明细</div>
-      </div>
-      <vxe-table :data="detailData.detailList || []" border stripe :max-height="TEMPLATE_MODAL_TABLE_DETAIL_MAX" :row-config="{ isHover: true }">
+    <div class="TemplateForm-section">
+      <div class="TemplateForm-section__title">出库明细</div>
+    </div>
+    <vxe-table
+      :data="detailData.detailList || []"
+      border
+      stripe
+      :max-height="TEMPLATE_MODAL_TABLE_DETAIL_MAX"
+      :row-config="{ isHover: true }"
+    >
       <vxe-column field="name" title="物料名称" align="center" min-width="180" />
       <vxe-column title="规格1" align="center" min-width="130">
-                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
-              </vxe-column>
-              <vxe-column title="规格2" align="center" min-width="130">
-                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
-              </vxe-column>
+        <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+      </vxe-column>
+      <vxe-column title="规格2" align="center" min-width="130">
+        <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+      </vxe-column>
       <vxe-column field="material" title="材质" align="center" min-width="120" />
       <vxe-column field="unitName" title="单位" align="center" width="90" />
       <vxe-column field="quantity" title="申请数量" align="center" width="110" />
@@ -385,12 +391,7 @@ onMounted(() => {
       </vxe-column>
       <vxe-column v-if="issueMode !== 'unable'" field="issueQuantity" title="本次出库" align="center" width="150">
         <template #default="{ row }">
-          <vxe-number-input
-            v-if="issueMode === 'all'"
-            v-model="row.issueQuantity"
-            disabled
-            :show-button="false"
-          />
+          <vxe-number-input v-if="issueMode === 'all'" v-model="row.issueQuantity" disabled :show-button="false" />
           <n-input
             v-else
             v-model:value="row.issueQuantity"
@@ -401,16 +402,16 @@ onMounted(() => {
       </vxe-column>
       <vxe-column field="remark" title="备注" align="center" min-width="180" />
     </vxe-table>
-      <div class="TemplateForm-section">
-        <div class="TemplateForm-section__title">{{ issueMode === 'unable' ? '无法出库说明' : '出库说明' }}</div>
-      </div>
-      <n-form-item :show-label="false">
-        <n-input
-          v-model:value="issueForm.comment"
-          type="textarea"
-          :placeholder="issueMode === 'unable' ? '请填写无法出库原因' : '请输入本次出库说明'"
-        />
-      </n-form-item>
+    <div class="TemplateForm-section">
+      <div class="TemplateForm-section__title">{{ issueMode === "unable" ? "无法出库说明" : "出库说明" }}</div>
+    </div>
+    <n-form-item :show-label="false">
+      <n-input
+        v-model:value="issueForm.comment"
+        type="textarea"
+        :placeholder="issueMode === 'unable' ? '请填写无法出库原因' : '请输入本次出库说明'"
+      />
+    </n-form-item>
     <template #footer>
       <n-flex justify="end">
         <n-button @click="showIssue = false">取消</n-button>
@@ -434,14 +435,20 @@ onMounted(() => {
     <div class="TemplateForm-section">
       <div class="TemplateForm-section__title">出库明细</div>
     </div>
-    <vxe-table :data="detailData.detailList || []" border stripe :max-height="TEMPLATE_MODAL_TABLE_DETAIL_MAX" :row-config="{ isHover: true }">
+    <vxe-table
+      :data="detailData.detailList || []"
+      border
+      stripe
+      :max-height="TEMPLATE_MODAL_TABLE_DETAIL_MAX"
+      :row-config="{ isHover: true }"
+    >
       <vxe-column field="name" title="物料名称" align="center" min-width="180" />
       <vxe-column title="规格1" align="center" min-width="130">
-                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
-              </vxe-column>
-              <vxe-column title="规格2" align="center" min-width="130">
-                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
-              </vxe-column>
+        <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+      </vxe-column>
+      <vxe-column title="规格2" align="center" min-width="130">
+        <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+      </vxe-column>
       <vxe-column field="material" title="材质" align="center" min-width="120" />
       <vxe-column field="unitName" title="单位" align="center" width="90" />
       <vxe-column field="quantity" title="申请数量" align="center" width="110" />

@@ -63,7 +63,8 @@ function buildNotifyMessage(payload: WsPayload): NotifyMessage {
   const extra = payload.extra && typeof payload.extra === "object" ? payload.extra : {}
   const content = asText(payload.content) || asText(payload.message) || asText(payload.msg) || JSON.stringify(payload)
   const title = asText(payload.title) || asText(payload.subject) || "系统通知"
-  const timestamp = asTime(payload.timestamp) || asTime(payload.createTime) || asTime(payload.time) || new Date().toISOString()
+  const timestamp =
+    asTime(payload.timestamp) || asTime(payload.createTime) || asTime(payload.time) || new Date().toISOString()
   const routePath = asText(extra.routePath) || (extra.taskUid || extra.taskSource ? "/other/task" : "")
 
   return {
@@ -166,7 +167,11 @@ export const websocketUtil = {
         title: message.title,
         content: message.content,
         duration: 5000,
-        meta: message.routePath ? "点击查看详情" : message.timestamp ? new Date(message.timestamp).toLocaleString() : undefined,
+        meta: message.routePath
+          ? "点击查看详情"
+          : message.timestamp
+            ? new Date(message.timestamp).toLocaleString()
+            : undefined,
         onClick: () => enterNotifyTarget(message)
       })
     }

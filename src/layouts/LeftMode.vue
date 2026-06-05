@@ -237,11 +237,12 @@ watch(
 
 <template>
   <n-layout class="erp-main-layout h-full min-h-0 flex flex-col flex-1 overflow-hidden">
-    <n-layout-header bordered class="erp-layout-topbar h-14 flex items-center justify-between px-5 flex-shrink-0">
-      <div class="erp-layout-brand">
-        <span class="erp-layout-brand__dot" aria-hidden="true" />
-        <span class="erp-layout-brand__text">安康博灏环保</span>
-      </div>
+    <n-layout-header
+      :inverted="true"
+      bordered
+      class="h-12 flex items-center justify-between px-5 flex-shrink-0 border-b border-gray-300"
+    >
+      <div class="text-xl">安康博灏环保</div>
       <div class="flex items-center gap-6">
         <n-popover trigger="hover">
           <template #trigger>
@@ -331,7 +332,7 @@ watch(
       </n-layout-sider>
 
       <n-layout class="flex-1 min-h-0 flex flex-col overflow-hidden">
-        <n-layout-header bordered class="erp-layout-subheader min-h-12 w-full px-5 py-2 flex items-center">
+        <n-layout-header bordered class="h-12 w-full px-5 flex items-center">
           <Breadcrumb />
         </n-layout-header>
 
@@ -349,48 +350,6 @@ watch(
 </template>
 
 <style lang="scss" scoped>
-.erp-layout-topbar {
-  background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
-  color: #f8fafc;
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.06),
-    0 8px 24px rgba(15, 23, 42, 0.12);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-
-  :deep(.n-icon) {
-    color: rgba(248, 250, 252, 0.9);
-  }
-}
-
-.erp-layout-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.erp-layout-brand__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #22d3ee, #6366f1);
-  box-shadow: 0 0 12px rgba(99, 102, 241, 0.6);
-}
-
-.erp-layout-brand__text {
-  font-size: 1.125rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
-.erp-layout-subheader {
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  box-shadow: var(--erp-layout-header-shadow, 0 1px 0 rgba(15, 23, 42, 0.06));
-}
-
-.erp-layout-content {
-  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 55%, #eef2f6 100%);
-}
-
 .main-layout-sider {
   transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
 
@@ -413,6 +372,10 @@ watch(
       background-color 0.2s ease,
       color 0.2s ease;
   }
+}
+
+.erp-layout-content {
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 55%, #eef2f6 100%);
 }
 
 @import "@/styles/mixins.scss";

@@ -1,22 +1,21 @@
 <script lang="ts" setup>
-import { computed, nextTick, onMounted, ref, watch } from "vue"
+import { computed, onMounted, ref, watch } from "vue"
+import { useAutoListSearch } from "@/hooks/useAutoListSearch"
 import LCard from "@/components/LCard/index.vue"
+import ListPageTable from "@/components/ListPageTable/index.vue"
 import MCard from "@/components/MCard/index.vue"
 import FormModal from "@/components/FormModal/index.vue"
+import ListSearchActions from "@/components/ListSearchActions/index.vue"
 import SearchQueryForm from "@/components/SearchQueryForm/index.vue"
 import { useAppStore } from "@/store/modules/app"
 import { NButton, NTag } from "naive-ui"
 import { PageVo } from "@/model"
 import { VxeTableInstance, VxeTablePropTypes } from "vxe-table"
-import { Activity, ChevronDown, ChevronUp, Reset, Search, Store } from "@vicons/carbon"
+import { Activity, Store } from "@vicons/carbon"
 import { VxePagerEvents } from "vxe-pc-ui"
 import { ItemDictService } from "@/services/template/ItemDictService"
 import { InventoryFlowService } from "@/services/inventory/InventoryFlowService"
-import {
-  InventoryFlowQuery,
-  InventoryFlowQueryData,
-  InventoryFlowVo
-} from "@/model/inventory"
+import { InventoryFlowQuery, InventoryFlowQueryData, InventoryFlowVo } from "@/model/inventory"
 import { getSpec1Name, getSpec2Name } from "@/utils/itemSpec"
 
 const appStore = useAppStore()
@@ -71,7 +70,10 @@ function clearQueryCascade() {
 
 async function handleQueryTypeValue(v: string | null) {
   clearQueryCascade()
-  if (!v) return
+  if (!v) {
+    triggerSelectSearch()
+    return
+  }
   try {
     const picker = await ItemDictService.treePicker(v)
     querySpec1Options.value = picker.spec1Options || []
@@ -82,6 +84,7 @@ async function handleQueryTypeValue(v: string | null) {
     querySpec2Options.value = []
     queryBrandOptions.value = []
   }
+  triggerSelectSearch()
 }
 
 function formatNumber(value?: number | string | null) {
@@ -141,29 +144,31 @@ function showDetailModal(row: InventoryFlowVo) {
   showDetail.value = true
 }
 
-function search() {
+function doSearch() {
   query.value.currentPage = 1
   select()
 }
 
+const { triggerInputSearch, flushInputSearch, triggerSelectSearch, withResetSuppressed } = useAutoListSearch(doSearch)
+
 async function reset() {
-  clearQueryCascade()
-  query.value = {
-    currentPage: 1,
-    pageSize: 50,
-    key: "",
-    type: undefined,
-    spec1Uid: undefined,
-    spec2Uid: undefined,
-    brandUid: undefined,
-    businessType: undefined,
-    warehouseUidList: [],
-    supplierUidList: []
-  }
-  queryCascadeKey.value += 1
-  showAdvancedFilter.value = false
-  await nextTick()
-  select()
+  await withResetSuppressed(async () => {
+    clearQueryCascade()
+    query.value = {
+      currentPage: 1,
+      pageSize: 50,
+      key: "",
+      type: undefined,
+      spec1Uid: undefined,
+      spec2Uid: undefined,
+      brandUid: undefined,
+      businessType: undefined,
+      warehouseUidList: [],
+      supplierUidList: []
+    }
+    queryCascadeKey.value += 1
+    showAdvancedFilter.value = false
+  })
 }
 
 function pageChange(event: VxePagerEvents) {
@@ -179,6 +184,19 @@ watch(
   }
 )
 
+watch(
+  () => [
+    query.value.spec1Uid,
+    query.value.spec2Uid,
+    query.value.brandUid,
+    query.value.businessType,
+    query.value.supplierUidList
+  ],
+  () => {
+    triggerSelectSearch()
+  }
+)
+
 onMounted(() => {
   select()
 })
@@ -189,67 +207,45 @@ onMounted(() => {
     <l-card class="w-full inventory-flow__shell" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <SearchQueryForm label-placement="left" class="inventory-flow__search">
-            <n-grid :cols="4" :x-gap="12" :y-gap="12">
-              <n-gi>
-                <n-form-item label="关键字:">
-                  <n-input
-                    clearable
-                    v-model:value="query.key"
-                    placeholder="名称 / 材质"
-                    @keyup.enter="search"
-                  />
-                </n-form-item>
-              </n-gi>
-              <n-gi>
-                <n-form-item label="仓库:">
-                  <n-select
-                    clearable
-                    filterable
-                    multiple
-                    max-tag-count="responsive"
-                    v-model:value="query.warehouseUidList"
-                    placeholder="选择仓库"
-                    :options="data.extraData?.warehouseOptions"
-                  />
-                </n-form-item>
-              </n-gi>
-              <n-gi :span="2">
-                <n-form-item>
-                  <div class="inventory-flow__search-actions">
-                    <n-button type="primary" @click="search">
-                      <template #icon>
-                        <n-icon :component="Search" />
-                      </template>
-                      搜索
-                    </n-button>
-                    <n-button @click="reset">
-                      <template #icon>
-                        <n-icon :component="Reset" />
-                      </template>
-                      重置
-                    </n-button>
-                    <n-badge
-                      :value="advancedFilterCount"
-                      :show="advancedFilterCount > 0 && !showAdvancedFilter"
-                      type="info"
-                    >
-                      <n-button quaternary @click="showAdvancedFilter = !showAdvancedFilter">
-                        <template #icon>
-                          <n-icon :component="showAdvancedFilter ? ChevronUp : ChevronDown" />
-                        </template>
-                        {{ showAdvancedFilter ? "收起筛选" : "高级筛选" }}
-                      </n-button>
-                    </n-badge>
-                  </div>
-                </n-form-item>
-              </n-gi>
-            </n-grid>
-            <div v-show="showAdvancedFilter" class="inventory-flow__advanced">
-              <n-grid :cols="4" :x-gap="12" :y-gap="12">
+          <SearchQueryForm
+            label-placement="left"
+            label-align="right"
+            label-width="70"
+            class="inventory-flow__search list-search-form"
+          >
+            <div class="flex gap-4">
+              <n-grid :cols="3" :x-gap="12" :y-gap="12">
                 <n-gi>
-                  <n-form-item label="品类:">
+                  <n-form-item label="关键字">
+                    <n-input
+                      class="w-full"
+                      clearable
+                      v-model:value="query.key"
+                      placeholder="名称 / 材质"
+                      @update:value="triggerInputSearch"
+                      @keyup.enter="flushInputSearch"
+                    />
+                  </n-form-item>
+                </n-gi>
+                <n-gi>
+                  <n-form-item label="仓库">
+                    <n-select
+                      class="w-full"
+                      clearable
+                      filterable
+                      multiple
+                      max-tag-count="responsive"
+                      v-model:value="query.warehouseUidList"
+                      placeholder="选择仓库"
+                      :options="data.extraData?.warehouseOptions"
+                      @update:value="triggerSelectSearch"
+                    />
+                  </n-form-item>
+                </n-gi>
+                <n-gi>
+                  <n-form-item label="品类">
                     <n-cascader
+                      class="w-full"
                       :key="`query-type-${queryCascadeKey}`"
                       v-model:value="query.type"
                       :options="data.extraData?.typeOptions"
@@ -263,76 +259,90 @@ onMounted(() => {
                     />
                   </n-form-item>
                 </n-gi>
-                <n-gi>
-                  <n-form-item label="规格1:">
-                    <n-select
-                      :key="`query-spec1-${queryCascadeKey}`"
-                      clearable
-                      filterable
-                      v-model:value="query.spec1Uid"
-                      :options="querySpec1Options"
-                      label-field="label"
-                      value-field="value"
-                      :disabled="!query.type"
-                      placeholder="请先选择品类"
-                    />
-                  </n-form-item>
-                </n-gi>
-                <n-gi>
-                  <n-form-item label="规格2:">
-                    <n-select
-                      :key="`query-spec2-${queryCascadeKey}`"
-                      clearable
-                      filterable
-                      v-model:value="query.spec2Uid"
-                      :options="querySpec2Options"
-                      label-field="label"
-                      value-field="value"
-                      :disabled="!query.type || !query.spec1Uid"
-                      placeholder="请先选择规格1"
-                    />
-                  </n-form-item>
-                </n-gi>
-                <n-gi>
-                  <n-form-item label="品牌:">
-                    <n-select
-                      :key="`query-brand-${queryCascadeKey}`"
-                      clearable
-                      filterable
-                      v-model:value="query.brandUid"
-                      :options="queryBrandOptions"
-                      label-field="label"
-                      value-field="value"
-                      :disabled="!query.type"
-                      placeholder="请先选择品类"
-                    />
-                  </n-form-item>
-                </n-gi>
-                <n-gi>
-                  <n-form-item label="业务类型:">
-                    <n-select
-                      clearable
-                      filterable
-                      v-model:value="query.businessType"
-                      :options="data.extraData?.businessTypeOptions"
-                      placeholder="选择业务类型"
-                    />
-                  </n-form-item>
-                </n-gi>
-                <n-gi>
-                  <n-form-item label="供应商:">
-                    <n-select
-                      clearable
-                      filterable
-                      multiple
-                      max-tag-count="responsive"
-                      v-model:value="query.supplierUidList"
-                      placeholder="选择供应商"
-                      :options="data.extraData?.supplierOptions"
-                    />
-                  </n-form-item>
-                </n-gi>
+                <template v-if="showAdvancedFilter">
+                  <n-gi>
+                    <n-form-item label="规格1">
+                      <n-select
+                        class="w-full"
+                        :key="`query-spec1-${queryCascadeKey}`"
+                        clearable
+                        filterable
+                        v-model:value="query.spec1Uid"
+                        :options="querySpec1Options"
+                        label-field="label"
+                        value-field="value"
+                        :disabled="!query.type"
+                        placeholder="请先选择品类"
+                      />
+                    </n-form-item>
+                  </n-gi>
+                  <n-gi>
+                    <n-form-item label="规格2">
+                      <n-select
+                        class="w-full"
+                        :key="`query-spec2-${queryCascadeKey}`"
+                        clearable
+                        filterable
+                        v-model:value="query.spec2Uid"
+                        :options="querySpec2Options"
+                        label-field="label"
+                        value-field="value"
+                        :disabled="!query.type || !query.spec1Uid"
+                        placeholder="请先选择规格1"
+                      />
+                    </n-form-item>
+                  </n-gi>
+                  <n-gi>
+                    <n-form-item label="品牌">
+                      <n-select
+                        class="w-full"
+                        :key="`query-brand-${queryCascadeKey}`"
+                        clearable
+                        filterable
+                        v-model:value="query.brandUid"
+                        :options="queryBrandOptions"
+                        label-field="label"
+                        value-field="value"
+                        :disabled="!query.type"
+                        placeholder="请先选择品类"
+                      />
+                    </n-form-item>
+                  </n-gi>
+                  <n-gi>
+                    <n-form-item label="业务类型">
+                      <n-select
+                        class="w-full"
+                        clearable
+                        filterable
+                        v-model:value="query.businessType"
+                        :options="data.extraData?.businessTypeOptions"
+                        placeholder="选择业务类型"
+                      />
+                    </n-form-item>
+                  </n-gi>
+                  <n-gi>
+                    <n-form-item label="供应商">
+                      <n-select
+                        class="w-full"
+                        clearable
+                        filterable
+                        multiple
+                        max-tag-count="responsive"
+                        v-model:value="query.supplierUidList"
+                        placeholder="选择供应商"
+                        :options="data.extraData?.supplierOptions"
+                      />
+                    </n-form-item>
+                  </n-gi>
+                </template>
               </n-grid>
+              <ListSearchActions
+                show-more
+                :show-advanced-filter="showAdvancedFilter"
+                :advanced-filter-count="advancedFilterCount"
+                @reset="reset"
+                @toggle-advanced="showAdvancedFilter = !showAdvancedFilter"
+              />
             </div>
           </SearchQueryForm>
         </m-card>
@@ -346,24 +356,16 @@ onMounted(() => {
               <span>流水明细</span>
             </div>
             <div class="inventory-flow__legend">
-              <span class="inventory-flow__legend-item">
-                <i class="dot dot--in" />数量增加
-              </span>
-              <span class="inventory-flow__legend-item">
-                <i class="dot dot--out" />数量减少
-              </span>
+              <span class="inventory-flow__legend-item"> <i class="dot dot--in" />数量增加 </span>
+              <span class="inventory-flow__legend-item"> <i class="dot dot--out" />数量减少 </span>
             </div>
           </div>
 
-          <div class="inventory-flow__table-zone">
-            <vxe-table
-              :column-config="{ resizable: true }"
+          <div class="inventory-flow__table-zone erp-list-table-wrap">
+            <ListPageTable
               :data="data.list"
-              border="inner"
-              stripe
               :loading="loading"
-              :cell-config="{ height: 72 }"
-              :row-config="{ isHover: true }"
+              :cell-height="72"
               ref="VxeTableRef"
               :merge-cells="mergeCells"
               :size="appStore.componentSize"
@@ -379,16 +381,17 @@ onMounted(() => {
               <vxe-column field="name" title="物料" align="left" min-width="150" show-overflow="tooltip" />
               <vxe-column title="图片" align="center" width="76">
                 <template #default="{ row }">
-                  <n-image
-                    v-if="row.image"
-                    :src="row.image"
-                    class="inventory-flow__thumb"
-                    object-fit="cover"
-                  />
+                  <n-image v-if="row.image" :src="row.image" class="inventory-flow__thumb" object-fit="cover" />
                   <span v-else class="inventory-flow__thumb-placeholder">-</span>
                 </template>
               </vxe-column>
-              <vxe-column field="businessTypeName" title="业务类型" align="center" min-width="110" show-overflow="tooltip" />
+              <vxe-column
+                field="businessTypeName"
+                title="业务类型"
+                align="center"
+                min-width="110"
+                show-overflow="tooltip"
+              />
               <vxe-column field="typeName" title="品类" align="center" min-width="100" show-overflow="tooltip" />
               <vxe-column field="supplierName" title="供应商" align="center" min-width="110" show-overflow="tooltip" />
               <vxe-column title="规格1" align="center" min-width="100" show-overflow="tooltip">
@@ -415,13 +418,19 @@ onMounted(() => {
                   <span class="qty">{{ formatNumber(row.afterQuantity) }}</span>
                 </template>
               </vxe-column>
-              <vxe-column field="createTimeName" title="变动时间" align="center" min-width="150" show-overflow="tooltip" />
+              <vxe-column
+                field="createTimeName"
+                title="变动时间"
+                align="center"
+                min-width="150"
+                show-overflow="tooltip"
+              />
               <vxe-column fixed="right" title="操作" align="center" width="72">
                 <template #default="{ row }">
                   <n-button type="primary" text @click="showDetailModal(row)">详情</n-button>
                 </template>
               </vxe-column>
-            </vxe-table>
+            </ListPageTable>
           </div>
         </div>
       </template>
@@ -482,7 +491,9 @@ onMounted(() => {
         <n-descriptions-item label="规格2">{{ getSpec2Name(detailData) }}</n-descriptions-item>
         <n-descriptions-item label="材质">{{ detailData.material || "-" }}</n-descriptions-item>
         <n-descriptions-item label="单位">{{ detailData.unitName || "-" }}</n-descriptions-item>
-        <n-descriptions-item label="变动时间">{{ detailData.createTimeName || detailData.createTime || "-" }}</n-descriptions-item>
+        <n-descriptions-item label="变动时间">{{
+          detailData.createTimeName || detailData.createTime || "-"
+        }}</n-descriptions-item>
         <n-descriptions-item label="业务单号" :span="2">{{ detailData.businessUid || "-" }}</n-descriptions-item>
       </n-descriptions>
     </n-space>

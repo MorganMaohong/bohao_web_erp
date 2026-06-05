@@ -1,12 +1,6 @@
 import { PageVo } from "@/model"
 import { InventoryOutOrderForm } from "@/model/inventory/outbound"
-import {
-  SalesOrderDetail,
-  SalesOrderForm,
-  SalesOrderQuery,
-  SalesOrderQueryData,
-  SalesOrderVo
-} from "@/model/sales"
+import { SalesOrderDetail, SalesOrderForm, SalesOrderQuery, SalesOrderQueryData, SalesOrderVo } from "@/model/sales"
 import { salesOrderApi } from "@/services/api"
 import request from "@/utils/request"
 

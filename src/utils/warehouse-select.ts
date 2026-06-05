@@ -16,11 +16,7 @@ export function parseWarehouseOptionLabel(label?: string): { code: string; name:
   }
 }
 
-export function applyWarehouseByUid(
-  warehouse: Warehouse,
-  uid: string | null | undefined,
-  options: OptionVo[]
-): void {
+export function applyWarehouseByUid(warehouse: Warehouse, uid: string | null | undefined, options: OptionVo[]): void {
   if (!uid) {
     Object.assign(warehouse, {})
     return

@@ -1,8 +1,10 @@
 <script lang="ts" setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue"
+import { useAutoListSearch } from "@/hooks/useAutoListSearch"
 import { useRoute } from "vue-router"
-import { Reset, Search } from "@vicons/carbon"
 import LCard from "@/components/LCard/index.vue"
+import ListPageTable from "@/components/ListPageTable/index.vue"
+import ListSearchActions from "@/components/ListSearchActions/index.vue"
 import SearchQueryForm from "@/components/SearchQueryForm/index.vue"
 import FormModal from "@/components/FormModal/index.vue"
 import MCard from "@/components/MCard/index.vue"
@@ -153,20 +155,23 @@ function openRelatedInbound(uid?: string, code?: string) {
   showRelatedInbound.value = true
 }
 
-function search() {
+function doSearch() {
   query.value.currentPage = 1
   select()
 }
 
-function reset() {
-  query.value = {
-    currentPage: 1,
-    pageSize: 20,
-    key: "",
-    status: undefined,
-    orderType: undefined
-  }
-  select()
+const { triggerInputSearch, flushInputSearch, triggerSelectSearch, withResetSuppressed } = useAutoListSearch(doSearch)
+
+async function reset() {
+  await withResetSuppressed(async () => {
+    query.value = {
+      currentPage: 1,
+      pageSize: 20,
+      key: "",
+      status: undefined,
+      orderType: undefined
+    }
+  })
 }
 
 function pageChange(event: { currentPage: number; pageSize: number }) {
@@ -303,9 +308,7 @@ function priceReasonTip(row: PurchaseOrderDetailVo) {
 }
 
 function canConfirm(row?: PurchaseOrderVo) {
-  return (
-    row?.status === PurchaseOrderStatusDict.WAIT_CONFIRM || row?.status === PurchaseOrderStatusDict.REJECT
-  )
+  return row?.status === PurchaseOrderStatusDict.WAIT_CONFIRM || row?.status === PurchaseOrderStatusDict.REJECT
 }
 
 function validateConfirmForm() {
@@ -393,74 +396,65 @@ onBeforeUnmount(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <SearchQueryForm label-placement="left" >
-            <n-grid :cols="4" x-gap="12" y-gap="12">
-              <n-gi>
-                <n-form-item label="关键字:">
-                  <n-input v-model:value="query.key" clearable placeholder="订单编号/备注" />
-                </n-form-item>
-              </n-gi>
-              <n-gi>
-                <n-form-item label="订单类型:">
-                  <n-select
-                    v-model:value="query.orderType"
-                    clearable
-                    filterable
-                    placeholder="全部"
-                    :options="data.extraData?.orderTypeOptions || []"
-                  />
-                </n-form-item>
-              </n-gi>
-              <n-gi>
-                <n-form-item label="状态:">
-                  <n-select
-                    v-model:value="query.status"
-                    clearable
-                    filterable
-                    placeholder="全部"
-                    :options="data.extraData?.statusOptions || []"
-                  />
-                </n-form-item>
-              </n-gi>
-              <n-gi>
-                <n-form-item>
-                  <div class="flex gap-2">
-                    <n-button type="primary" @click="search">
-                      <template #icon>
-                        <n-icon>
-                          <Search />
-                        </n-icon>
-                      </template>
-                      查询
-                    </n-button>
-                    <n-button @click="reset">
-                      <template #icon>
-                        <n-icon>
-                          <Reset />
-                        </n-icon>
-                      </template>
-                      重置
-                    </n-button>
-                  </div>
-                </n-form-item>
-              </n-gi>
-            </n-grid>
+          <SearchQueryForm label-placement="left" label-align="right" label-width="70" class="list-search-form">
+            <div class="flex gap-4">
+              <n-grid :cols="3" :x-gap="12" :y-gap="12">
+                <n-gi>
+                  <n-form-item label="关键字">
+                    <n-input
+                      class="w-full"
+                      v-model:value="query.key"
+                      clearable
+                      placeholder="订单编号/备注"
+                      @update:value="triggerInputSearch"
+                      @keyup.enter="flushInputSearch"
+                    />
+                  </n-form-item>
+                </n-gi>
+                <n-gi>
+                  <n-form-item label="订单类型">
+                    <n-select
+                      class="w-full"
+                      v-model:value="query.orderType"
+                      clearable
+                      filterable
+                      placeholder="全部"
+                      :options="data.extraData?.orderTypeOptions || []"
+                      @update:value="triggerSelectSearch"
+                    />
+                  </n-form-item>
+                </n-gi>
+                <n-gi>
+                  <n-form-item label="状态">
+                    <n-select
+                      class="w-full"
+                      v-model:value="query.status"
+                      clearable
+                      filterable
+                      placeholder="全部"
+                      :options="data.extraData?.statusOptions || []"
+                      @update:value="triggerSelectSearch"
+                    />
+                  </n-form-item>
+                </n-gi>
+              </n-grid>
+              <ListSearchActions @reset="reset" />
+            </div>
           </SearchQueryForm>
         </m-card>
       </template>
 
-      <vxe-table
-        border
-        stripe
-        show-overflow
-        align="center"
-        keep-source
-        resizable
-        :loading="loading"
-        :data="data.list || []"
-        :size="appStore.componentSize"
-        :height="'auto'"
-      >
+      <div class="erp-list-table-wrap">
+        <ListPageTable
+          show-overflow
+          align="center"
+          keep-source
+          resizable
+          :loading="loading"
+          :data="data.list || []"
+          :size="appStore.componentSize"
+          :height="'auto'"
+        >
         <vxe-column field="code" title="订单编号" min-width="170">
           <template #default="{ row }">
             <n-button text type="info" @click="showDetailModal(row.uid)">{{ row.code || "-" }}</n-button>
@@ -509,7 +503,8 @@ onBeforeUnmount(() => {
             </div>
           </template>
         </vxe-column>
-      </vxe-table>
+      </ListPageTable>
+      </div>
 
       <template #footer>
         <vxe-pager
@@ -535,126 +530,119 @@ onBeforeUnmount(() => {
 
     <FormModal v-model:show="showDetail" title="采购订单详情" size="xxl">
       <PurchaseModalDetailShell :loading="detailLoading">
-            <n-card title="订单详情" :bordered="false" class="detail-card">
-              <n-descriptions bordered :column="2" label-placement="left">
-                <n-descriptions-item label="订单编号">{{ detailData.code || "-" }}</n-descriptions-item>
-                <n-descriptions-item label="订单类型">{{ detailData.orderTypeName || "-" }}</n-descriptions-item>
-                <n-descriptions-item label="状态">{{ detailData.statusName || "-" }}</n-descriptions-item>
-                <n-descriptions-item label="供应商">{{ detailData.supplierName || "-" }}</n-descriptions-item>
-                <n-descriptions-item label="申请单号">
-                  <n-button
-                    v-if="detailData.applyOrderCode"
-                    text
-                    type="info"
-                    @click="openRelatedApply(detailData.applyOrderUid, detailData.applyOrderCode)"
-                  >
-                    {{ detailData.applyOrderCode }}
-                  </n-button>
-                  <span v-else>-</span>
-                </n-descriptions-item>
-                <n-descriptions-item label="来源订单">
-                  <n-button
-                    v-if="detailData.sourceOrderCode"
-                    text
-                    type="info"
-                    @click="openRelatedOrder(detailData.sourceOrderUid, detailData.sourceOrderCode)"
-                  >
-                    {{ detailData.sourceOrderCode }}
-                  </n-button>
-                  <span v-else>-</span>
-                </n-descriptions-item>
-                <n-descriptions-item label="预计到货">{{ detailData.expectTimeName || "-" }}</n-descriptions-item>
-                <n-descriptions-item label="含税总额">{{ formatMoney(detailData.totalAmount) }}</n-descriptions-item>
-                <n-descriptions-item label="不含税总额">{{ formatMoney(detailData.totalAmountWithoutTax) }}</n-descriptions-item>
-                <n-descriptions-item label="申请状态">{{ detailData.applyOrderStatusName || "-" }}</n-descriptions-item>
-                <n-descriptions-item label="备注" :span="2">{{ detailData.remark || "-" }}</n-descriptions-item>
-              </n-descriptions>
-            </n-card>
-
-            <n-card title="订单明细" :bordered="false" class="detail-card">
-              <vxe-table
-                border
-                stripe
-                show-overflow
-                align="center"
-                :data="detailData.detailList || []"
-                :max-height="TEMPLATE_MODAL_TABLE_DETAIL_MAX"
+        <n-card title="订单详情" :bordered="false" class="detail-card">
+          <n-descriptions bordered :column="2" label-placement="left">
+            <n-descriptions-item label="订单编号">{{ detailData.code || "-" }}</n-descriptions-item>
+            <n-descriptions-item label="订单类型">{{ detailData.orderTypeName || "-" }}</n-descriptions-item>
+            <n-descriptions-item label="状态">{{ detailData.statusName || "-" }}</n-descriptions-item>
+            <n-descriptions-item label="供应商">{{ detailData.supplierName || "-" }}</n-descriptions-item>
+            <n-descriptions-item label="申请单号">
+              <n-button
+                v-if="detailData.applyOrderCode"
+                text
+                type="info"
+                @click="openRelatedApply(detailData.applyOrderUid, detailData.applyOrderCode)"
               >
-                <vxe-column field="name" title="物料名称" min-width="160" />
-                <vxe-column title="规格1" min-width="150">
-                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
-              </vxe-column>
-              <vxe-column title="规格2" min-width="150">
-                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
-              </vxe-column>
-                <vxe-column field="unitName" title="单位" min-width="90" />
-                <vxe-column field="applyQuantity" title="申请数量" min-width="100" />
-                <vxe-column field="quantity" title="到货数量" min-width="100" />
-                <vxe-column field="inboundQuantity" title="已入库" min-width="100" />
-                <vxe-column field="returnQuantity" title="已退货" min-width="100" />
-                <vxe-column field="availableInboundQuantity" title="可入库" min-width="100" />
-                <vxe-column field="availableReturnQuantity" title="可退货" min-width="100" />
-                <vxe-column field="purchasePriceWithTax" title="含税单价" min-width="110" />
-                <vxe-column field="vatTaxRate" title="税率(%)" min-width="90" />
-                <vxe-column title="不含税单价" min-width="110">
-                  <template #default="{ row }">
-                    {{
-                      formatMoney(
-                        row.purchasePriceWithoutTax || calcPriceWithoutTax(row.purchasePriceWithTax, row.vatTaxRate)
-                      )
-                    }}
-                  </template>
-                </vxe-column>
-                <vxe-column title="税额" min-width="110">
-                  <template #default="{ row }">
-                    {{ formatMoney(calcTaxAmount(row.purchasePriceWithTax, row.vatTaxRate, row.quantity)) }}
-                  </template>
-                </vxe-column>
-                <vxe-column title="含税小计" min-width="120">
-                  <template #default="{ row }">
-                    {{ formatMoney(calcAmountWithTax(row.purchasePriceWithTax, row.quantity)) }}
-                  </template>
-                </vxe-column>
-              </vxe-table>
-            </n-card>
-
-            <n-card
-              v-if="detailData.inboundOrderList?.length"
-              title="相关采购入库"
-              :bordered="false"
-              class="detail-card"
-            >
-              <vxe-table
-                border
-                stripe
-                show-overflow
-                align="center"
-                :data="detailData.inboundOrderList || []"
-                :max-height="TEMPLATE_MODAL_TABLE_RECORD_MAX"
+                {{ detailData.applyOrderCode }}
+              </n-button>
+              <span v-else>-</span>
+            </n-descriptions-item>
+            <n-descriptions-item label="来源订单">
+              <n-button
+                v-if="detailData.sourceOrderCode"
+                text
+                type="info"
+                @click="openRelatedOrder(detailData.sourceOrderUid, detailData.sourceOrderCode)"
               >
-                <vxe-column field="code" title="入库单号" min-width="170">
-                  <template #default="{ row }">
-                    <n-button text type="info" @click="openRelatedInbound(row.uid, row.code)">
-                      {{ row.code || "-" }}
-                    </n-button>
-                  </template>
-                </vxe-column>
-                <vxe-column field="warehouseName" title="仓库" min-width="120" />
-                <vxe-column field="timeName" title="入库时间" min-width="160" />
-                <vxe-column field="totalQuantity" title="入库总数" min-width="110" />
-                <vxe-column field="statusName" title="状态" min-width="100" />
-              </vxe-table>
-            </n-card>
-          <template #side>
-            <FlowSchemaPreview
-              v-if="detailData.flowSchema"
-              title="审批流程"
-              :schema-data="detailData.flowSchema"
-            />
-            <n-card v-else title="审批流程" :bordered="false" class="detail-card">
-              <n-empty description="暂无流程数据" />
-            </n-card>
-          </template>
+                {{ detailData.sourceOrderCode }}
+              </n-button>
+              <span v-else>-</span>
+            </n-descriptions-item>
+            <n-descriptions-item label="预计到货">{{ detailData.expectTimeName || "-" }}</n-descriptions-item>
+            <n-descriptions-item label="含税总额">{{ formatMoney(detailData.totalAmount) }}</n-descriptions-item>
+            <n-descriptions-item label="不含税总额">{{
+              formatMoney(detailData.totalAmountWithoutTax)
+            }}</n-descriptions-item>
+            <n-descriptions-item label="申请状态">{{ detailData.applyOrderStatusName || "-" }}</n-descriptions-item>
+            <n-descriptions-item label="备注" :span="2">{{ detailData.remark || "-" }}</n-descriptions-item>
+          </n-descriptions>
+        </n-card>
+
+        <n-card title="订单明细" :bordered="false" class="detail-card">
+          <vxe-table
+            border
+            stripe
+            show-overflow
+            align="center"
+            :data="detailData.detailList || []"
+            :max-height="TEMPLATE_MODAL_TABLE_DETAIL_MAX"
+          >
+            <vxe-column field="name" title="物料名称" min-width="160" />
+            <vxe-column title="规格1" min-width="150">
+              <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+            </vxe-column>
+            <vxe-column title="规格2" min-width="150">
+              <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+            </vxe-column>
+            <vxe-column field="unitName" title="单位" min-width="90" />
+            <vxe-column field="applyQuantity" title="申请数量" min-width="100" />
+            <vxe-column field="quantity" title="到货数量" min-width="100" />
+            <vxe-column field="inboundQuantity" title="已入库" min-width="100" />
+            <vxe-column field="returnQuantity" title="已退货" min-width="100" />
+            <vxe-column field="availableInboundQuantity" title="可入库" min-width="100" />
+            <vxe-column field="availableReturnQuantity" title="可退货" min-width="100" />
+            <vxe-column field="purchasePriceWithTax" title="含税单价" min-width="110" />
+            <vxe-column field="vatTaxRate" title="税率(%)" min-width="90" />
+            <vxe-column title="不含税单价" min-width="110">
+              <template #default="{ row }">
+                {{
+                  formatMoney(
+                    row.purchasePriceWithoutTax || calcPriceWithoutTax(row.purchasePriceWithTax, row.vatTaxRate)
+                  )
+                }}
+              </template>
+            </vxe-column>
+            <vxe-column title="税额" min-width="110">
+              <template #default="{ row }">
+                {{ formatMoney(calcTaxAmount(row.purchasePriceWithTax, row.vatTaxRate, row.quantity)) }}
+              </template>
+            </vxe-column>
+            <vxe-column title="含税小计" min-width="120">
+              <template #default="{ row }">
+                {{ formatMoney(calcAmountWithTax(row.purchasePriceWithTax, row.quantity)) }}
+              </template>
+            </vxe-column>
+          </vxe-table>
+        </n-card>
+
+        <n-card v-if="detailData.inboundOrderList?.length" title="相关采购入库" :bordered="false" class="detail-card">
+          <vxe-table
+            border
+            stripe
+            show-overflow
+            align="center"
+            :data="detailData.inboundOrderList || []"
+            :max-height="TEMPLATE_MODAL_TABLE_RECORD_MAX"
+          >
+            <vxe-column field="code" title="入库单号" min-width="170">
+              <template #default="{ row }">
+                <n-button text type="info" @click="openRelatedInbound(row.uid, row.code)">
+                  {{ row.code || "-" }}
+                </n-button>
+              </template>
+            </vxe-column>
+            <vxe-column field="warehouseName" title="仓库" min-width="120" />
+            <vxe-column field="timeName" title="入库时间" min-width="160" />
+            <vxe-column field="totalQuantity" title="入库总数" min-width="110" />
+            <vxe-column field="statusName" title="状态" min-width="100" />
+          </vxe-table>
+        </n-card>
+        <template #side>
+          <FlowSchemaPreview v-if="detailData.flowSchema" title="审批流程" :schema-data="detailData.flowSchema" />
+          <n-card v-else title="审批流程" :bordered="false" class="detail-card">
+            <n-empty description="暂无流程数据" />
+          </n-card>
+        </template>
       </PurchaseModalDetailShell>
     </FormModal>
 
@@ -667,257 +655,259 @@ onBeforeUnmount(() => {
     />
 
     <FormModal v-model:show="showConfirm" title="确认采购订单" size="xxl" :loading="confirmLoading">
-<n-form :model="confirmData" class="TemplateForm" label-placement="left" label-width="96">
-          <n-grid cols="2" x-gap="16" y-gap="0">
-            <n-gi span="2">
-              <div class="TemplateForm-section">
-                <div class="TemplateForm-section__title">订单信息</div>
-              </div>
-            </n-gi>
-            <n-gi>
-              <n-form-item label="订单编号">
-                <n-input :value="confirmData.code" disabled />
-              </n-form-item>
-            </n-gi>
-            <n-gi>
-              <n-form-item label="订单类型">
-                <n-input :value="confirmData.orderTypeName" disabled />
-              </n-form-item>
-            </n-gi>
-            <n-gi>
-              <n-form-item label="预计到货">
-                <n-date-picker v-model:value="confirmData.expectTime" type="date" clearable class="w-full" />
-              </n-form-item>
-            </n-gi>
-            <n-gi span="2">
-              <n-form-item label="备注">
-                <n-input v-model:value="confirmData.remark" type="textarea" maxlength="200" show-count />
-              </n-form-item>
-            </n-gi>
-            <n-gi span="2">
-              <div class="TemplateForm-section TemplateForm-section__head">
-                <div class="TemplateForm-section__title">订单明细</div>
-                <n-button tertiary type="info" :loading="priceCompareLoading" @click="loadPriceCompare">
-                  刷新历史价格
-                </n-button>
-              </div>
-            </n-gi>
-            <n-gi span="2">
-              <n-alert type="info" show-icon class="mb-3">
-                历史价格仅统计审批通过及后续状态的采购订单，不包含当前订单、待审批和驳回订单。
-              </n-alert>
-            </n-gi>
-            <n-gi span="2">
+      <n-form :model="confirmData" class="TemplateForm" label-placement="left" label-width="96">
+        <n-grid cols="2" x-gap="16" y-gap="0">
+          <n-gi span="2">
+            <div class="TemplateForm-section">
+              <div class="TemplateForm-section__title">订单信息</div>
+            </div>
+          </n-gi>
+          <n-gi>
+            <n-form-item label="订单编号">
+              <n-input :value="confirmData.code" disabled />
+            </n-form-item>
+          </n-gi>
+          <n-gi>
+            <n-form-item label="订单类型">
+              <n-input :value="confirmData.orderTypeName" disabled />
+            </n-form-item>
+          </n-gi>
+          <n-gi>
+            <n-form-item label="预计到货">
+              <n-date-picker v-model:value="confirmData.expectTime" type="date" clearable class="w-full" />
+            </n-form-item>
+          </n-gi>
+          <n-gi span="2">
+            <n-form-item label="备注">
+              <n-input v-model:value="confirmData.remark" type="textarea" maxlength="200" show-count />
+            </n-form-item>
+          </n-gi>
+          <n-gi span="2">
+            <div class="TemplateForm-section TemplateForm-section__head">
+              <div class="TemplateForm-section__title">订单明细</div>
+              <n-button tertiary type="info" :loading="priceCompareLoading" @click="loadPriceCompare">
+                刷新历史价格
+              </n-button>
+            </div>
+          </n-gi>
+          <n-gi span="2">
+            <n-alert type="info" show-icon class="mb-3">
+              历史价格仅统计审批通过及后续状态的采购订单，不包含当前订单、待审批和驳回订单。
+            </n-alert>
+          </n-gi>
+          <n-gi span="2">
             <div
               class="TemplateForm-table-wrap w-full"
               :style="{ '--template-form-table-max': `${TEMPLATE_MODAL_TABLE_MAX_TALL}px` }"
             >
-            <vxe-table
-              border
-              stripe
-              show-overflow
-              :size="appStore.componentSize"
-              align="center"
-              :loading="priceCompareLoading"
-              :data="confirmData.detailList || []"
-              :max-height="TEMPLATE_MODAL_TABLE_MAX_TALL"
-              :cell-config="{ height: 160 }"
-            >
-              <vxe-column field="name" title="物料名称" min-width="160" />
-              <vxe-column title="规格1" min-width="150">
-                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
-              </vxe-column>
-              <vxe-column title="规格2" min-width="150">
-                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
-              </vxe-column>
-              <vxe-column field="unitName" title="单位" min-width="90" />
-              <vxe-column field="applyQuantity" title="申请数量" min-width="100" />
-              <vxe-column title="到货数量" min-width="120">
-                <template #default="{ row }">
-                  <n-input-number v-model:value="row.quantity" :min="1" :precision="2" class="w-full" />
-                </template>
-              </vxe-column>
-              <vxe-column title="含税单价" min-width="130">
-                <template #default="{ row }">
-                  <n-input-number
-                    v-model:value="row.purchasePriceWithTax"
-                    :min="0.0001"
-                    :precision="4"
-                    class="w-full"
-                  />
-                </template>
-              </vxe-column>
-              <vxe-column title="税率(%)" min-width="110">
-                <template #default="{ row }">
-                  <n-input-number v-model:value="row.vatTaxRate" :min="0" :max="100" :precision="2" class="w-full" />
-                </template>
-              </vxe-column>
-              <vxe-column title="不含税单价（自动）" min-width="140">
-                <template #default="{ row }">
-                  {{ formatMoney(calcPriceWithoutTax(row.purchasePriceWithTax, row.vatTaxRate)) }}
-                </template>
-              </vxe-column>
-              <vxe-column title="税额" min-width="120">
-                <template #default="{ row }">
-                  {{ formatMoney(calcTaxAmount(row.purchasePriceWithTax, row.vatTaxRate, row.quantity)) }}
-                </template>
-              </vxe-column>
-              <vxe-column title="含税小计" min-width="120">
-                <template #default="{ row }">
-                  {{ formatMoney(calcAmountWithTax(row.purchasePriceWithTax, row.quantity)) }}
-                </template>
-              </vxe-column>
-              <vxe-column title="不含税小计" min-width="130">
-                <template #default="{ row }">
-                  {{ formatMoney(calcAmountWithoutTax(row.purchasePriceWithTax, row.vatTaxRate, row.quantity)) }}
-                </template>
-              </vxe-column>
-              <vxe-column title="历史比价" min-width="300" fixed="right" cell-render>
-                <template #default="{ row }">
-                  <div v-if="getPriceCompare(row)?.historyCount" class="price-compare-cell">
-                    <div>
-                      同供应商最近含税：
-                      <span class="font-medium">
-                        {{ formatMoney(getPriceCompare(row)?.lastSameSupplierPriceWithTax) }}
-                      </span>
-                      <span class="text-gray-400">
-                        {{ getPriceCompare(row)?.lastSameSupplierOrderCode || "" }}
-                      </span>
+              <vxe-table
+                border
+                stripe
+                show-overflow
+                :size="appStore.componentSize"
+                align="center"
+                :loading="priceCompareLoading"
+                :data="confirmData.detailList || []"
+                :max-height="TEMPLATE_MODAL_TABLE_MAX_TALL"
+                :cell-config="{ height: 160 }"
+              >
+                <vxe-column field="name" title="物料名称" min-width="160" />
+                <vxe-column title="规格1" min-width="150">
+                  <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+                </vxe-column>
+                <vxe-column title="规格2" min-width="150">
+                  <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+                </vxe-column>
+                <vxe-column field="unitName" title="单位" min-width="90" />
+                <vxe-column field="applyQuantity" title="申请数量" min-width="100" />
+                <vxe-column title="到货数量" min-width="120">
+                  <template #default="{ row }">
+                    <n-input-number v-model:value="row.quantity" :min="1" :precision="2" class="w-full" />
+                  </template>
+                </vxe-column>
+                <vxe-column title="含税单价" min-width="130">
+                  <template #default="{ row }">
+                    <n-input-number
+                      v-model:value="row.purchasePriceWithTax"
+                      :min="0.0001"
+                      :precision="4"
+                      class="w-full"
+                    />
+                  </template>
+                </vxe-column>
+                <vxe-column title="税率(%)" min-width="110">
+                  <template #default="{ row }">
+                    <n-input-number v-model:value="row.vatTaxRate" :min="0" :max="100" :precision="2" class="w-full" />
+                  </template>
+                </vxe-column>
+                <vxe-column title="不含税单价（自动）" min-width="140">
+                  <template #default="{ row }">
+                    {{ formatMoney(calcPriceWithoutTax(row.purchasePriceWithTax, row.vatTaxRate)) }}
+                  </template>
+                </vxe-column>
+                <vxe-column title="税额" min-width="120">
+                  <template #default="{ row }">
+                    {{ formatMoney(calcTaxAmount(row.purchasePriceWithTax, row.vatTaxRate, row.quantity)) }}
+                  </template>
+                </vxe-column>
+                <vxe-column title="含税小计" min-width="120">
+                  <template #default="{ row }">
+                    {{ formatMoney(calcAmountWithTax(row.purchasePriceWithTax, row.quantity)) }}
+                  </template>
+                </vxe-column>
+                <vxe-column title="不含税小计" min-width="130">
+                  <template #default="{ row }">
+                    {{ formatMoney(calcAmountWithoutTax(row.purchasePriceWithTax, row.vatTaxRate, row.quantity)) }}
+                  </template>
+                </vxe-column>
+                <vxe-column title="历史比价" min-width="300" fixed="right" cell-render>
+                  <template #default="{ row }">
+                    <div v-if="getPriceCompare(row)?.historyCount" class="price-compare-cell">
+                      <div>
+                        同供应商最近含税：
+                        <span class="font-medium">
+                          {{ formatMoney(getPriceCompare(row)?.lastSameSupplierPriceWithTax) }}
+                        </span>
+                        <span class="text-gray-400">
+                          {{ getPriceCompare(row)?.lastSameSupplierOrderCode || "" }}
+                        </span>
+                      </div>
+                      <div>
+                        同供应商最近不含税：
+                        <span class="font-medium">
+                          {{ formatMoney(getPriceCompare(row)?.lastSameSupplierPriceWithoutTax) }}
+                        </span>
+                      </div>
+                      <div class="flex items-center gap-1">
+                        <span>不含税均价：{{ formatMoney(getPriceCompare(row)?.avgHistoryPriceWithoutTax) }}</span>
+                        <n-tag size="small" :type="warningTagType(getPriceCompare(row)?.warningLevel)">
+                          {{ formatDiffPercent(getPriceCompare(row)?.currentVsAvgWithoutTaxRate) }}
+                        </n-tag>
+                      </div>
+                      <div>
+                        历史最低不含税：
+                        <span class="font-medium">
+                          {{ formatMoney(getPriceCompare(row)?.minHistoryPriceWithoutTax) }}
+                        </span>
+                        <span class="text-gray-400">
+                          {{ getPriceCompare(row)?.minHistorySupplierName || "" }}
+                        </span>
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <n-tag size="small" :type="warningTagType(getPriceCompare(row)?.warningLevel)">
+                          {{ getPriceCompare(row)?.warningText }}
+                        </n-tag>
+                        <n-button text size="tiny" type="primary" @click="showPriceHistoryModal(row)">
+                          查看记录
+                        </n-button>
+                      </div>
                     </div>
-                    <div>
-                      同供应商最近不含税：
-                      <span class="font-medium">
-                        {{ formatMoney(getPriceCompare(row)?.lastSameSupplierPriceWithoutTax) }}
-                      </span>
-                    </div>
-                    <div class="flex items-center gap-1">
-                      <span>不含税均价：{{ formatMoney(getPriceCompare(row)?.avgHistoryPriceWithoutTax) }}</span>
-                      <n-tag size="small" :type="warningTagType(getPriceCompare(row)?.warningLevel)">
-                        {{ formatDiffPercent(getPriceCompare(row)?.currentVsAvgWithoutTaxRate) }}
-                      </n-tag>
-                    </div>
-                    <div>
-                      历史最低不含税：
-                      <span class="font-medium">
-                        {{ formatMoney(getPriceCompare(row)?.minHistoryPriceWithoutTax) }}
-                      </span>
-                      <span class="text-gray-400">
-                        {{ getPriceCompare(row)?.minHistorySupplierName || "" }}
-                      </span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                      <n-tag size="small" :type="warningTagType(getPriceCompare(row)?.warningLevel)">
-                        {{ getPriceCompare(row)?.warningText }}
-                      </n-tag>
+                    <div v-else class="flex items-center justify-center gap-2">
+                      <n-tag size="small" type="default">暂无历史价格</n-tag>
                       <n-button text size="tiny" type="primary" @click="showPriceHistoryModal(row)">
                         查看记录
                       </n-button>
                     </div>
-                  </div>
-                  <div v-else class="flex items-center justify-center gap-2">
-                    <n-tag size="small" type="default">暂无历史价格</n-tag>
-                    <n-button text size="tiny" type="primary" @click="showPriceHistoryModal(row)"> 查看记录 </n-button>
-                  </div>
-                </template>
-              </vxe-column>
-              <vxe-column title="价格说明" min-width="220" fixed="right">
-                <template #default="{ row }">
-                  <div class="price-reason-cell">
-                    <n-input
-                      v-model:value="row.priceCompareReason"
-                      :placeholder="priceReasonRequired(row) ? '必填：说明本次价格波动原因' : '选填'"
-                      maxlength="150"
-                      show-count
-                    />
-                    <div v-if="priceReasonRequired(row)" class="price-reason-tip">
-                      {{ priceReasonTip(row) }}
+                  </template>
+                </vxe-column>
+                <vxe-column title="价格说明" min-width="220" fixed="right">
+                  <template #default="{ row }">
+                    <div class="price-reason-cell">
+                      <n-input
+                        v-model:value="row.priceCompareReason"
+                        :placeholder="priceReasonRequired(row) ? '必填：说明本次价格波动原因' : '选填'"
+                        maxlength="150"
+                        show-count
+                      />
+                      <div v-if="priceReasonRequired(row)" class="price-reason-tip">
+                        {{ priceReasonTip(row) }}
+                      </div>
                     </div>
-                  </div>
-                </template>
-              </vxe-column>
-              <vxe-column title="明细备注" min-width="180">
-                <template #default="{ row }">
-                  <n-input v-model:value="row.remark" maxlength="100" />
-                </template>
-              </vxe-column>
-            </vxe-table>
+                  </template>
+                </vxe-column>
+                <vxe-column title="明细备注" min-width="180">
+                  <template #default="{ row }">
+                    <n-input v-model:value="row.remark" maxlength="100" />
+                  </template>
+                </vxe-column>
+              </vxe-table>
             </div>
-            </n-gi>
-          </n-grid>
-        </n-form>
-    <template #footer>
-      <n-flex justify="end">
-        <n-button @click="showConfirm = false">取消</n-button>
-                  <n-button type="primary" :loading="submitting" @click="confirmOrder">提交审批</n-button>
-      </n-flex>
-    </template>
-  </FormModal>
+          </n-gi>
+        </n-grid>
+      </n-form>
+      <template #footer>
+        <n-flex justify="end">
+          <n-button @click="showConfirm = false">取消</n-button>
+          <n-button type="primary" :loading="submitting" @click="confirmOrder">提交审批</n-button>
+        </n-flex>
+      </template>
+    </FormModal>
 
     <FormModal v-model:show="showPriceHistory" title="物料历史采购记录" size="xl">
       <n-spin :show="priceHistoryLoading">
-      <div class="TemplateModal__sections">
-      <n-card :bordered="false" class="detail-card">
-          <div class="history-toolbar">
-            <div>
-              <div class="history-title">{{ priceHistoryData.itemName || "物料" }}</div>
-              <div class="history-subtitle">默认展示当前供应商，可切换查看其他供应商历史价格。</div>
+        <div class="TemplateModal__sections">
+          <n-card :bordered="false" class="detail-card">
+            <div class="history-toolbar">
+              <div>
+                <div class="history-title">{{ priceHistoryData.itemName || "物料" }}</div>
+                <div class="history-subtitle">默认展示当前供应商，可切换查看其他供应商历史价格。</div>
+              </div>
+              <n-select
+                v-model:value="priceHistoryQuery.supplierUid"
+                filterable
+                clearable
+                class="w-[260px]"
+                placeholder="全部供应商"
+                :options="priceHistoryData.supplierOptions || []"
+                @update:value="priceHistorySupplierChange"
+              />
             </div>
-            <n-select
-              v-model:value="priceHistoryQuery.supplierUid"
-              filterable
-              clearable
-              class="w-[260px]"
-              placeholder="全部供应商"
-              :options="priceHistoryData.supplierOptions || []"
-              @update:value="priceHistorySupplierChange"
+            <vxe-table
+              border
+              stripe
+              show-overflow
+              align="center"
+              :size="appStore.componentSize"
+              :loading="priceHistoryLoading"
+              :data="priceHistoryData.list || []"
+              :max-height="TEMPLATE_MODAL_TABLE_DETAIL_MAX"
+            >
+              <vxe-column field="orderCode" title="订单编号" min-width="150" />
+              <vxe-column field="supplierName" title="供应商" min-width="150" />
+              <vxe-column field="orderStatusName" title="订单状态" min-width="110" />
+              <vxe-column field="orderTimeName" title="订单时间" min-width="120" />
+              <vxe-column field="quantity" title="数量" min-width="100" />
+              <vxe-column field="vatTaxRate" title="税率(%)" min-width="100" />
+              <vxe-column title="含税单价" min-width="120">
+                <template #default="{ row }">
+                  {{ formatMoney(row.purchasePriceWithTax) }}
+                </template>
+              </vxe-column>
+              <vxe-column title="不含税单价" min-width="130">
+                <template #default="{ row }">
+                  {{ formatMoney(row.purchasePriceWithoutTax) }}
+                </template>
+              </vxe-column>
+              <vxe-column title="含税小计" min-width="120">
+                <template #default="{ row }">
+                  {{ formatMoney(row.totalAmountWithTax) }}
+                </template>
+              </vxe-column>
+              <vxe-column title="不含税小计" min-width="130">
+                <template #default="{ row }">
+                  {{ formatMoney(row.totalAmountWithoutTax) }}
+                </template>
+              </vxe-column>
+            </vxe-table>
+            <vxe-pager
+              :current-page="priceHistoryQuery.currentPage"
+              :page-size="priceHistoryQuery.pageSize"
+              :total="priceHistoryData.count || 0"
+              :layouts="['PrevPage', 'Number', 'NextPage', 'Sizes', 'Total']"
+              @page-change="priceHistoryPageChange"
             />
-          </div>
-          <vxe-table
-            border
-            stripe
-            show-overflow
-            align="center"
-            :size="appStore.componentSize"
-            :loading="priceHistoryLoading"
-            :data="priceHistoryData.list || []"
-            :max-height="TEMPLATE_MODAL_TABLE_DETAIL_MAX"
-          >
-            <vxe-column field="orderCode" title="订单编号" min-width="150" />
-            <vxe-column field="supplierName" title="供应商" min-width="150" />
-            <vxe-column field="orderStatusName" title="订单状态" min-width="110" />
-            <vxe-column field="orderTimeName" title="订单时间" min-width="120" />
-            <vxe-column field="quantity" title="数量" min-width="100" />
-            <vxe-column field="vatTaxRate" title="税率(%)" min-width="100" />
-            <vxe-column title="含税单价" min-width="120">
-              <template #default="{ row }">
-                {{ formatMoney(row.purchasePriceWithTax) }}
-              </template>
-            </vxe-column>
-            <vxe-column title="不含税单价" min-width="130">
-              <template #default="{ row }">
-                {{ formatMoney(row.purchasePriceWithoutTax) }}
-              </template>
-            </vxe-column>
-            <vxe-column title="含税小计" min-width="120">
-              <template #default="{ row }">
-                {{ formatMoney(row.totalAmountWithTax) }}
-              </template>
-            </vxe-column>
-            <vxe-column title="不含税小计" min-width="130">
-              <template #default="{ row }">
-                {{ formatMoney(row.totalAmountWithoutTax) }}
-              </template>
-            </vxe-column>
-          </vxe-table>
-          <vxe-pager
-            :current-page="priceHistoryQuery.currentPage"
-            :page-size="priceHistoryQuery.pageSize"
-            :total="priceHistoryData.count || 0"
-            :layouts="['PrevPage', 'Number', 'NextPage', 'Sizes', 'Total']"
-            @page-change="priceHistoryPageChange"
-          />
-        </n-card>
-      </div>
+          </n-card>
+        </div>
       </n-spin>
     </FormModal>
   </div>

@@ -1,9 +1,12 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref } from "vue"
+import { useAutoListSearch } from "@/hooks/useAutoListSearch"
 import LCard from "@/components/LCard/index.vue"
 import ListPageToolbar from "@/components/ListPageToolbar/index.vue"
+import ListSearchActions from "@/components/ListSearchActions/index.vue"
 import SearchQueryForm from "@/components/SearchQueryForm/index.vue"
 import FormModal from "@/components/FormModal/index.vue"
+import ListPageTable from "@/components/ListPageTable/index.vue"
 import MCard from "@/components/MCard/index.vue"
 import { useAppStore } from "@/store/modules/app"
 import { FormInst, NButton } from "naive-ui"
@@ -11,9 +14,8 @@ import { DictionaryService } from "@/services/template/DictionaryService"
 import { DictionaryForm, DictionaryQuery, DictionaryVo } from "@/model/template/dictionary"
 import { resetRef } from "@/utils"
 import { UpdateDragSortForm } from "@/model"
+import { ERP_UID_TREE_TABLE_CONFIG } from "@/constants/list-table"
 import { VxeTableInstance, VxeToolbarInstance } from "vxe-table"
-import { Reset, Search } from "@vicons/carbon"
-
 const appStore = useAppStore()
 const componentSize = computed(() => appStore.componentSize as any)
 const TableCardRef = ref()
@@ -54,7 +56,6 @@ function select() {
     })
     .finally(() => {
       loading.value = false
-      VxeTableRef.value?.setAllTreeExpand(true)
     })
 }
 
@@ -116,13 +117,16 @@ function updateSort() {
   })
 }
 
-function search() {
+function doSearch() {
   select()
 }
 
-function reset() {
-  query.value = resetRef(query.value)
-  select()
+const { triggerInputSearch, flushInputSearch, withResetSuppressed } = useAutoListSearch(doSearch)
+
+async function reset() {
+  await withResetSuppressed(async () => {
+    query.value = resetRef(query.value)
+  })
 }
 
 onMounted(() => {
@@ -131,7 +135,7 @@ onMounted(() => {
   const $table = VxeTableRef.value
   const $toolbar = VxeToolbarRef.value
   if ($table && $toolbar) {
-    $table.connect($toolbar)
+    $table?.connect?.($toolbar)
   }
 })
 </script>
@@ -141,36 +145,29 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <SearchQueryForm label-placement="left" ref="queryFormRef" >
-            <n-grid :cols="4" x-gap="12" y-gap="12">
-              <n-gi>
-                <n-form-item label="名称:">
-                  <n-input clearable v-model:value="query.name" />
-                </n-form-item>
-              </n-gi>
-              <n-gi>
-                <n-form-item>
-                  <div class="flex gap-2">
-                    <n-button type="primary" @click="search">
-                      <template #icon>
-                        <n-icon>
-                          <Search />
-                        </n-icon>
-                      </template>
-                      搜索
-                    </n-button>
-                    <n-button @click="reset">
-                      <template #icon>
-                        <n-icon>
-                          <Reset />
-                        </n-icon>
-                      </template>
-                      重置
-                    </n-button>
-                  </div>
-                </n-form-item>
-              </n-gi>
-            </n-grid>
+          <SearchQueryForm
+            label-placement="left"
+            label-align="right"
+            label-width="70"
+            ref="queryFormRef"
+            class="list-search-form"
+          >
+            <div class="flex gap-4">
+              <n-grid :cols="3" :x-gap="12" :y-gap="12">
+                <n-gi>
+                  <n-form-item label="名称">
+                    <n-input
+                      class="w-full"
+                      clearable
+                      v-model:value="query.name"
+                      @update:value="triggerInputSearch"
+                      @keyup.enter="flushInputSearch"
+                    />
+                  </n-form-item>
+                </n-gi>
+              </n-grid>
+              <ListSearchActions @reset="reset" />
+            </div>
           </SearchQueryForm>
         </m-card>
       </template>
@@ -180,15 +177,12 @@ onMounted(() => {
             <n-button type="primary" :size="appStore.searchBarSize" @click="showUpdateModal()">新增字典</n-button>
             <vxe-toolbar ref="VxeToolbarRef" custom />
           </ListPageToolbar>
-          <m-card ref="TableCardRef" class="flex-1">
-            <vxe-table
-              :column-config="{ resizable: true }"
+          <m-card ref="TableCardRef" class="flex-1 erp-list-table-wrap">
+            <ListPageTable
               :data="data"
-              border
-              stripe
               :loading="loading"
               :size="componentSize"
-              :tree-config="{ transform: true, rowField: 'uid', parentField: 'parentUid' }"
+              :tree-config="ERP_UID_TREE_TABLE_CONFIG"
               :row-config="{ drag: true, isHover: true }"
               :height="TableCardMaxHeight"
               :row-drag-config="{
@@ -214,13 +208,19 @@ onMounted(() => {
               <vxe-column fixed="right" title="操作" align="center" show-overflow="tooltip" width="180">
                 <template #default="{ row }">
                   <n-flex justify="center">
-                    <n-button type="primary" text :size="appStore.searchBarSize" @click="showCopyModal(row.uid)">复制</n-button>
-                    <n-button type="info" text :size="appStore.searchBarSize" @click="showUpdateModal(row.uid)">编辑</n-button>
-                    <n-button type="error" text :size="appStore.searchBarSize" @click="showDeleteModal(row.uid)">删除</n-button>
+                    <n-button type="primary" text :size="appStore.searchBarSize" @click="showCopyModal(row.uid)"
+                      >复制</n-button
+                    >
+                    <n-button type="info" text :size="appStore.searchBarSize" @click="showUpdateModal(row.uid)"
+                      >编辑</n-button
+                    >
+                    <n-button type="error" text :size="appStore.searchBarSize" @click="showDeleteModal(row.uid)"
+                      >删除</n-button
+                    >
                   </n-flex>
                 </template>
               </vxe-column>
-            </vxe-table>
+            </ListPageTable>
           </m-card>
         </m-card>
       </template>
@@ -228,7 +228,6 @@ onMounted(() => {
   </div>
   <!-- 弹窗 -->
   <FormModal v-model:show="showUpdate" title="字典信息" size="md" height-mode="auto">
-
     <n-form :model="formData" ref="formRef" :rules="formRule">
       <n-grid cols="1">
         <n-gi>
@@ -268,7 +267,6 @@ onMounted(() => {
     content="确定删除吗?"
     positive-text="确定"
     @positive-click="confirmDelete"
-
   />
 </template>
 

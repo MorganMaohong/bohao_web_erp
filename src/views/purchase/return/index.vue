@@ -1,8 +1,10 @@
 <script lang="ts" setup>
 import { onMounted, ref, watch } from "vue"
+import { useAutoListSearch } from "@/hooks/useAutoListSearch"
 import { useRoute } from "vue-router"
-import { Reset, Search } from "@vicons/carbon"
 import LCard from "@/components/LCard/index.vue"
+import ListPageTable from "@/components/ListPageTable/index.vue"
+import ListSearchActions from "@/components/ListSearchActions/index.vue"
 import SearchQueryForm from "@/components/SearchQueryForm/index.vue"
 import FormModal from "@/components/FormModal/index.vue"
 import MCard from "@/components/MCard/index.vue"
@@ -116,17 +118,20 @@ function getResendOrderUid(index: number) {
   return uids[index]
 }
 
-function search() {
+function doSearch() {
   query.value.currentPage = 1
   select()
 }
 
-function reset() {
-  query.value = resetRef(query.value)
-  query.value.currentPage = 1
-  query.value.pageSize = 20
-  query.value.type = InventOutOrderTypeDict.PURCHASE_RETURN
-  select()
+const { triggerInputSearch, flushInputSearch, triggerSelectSearch, withResetSuppressed } = useAutoListSearch(doSearch)
+
+async function reset() {
+  await withResetSuppressed(async () => {
+    query.value = resetRef(query.value)
+    query.value.currentPage = 1
+    query.value.pageSize = 20
+    query.value.type = InventOutOrderTypeDict.PURCHASE_RETURN
+  })
 }
 
 function pageChange(event: { currentPage: number; pageSize: number }) {
@@ -190,15 +195,19 @@ function validateForm() {
       return false
     }
   }
-  formData.value.detailList = list
   formData.value.type = InventOutOrderTypeDict.PURCHASE_RETURN
   return true
 }
 
 function confirmReturn() {
   if (!validateForm() || submitting.value) return
+  const payload: InventoryOutOrderForm = {
+    ...formData.value,
+    type: InventOutOrderTypeDict.PURCHASE_RETURN,
+    detailList: (formData.value.detailList || []).filter((item) => Number(item.quantity) > 0)
+  }
   submitting.value = true
-  InventoryOutOrderService.complete(formData.value)
+  InventoryOutOrderService.complete(payload)
     .then(() => {
       window.$message?.success("采购退货成功")
       showHandle.value = false
@@ -226,72 +235,61 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <SearchQueryForm label-placement="left" >
-            <n-grid :cols="4" x-gap="12" y-gap="12">
-              <n-gi>
-                <n-form-item label="关键字:">
-                  <n-input v-model:value="query.key" clearable placeholder="退货单号/备注" />
-                </n-form-item>
-              </n-gi>
-              <n-gi>
-                <n-form-item label="退货方式:">
-                  <n-select
-                    v-model:value="query.purchaseReturnType"
-                    clearable
-                    :options="data.extraData?.purchaseReturnTypeOptions || []"
-                    label-field="name"
-                    value-field="uid"
-                  />
-                </n-form-item>
-              </n-gi>
-              <n-gi>
-                <n-form-item label="状态:">
-                  <n-select
-                    v-model:value="query.status"
-                    clearable
-                    :options="data.extraData?.statusOptions || []"
-                    label-field="name"
-                    value-field="uid"
-                  />
-                </n-form-item>
-              </n-gi>
-              <n-gi>
-                <n-form-item>
-                  <div class="flex gap-2">
-                    <n-button type="primary" @click="search">
-                      <template #icon>
-                        <n-icon>
-                          <Search />
-                        </n-icon>
-                      </template>
-                      查询
-                    </n-button>
-                    <n-button @click="reset">
-                      <template #icon>
-                        <n-icon>
-                          <Reset />
-                        </n-icon>
-                      </template>
-                      重置
-                    </n-button>
-                  </div>
-                </n-form-item>
-              </n-gi>
-            </n-grid>
+          <SearchQueryForm label-placement="left" label-align="right" label-width="70" class="list-search-form">
+            <div class="flex gap-4">
+              <n-grid :cols="3" :x-gap="12" :y-gap="12">
+                <n-gi>
+                  <n-form-item label="关键字">
+                    <n-input
+                      class="w-full"
+                      v-model:value="query.key"
+                      clearable
+                      placeholder="退货单号/采购订单/备注"
+                      @update:value="triggerInputSearch"
+                      @keyup.enter="flushInputSearch"
+                    />
+                  </n-form-item>
+                </n-gi>
+                <n-gi>
+                  <n-form-item label="退货方式">
+                    <n-select
+                      class="w-full"
+                      v-model:value="query.purchaseReturnType"
+                      clearable
+                      :options="data.extraData?.purchaseReturnTypeOptions || []"
+                      placeholder="全部"
+                      @update:value="triggerSelectSearch"
+                    />
+                  </n-form-item>
+                </n-gi>
+                <n-gi>
+                  <n-form-item label="状态">
+                    <n-select
+                      class="w-full"
+                      v-model:value="query.status"
+                      clearable
+                      :options="data.extraData?.statusOptions || []"
+                      placeholder="全部"
+                      @update:value="triggerSelectSearch"
+                    />
+                  </n-form-item>
+                </n-gi>
+              </n-grid>
+              <ListSearchActions @reset="reset" />
+            </div>
           </SearchQueryForm>
         </m-card>
       </template>
 
-      <vxe-table
-        border
-        stripe
-        show-overflow
-        :size="appStore.componentSize"
-        align="center"
-        :loading="loading"
-        :data="data.list || []"
-        height="auto"
-      >
+      <div class="erp-list-table-wrap">
+        <ListPageTable
+          show-overflow
+          :size="appStore.componentSize"
+          align="center"
+          :loading="loading"
+          :data="data.list || []"
+          height="auto"
+        >
         <vxe-column field="code" title="采购退货单号" min-width="170">
           <template #default="{ row }">
             <n-button text type="info" @click="showDetailModal(row.uid)">{{ row.code || "-" }}</n-button>
@@ -338,7 +336,8 @@ onMounted(() => {
             </div>
           </template>
         </vxe-column>
-      </vxe-table>
+      </ListPageTable>
+      </div>
 
       <template #footer>
         <vxe-pager
@@ -363,120 +362,120 @@ onMounted(() => {
     </l-card>
 
     <FormModal v-model:show="showHandle" title="采购退货执行" size="xxl" :loading="submitting">
-<n-form :model="formData" class="TemplateForm" label-placement="left" label-width="96">
-          <n-grid cols="2" x-gap="16" y-gap="0">
-            <n-gi span="2">
-              <div class="TemplateForm-section">
-                <div class="TemplateForm-section__title">退货信息</div>
-              </div>
-            </n-gi>
-            <n-gi>
-              <n-form-item label="退货单号">
-                <n-input :value="formData.code" disabled />
-              </n-form-item>
-            </n-gi>
-            <n-gi>
-              <n-form-item label="退货时间">
-                <n-date-picker v-model:value="formData.time" type="datetime" class="w-full" clearable />
-              </n-form-item>
-            </n-gi>
-            <n-gi span="2">
-              <n-form-item label="退货方式">
-                <n-radio-group v-model:value="formData.purchaseReturnType">
-                  <n-space>
-                    <n-radio :value="PurchaseReturnTypeDict.REFUND">退货退款</n-radio>
-                    <n-radio :value="PurchaseReturnTypeDict.RESEND">重新补发</n-radio>
-                  </n-space>
-                </n-radio-group>
-              </n-form-item>
-            </n-gi>
-            <n-gi span="2">
-              <n-form-item label="备注">
-                <n-input v-model:value="formData.remark" type="textarea" placeholder="请输入备注" />
-              </n-form-item>
-            </n-gi>
-            <n-gi v-if="(formData.recordList || []).length" span="2">
-              <div class="TemplateForm-section">
-                <div class="TemplateForm-section__title">历史退货记录</div>
-              </div>
-            </n-gi>
-            <n-gi v-if="(formData.recordList || []).length" span="2">
-          <div
-            class="TemplateForm-table-wrap w-full"
-            :style="{ '--template-form-table-max': `${TEMPLATE_MODAL_TABLE_RECORD_MAX}px` }"
-          >
-          <vxe-table
-            border
-            stripe
-            show-overflow
-            align="center"
-            :size="appStore.componentSize"
-            :data="formData.recordList || []"
-            :max-height="TEMPLATE_MODAL_TABLE_RECORD_MAX"
-          >
-            <vxe-column field="code" title="退货单号" min-width="160" />
-            <vxe-column field="purchaseReturnTypeName" title="退货方式" min-width="120" />
-            <vxe-column field="totalQuantity" title="退货数量" min-width="110" />
-            <vxe-column field="timeName" title="时间" min-width="170" />
-            <vxe-column title="补发订单" min-width="180">
-              <template #default="{ row }">
-                {{ formatCodeList(row.resendOrderCodeList) }}
-              </template>
-            </vxe-column>
-          </vxe-table>
-          </div>
-            </n-gi>
-            <n-gi span="2">
-              <div class="TemplateForm-section">
-                <div class="TemplateForm-section__title">退货明细</div>
-              </div>
-            </n-gi>
-            <n-gi span="2">
-          <div
-            class="TemplateForm-table-wrap w-full"
-            :style="{ '--template-form-table-max': `${TEMPLATE_MODAL_TABLE_MAX}px` }"
-          >
-          <vxe-table
-            border
-            stripe
-            show-overflow
-            align="center"
-            :max-height="TEMPLATE_MODAL_TABLE_MAX"
-            :data="formData.detailList || []"
-          >
-            <vxe-column field="name" title="物料名称" min-width="160" />
-            <vxe-column title="规格1" min-width="150">
-                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
-              </vxe-column>
-              <vxe-column title="规格2" min-width="150">
-                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
-              </vxe-column>
-            <vxe-column field="unitName" title="单位" min-width="90" />
-            <vxe-column field="totalQuantity" title="确认到货" min-width="110" />
-            <vxe-column field="availableQuantity" title="剩余可退" min-width="110" />
-            <vxe-column title="本次退货" min-width="140">
-              <template #default="{ row }">
-                <n-input-number
-                  v-model:value="row.quantity"
-                  :min="0"
-                  :max="Number(row.availableQuantity || 0)"
-                  :precision="2"
-                  class="w-full"
-                />
-              </template>
-            </vxe-column>
-          </vxe-table>
-          </div>
-            </n-gi>
-          </n-grid>
-        </n-form>
-    <template #footer>
-      <n-flex justify="end">
-        <n-button @click="showHandle = false">取消</n-button>
-                  <n-button type="primary" :loading="submitting" @click="confirmReturn">确定退货</n-button>
-      </n-flex>
-    </template>
-  </FormModal>
+      <n-form :model="formData" class="TemplateForm" label-placement="left" label-width="96">
+        <n-grid cols="2" x-gap="16" y-gap="0">
+          <n-gi span="2">
+            <div class="TemplateForm-section">
+              <div class="TemplateForm-section__title">退货信息</div>
+            </div>
+          </n-gi>
+          <n-gi>
+            <n-form-item label="退货单号">
+              <n-input :value="formData.code" disabled />
+            </n-form-item>
+          </n-gi>
+          <n-gi>
+            <n-form-item label="退货时间">
+              <n-date-picker v-model:value="formData.time" type="datetime" class="w-full" clearable />
+            </n-form-item>
+          </n-gi>
+          <n-gi span="2">
+            <n-form-item label="退货方式">
+              <n-radio-group v-model:value="formData.purchaseReturnType">
+                <n-space>
+                  <n-radio :value="PurchaseReturnTypeDict.REFUND">退货退款</n-radio>
+                  <n-radio :value="PurchaseReturnTypeDict.RESEND">重新补发</n-radio>
+                </n-space>
+              </n-radio-group>
+            </n-form-item>
+          </n-gi>
+          <n-gi span="2">
+            <n-form-item label="备注">
+              <n-input v-model:value="formData.remark" type="textarea" placeholder="请输入备注" />
+            </n-form-item>
+          </n-gi>
+          <n-gi v-if="(formData.recordList || []).length" span="2">
+            <div class="TemplateForm-section">
+              <div class="TemplateForm-section__title">历史退货记录</div>
+            </div>
+          </n-gi>
+          <n-gi v-if="(formData.recordList || []).length" span="2">
+            <div
+              class="TemplateForm-table-wrap w-full"
+              :style="{ '--template-form-table-max': `${TEMPLATE_MODAL_TABLE_RECORD_MAX}px` }"
+            >
+              <vxe-table
+                border
+                stripe
+                show-overflow
+                align="center"
+                :size="appStore.componentSize"
+                :data="formData.recordList || []"
+                :max-height="TEMPLATE_MODAL_TABLE_RECORD_MAX"
+              >
+                <vxe-column field="code" title="退货单号" min-width="160" />
+                <vxe-column field="purchaseReturnTypeName" title="退货方式" min-width="120" />
+                <vxe-column field="totalQuantity" title="退货数量" min-width="110" />
+                <vxe-column field="timeName" title="时间" min-width="170" />
+                <vxe-column title="补发订单" min-width="180">
+                  <template #default="{ row }">
+                    {{ formatCodeList(row.resendOrderCodeList) }}
+                  </template>
+                </vxe-column>
+              </vxe-table>
+            </div>
+          </n-gi>
+          <n-gi span="2">
+            <div class="TemplateForm-section">
+              <div class="TemplateForm-section__title">退货明细</div>
+            </div>
+          </n-gi>
+          <n-gi span="2">
+            <div
+              class="TemplateForm-table-wrap w-full"
+              :style="{ '--template-form-table-max': `${TEMPLATE_MODAL_TABLE_MAX}px` }"
+            >
+              <vxe-table
+                border
+                stripe
+                show-overflow
+                align="center"
+                :max-height="TEMPLATE_MODAL_TABLE_MAX"
+                :data="formData.detailList || []"
+              >
+                <vxe-column field="name" title="物料名称" min-width="160" />
+                <vxe-column title="规格1" min-width="150">
+                  <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+                </vxe-column>
+                <vxe-column title="规格2" min-width="150">
+                  <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+                </vxe-column>
+                <vxe-column field="unitName" title="单位" min-width="90" />
+                <vxe-column field="totalQuantity" title="确认到货" min-width="110" />
+                <vxe-column field="availableQuantity" title="剩余可退" min-width="110" />
+                <vxe-column title="本次退货" min-width="140">
+                  <template #default="{ row }">
+                    <n-input-number
+                      v-model:value="row.quantity"
+                      :min="0"
+                      :max="Number(row.availableQuantity || 0)"
+                      :precision="2"
+                      class="w-full"
+                    />
+                  </template>
+                </vxe-column>
+              </vxe-table>
+            </div>
+          </n-gi>
+        </n-grid>
+      </n-form>
+      <template #footer>
+        <n-flex justify="end">
+          <n-button @click="showHandle = false">取消</n-button>
+          <n-button type="primary" :loading="submitting" @click="confirmReturn">确定退货</n-button>
+        </n-flex>
+      </template>
+    </FormModal>
 
     <FormModal v-model:show="showDetail" title="采购退货详情" size="xxl">
       <PurchaseModalDetailShell :loading="loading">
@@ -513,12 +512,7 @@ onMounted(() => {
           </n-descriptions>
         </n-card>
 
-        <n-card
-          v-if="(detailData.recordList || []).length"
-          title="退货操作记录"
-          :bordered="false"
-          class="detail-card"
-        >
+        <n-card v-if="(detailData.recordList || []).length" title="退货操作记录" :bordered="false" class="detail-card">
           <vxe-table
             border
             stripe
@@ -550,11 +544,11 @@ onMounted(() => {
           >
             <vxe-column field="name" title="物料名称" min-width="160" />
             <vxe-column title="规格1" min-width="150">
-                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
-              </vxe-column>
-              <vxe-column title="规格2" min-width="150">
-                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
-              </vxe-column>
+              <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+            </vxe-column>
+            <vxe-column title="规格2" min-width="150">
+              <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+            </vxe-column>
             <vxe-column field="unitName" title="单位" min-width="90" />
             <vxe-column field="quantity" title="退货数量" min-width="110" />
           </vxe-table>
@@ -565,4 +559,3 @@ onMounted(() => {
     <PurchaseOrderRelatedModal v-model:show="showRelatedOrder" :uid="relatedOrder.uid" :code="relatedOrder.code" />
   </div>
 </template>
-

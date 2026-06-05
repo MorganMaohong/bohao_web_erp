@@ -771,12 +771,16 @@ watch(currentTab, () => {
           <n-descriptions-item label="订单编号">{{ detailData.data?.code || "-" }}</n-descriptions-item>
           <n-descriptions-item label="供应商">{{ detailData.data?.supplierName || "-" }}</n-descriptions-item>
           <n-descriptions-item label="订单类型">{{ detailData.data?.orderTypeName || "-" }}</n-descriptions-item>
-          <n-descriptions-item label="状态">{{ detailData.data?.statusName || detailData.statusName || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="状态">{{
+            detailData.data?.statusName || detailData.statusName || "-"
+          }}</n-descriptions-item>
           <n-descriptions-item label="来源申请">{{ detailData.data?.applyOrderCode || "-" }}</n-descriptions-item>
           <n-descriptions-item label="来源订单">{{ detailData.data?.sourceOrderCode || "-" }}</n-descriptions-item>
           <n-descriptions-item label="预计到货">{{ detailData.data?.expectTimeName || "-" }}</n-descriptions-item>
           <n-descriptions-item label="含税总额">{{ formatMoney(detailData.data?.totalAmount) }}</n-descriptions-item>
-          <n-descriptions-item label="不含税总额">{{ formatMoney(detailData.data?.totalAmountWithoutTax) }}</n-descriptions-item>
+          <n-descriptions-item label="不含税总额">{{
+            formatMoney(detailData.data?.totalAmountWithoutTax)
+          }}</n-descriptions-item>
           <n-descriptions-item label="备注" :span="3">{{ detailData.data?.remark || "-" }}</n-descriptions-item>
         </n-descriptions>
         <m-card />
@@ -815,7 +819,11 @@ watch(currentTab, () => {
               </vxe-column>
               <vxe-column title="不含税单价" align="center" width="130">
                 <template #default="{ row }">
-                  {{ formatMoney(row.purchasePriceWithoutTax || calcPriceWithoutTax(row.purchasePriceWithTax, row.vatTaxRate)) }}
+                  {{
+                    formatMoney(
+                      row.purchasePriceWithoutTax || calcPriceWithoutTax(row.purchasePriceWithTax, row.vatTaxRate)
+                    )
+                  }}
                 </template>
               </vxe-column>
               <vxe-column title="含税小计" align="center" width="120">
@@ -833,7 +841,13 @@ watch(currentTab, () => {
                   }}
                 </template>
               </vxe-column>
-              <vxe-column field="priceCompareReason" title="价格说明" align="center" min-width="180" show-overflow="tooltip" />
+              <vxe-column
+                field="priceCompareReason"
+                title="价格说明"
+                align="center"
+                min-width="180"
+                show-overflow="tooltip"
+              />
               <vxe-column field="remark" title="备注" align="center" min-width="180" show-overflow="tooltip" />
             </vxe-table>
           </m-card>
@@ -966,7 +980,9 @@ watch(currentTab, () => {
           <n-descriptions-item label="申请入库时间">{{
             productionPlanData.inboundApplyTime ? formatDateTime(productionPlanData.inboundApplyTime) : "-"
           }}</n-descriptions-item>
-          <n-descriptions-item label="备注" :span="4">{{ productionPlanData.inboundApplyRemark || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="备注" :span="4">{{
+            productionPlanData.inboundApplyRemark || "-"
+          }}</n-descriptions-item>
         </n-descriptions>
         <m-card />
         <div>
@@ -982,6 +998,12 @@ watch(currentTab, () => {
               max-height="420"
             >
               <vxe-column field="productName" title="成品" align="center" min-width="180" />
+              <vxe-column title="规格1" align="center" min-width="140">
+                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+              </vxe-column>
+              <vxe-column title="规格2" align="center" min-width="140">
+                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+              </vxe-column>
               <vxe-column field="warehouseName" title="入库仓库" align="center" min-width="160" />
               <vxe-column field="quantity" title="本次入库数量" align="center" width="140" />
               <vxe-column field="remark" title="备注" align="center" min-width="180" />
@@ -1375,7 +1397,7 @@ watch(currentTab, () => {
     </n-form>
     <template #footer>
       <n-button @click="showLeaderActionModal = false">取消</n-button>
-        <n-button type="primary" @click="confirmLeaderAction">确定</n-button>
+      <n-button type="primary" @click="confirmLeaderAction">确定</n-button>
     </template>
   </FormModal>
 </template>

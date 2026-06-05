@@ -91,11 +91,11 @@ watch(() => [props.show, props.uid, props.code], loadDetail, { immediate: true }
         >
           <vxe-column field="name" title="物料名称" min-width="160" />
           <vxe-column title="规格1" min-width="150">
-                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
-              </vxe-column>
-              <vxe-column title="规格2" min-width="150">
-                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
-              </vxe-column>
+            <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+          </vxe-column>
+          <vxe-column title="规格2" min-width="150">
+            <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+          </vxe-column>
           <vxe-column field="unitName" title="单位" min-width="90" />
           <vxe-column field="quantity" title="入库数量" min-width="110" />
           <vxe-column field="returnedQuantity" title="已退货数量" min-width="110" />

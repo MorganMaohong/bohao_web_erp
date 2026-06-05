@@ -1,10 +1,13 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref } from "vue"
-import { Add, Reset, Search } from "@vicons/carbon"
+import { useAutoListSearch } from "@/hooks/useAutoListSearch"
+import { Add } from "@vicons/carbon"
 import { FormInst } from "naive-ui"
 import { VxeTableInstance } from "vxe-table"
 import LCard from "@/components/LCard/index.vue"
 import ListPageToolbar from "@/components/ListPageToolbar/index.vue"
+import ListPageTable from "@/components/ListPageTable/index.vue"
+import ListSearchActions from "@/components/ListSearchActions/index.vue"
 import SearchQueryForm from "@/components/SearchQueryForm/index.vue"
 import FormModal from "@/components/FormModal/index.vue"
 import MCard from "@/components/MCard/index.vue"
@@ -42,7 +45,14 @@ const outboundFormRef = ref<FormInst>()
 const VxeTableRef = ref<VxeTableInstance>()
 const VxeToolbarRef = ref<any>()
 const VxeItemsRef = ref<VxeTableInstance>()
-const query = ref<SalesOrderQuery>({ currentPage: 1, pageSize: 20, key: "", customerUid: "", status: "", orderType: "" })
+const query = ref<SalesOrderQuery>({
+  currentPage: 1,
+  pageSize: 20,
+  key: "",
+  customerUid: "",
+  status: "",
+  orderType: ""
+})
 const data = ref<PageVo<SalesOrderVo, SalesOrderQueryData>>({
   currentPage: 1,
   pageSize: 20,
@@ -67,7 +77,8 @@ const formRule = {
       if (!formData.value.detailList?.length) return new Error("销售明细不能为空")
       for (const item of formData.value.detailList) {
         if (!item.quantity || item.quantity <= 0) return new Error(`【${item.name}】销售数量必须大于0`)
-        if (!item.salePriceWithTax || item.salePriceWithTax <= 0) return new Error(`【${item.name}】销售含税单价必须大于0`)
+        if (!item.salePriceWithTax || item.salePriceWithTax <= 0)
+          return new Error(`【${item.name}】销售含税单价必须大于0`)
       }
       return true
     },
@@ -82,7 +93,8 @@ const outboundRule = {
       if (!outboundData.value.detailList?.length) return new Error("出库明细不能为空")
       for (const item of outboundData.value.detailList) {
         if (!item.quantity || item.quantity <= 0) return new Error(`【${item.name}】出库数量必须大于0`)
-        if (item.availableQuantity && item.quantity > item.availableQuantity) return new Error(`【${item.name}】出库数量不能大于待出库数量`)
+        if (item.availableQuantity && item.quantity > item.availableQuantity)
+          return new Error(`【${item.name}】出库数量不能大于待出库数量`)
       }
       return true
     },
@@ -106,14 +118,17 @@ function select() {
     })
 }
 
-function search() {
+function doSearch() {
   query.value.currentPage = 1
   select()
 }
 
-function reset() {
-  query.value = { currentPage: 1, pageSize: 20, key: "", customerUid: "", status: "", orderType: "" }
-  select()
+const { triggerInputSearch, flushInputSearch, triggerSelectSearch, withResetSuppressed } = useAutoListSearch(doSearch)
+
+async function reset() {
+  await withResetSuppressed(async () => {
+    query.value = { currentPage: 1, pageSize: 20, key: "", customerUid: "", status: "", orderType: "" }
+  })
 }
 
 function pageChange(event: any) {
@@ -270,7 +285,7 @@ onMounted(() => {
   const $table = VxeTableRef.value
   const $toolbar = VxeToolbarRef.value
   if ($table && $toolbar) {
-    $table.connect($toolbar)
+    $table?.connect?.($toolbar)
   }
 })
 </script>
@@ -280,43 +295,57 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <SearchQueryForm label-placement="left" >
-            <n-grid :cols="5" x-gap="12" y-gap="12">
-              <n-gi>
-                <n-form-item label="关键字:">
-                  <n-input clearable v-model:value="query.key" placeholder="订单号/备注" />
-                </n-form-item>
-              </n-gi>
-              <n-gi>
-                <n-form-item label="客户:">
-                  <n-select clearable v-model:value="query.customerUid" :options="data.extraData?.customerOptions" />
-                </n-form-item>
-              </n-gi>
-              <n-gi>
-                <n-form-item label="状态:">
-                  <n-select clearable v-model:value="query.status" :options="data.extraData?.statusOptions" />
-                </n-form-item>
-              </n-gi>
-              <n-gi>
-                <n-form-item label="类型:">
-                  <n-select clearable v-model:value="query.orderType" :options="data.extraData?.orderTypeOptions" />
-                </n-form-item>
-              </n-gi>
-              <n-gi>
-                <n-form-item>
-                  <div class="flex gap-2">
-                    <n-button type="primary" @click="search">
-                      <template #icon><n-icon><Search /></n-icon></template>
-                      搜索
-                    </n-button>
-                    <n-button @click="reset">
-                      <template #icon><n-icon><Reset /></n-icon></template>
-                      重置
-                    </n-button>
-                  </div>
-                </n-form-item>
-              </n-gi>
-            </n-grid>
+          <SearchQueryForm label-placement="left" label-align="right" label-width="70" class="list-search-form">
+            <div class="flex gap-4">
+              <n-grid :cols="3" :x-gap="12" :y-gap="12">
+                <n-gi>
+                  <n-form-item label="关键字">
+                    <n-input
+                      class="w-full"
+                      clearable
+                      v-model:value="query.key"
+                      placeholder="订单号/备注"
+                      @update:value="triggerInputSearch"
+                      @keyup.enter="flushInputSearch"
+                    />
+                  </n-form-item>
+                </n-gi>
+                <n-gi>
+                  <n-form-item label="客户">
+                    <n-select
+                      class="w-full"
+                      clearable
+                      v-model:value="query.customerUid"
+                      :options="data.extraData?.customerOptions"
+                      @update:value="triggerSelectSearch"
+                    />
+                  </n-form-item>
+                </n-gi>
+                <n-gi>
+                  <n-form-item label="状态">
+                    <n-select
+                      class="w-full"
+                      clearable
+                      v-model:value="query.status"
+                      :options="data.extraData?.statusOptions"
+                      @update:value="triggerSelectSearch"
+                    />
+                  </n-form-item>
+                </n-gi>
+                <n-gi>
+                  <n-form-item label="类型">
+                    <n-select
+                      class="w-full"
+                      clearable
+                      v-model:value="query.orderType"
+                      :options="data.extraData?.orderTypeOptions"
+                      @update:value="triggerSelectSearch"
+                    />
+                  </n-form-item>
+                </n-gi>
+              </n-grid>
+              <ListSearchActions @reset="reset" />
+            </div>
           </SearchQueryForm>
         </m-card>
       </template>
@@ -326,15 +355,11 @@ onMounted(() => {
             <n-button type="primary" :size="appStore.searchBarSize" @click="showUpdateModal()">新增销售订单</n-button>
             <vxe-toolbar ref="VxeToolbarRef" custom />
           </ListPageToolbar>
-          <m-card ref="TableCardRef" class="flex-1">
-            <vxe-table
-              :column-config="{ resizable: true }"
+          <m-card ref="TableCardRef" class="flex-1 erp-list-table-wrap">
+            <ListPageTable
               :data="data.list"
-              border
-              stripe
               :loading="loading"
               :size="componentSize"
-              :row-config="{ isHover: true }"
               :height="TableCardMaxHeight"
               ref="VxeTableRef"
             >
@@ -353,16 +378,53 @@ onMounted(() => {
               <vxe-column fixed="right" title="操作" align="center" width="250">
                 <template #default="{ row }">
                   <n-flex justify="center">
-                    <n-button text type="info" :size="appStore.searchBarSize" @click="showDetailModal(row.uid)">详情</n-button>
-                    <n-button v-if="row.status === SalesOrderStatus.WAIT_CONFIRM" text type="primary" :size="appStore.searchBarSize" @click="showUpdateModal(row.uid)">编辑</n-button>
-                    <n-button v-if="canOutbound(row)" text type="success" :size="appStore.searchBarSize" @click="showOutboundModal(row.uid)">出库</n-button>
-                    <n-button v-if="row.status === SalesOrderStatus.WAIT_CONFIRM" text type="warning" :size="appStore.searchBarSize" @click="cancelOrder(row.uid)">取消</n-button>
-                    <n-button v-if="row.status !== SalesOrderStatus.WAIT_CONFIRM" text type="warning" :size="appStore.searchBarSize" @click="closeOrder(row.uid)">关闭</n-button>
-                    <n-button v-if="row.status === SalesOrderStatus.WAIT_CONFIRM" text type="error" :size="appStore.searchBarSize" @click="showDeleteModal(row.uid)">删除</n-button>
+                    <n-button text type="info" :size="appStore.searchBarSize" @click="showDetailModal(row.uid)"
+                      >详情</n-button
+                    >
+                    <n-button
+                      v-if="row.status === SalesOrderStatus.WAIT_CONFIRM"
+                      text
+                      type="primary"
+                      :size="appStore.searchBarSize"
+                      @click="showUpdateModal(row.uid)"
+                      >编辑</n-button
+                    >
+                    <n-button
+                      v-if="canOutbound(row)"
+                      text
+                      type="success"
+                      :size="appStore.searchBarSize"
+                      @click="showOutboundModal(row.uid)"
+                      >出库</n-button
+                    >
+                    <n-button
+                      v-if="row.status === SalesOrderStatus.WAIT_CONFIRM"
+                      text
+                      type="warning"
+                      :size="appStore.searchBarSize"
+                      @click="cancelOrder(row.uid)"
+                      >取消</n-button
+                    >
+                    <n-button
+                      v-if="row.status !== SalesOrderStatus.WAIT_CONFIRM"
+                      text
+                      type="warning"
+                      :size="appStore.searchBarSize"
+                      @click="closeOrder(row.uid)"
+                      >关闭</n-button
+                    >
+                    <n-button
+                      v-if="row.status === SalesOrderStatus.WAIT_CONFIRM"
+                      text
+                      type="error"
+                      :size="appStore.searchBarSize"
+                      @click="showDeleteModal(row.uid)"
+                      >删除</n-button
+                    >
                   </n-flex>
                 </template>
               </vxe-column>
-            </vxe-table>
+            </ListPageTable>
           </m-card>
         </m-card>
       </template>
@@ -373,7 +435,18 @@ onMounted(() => {
             v-model:currentPage="data.currentPage"
             v-model:pageSize="data.pageSize"
             :total="data.count"
-            :layouts="['Home', 'PrevJump', 'PrevPage', 'Number', 'NextPage', 'NextJump', 'End', 'Sizes', 'FullJump', 'Total']"
+            :layouts="[
+              'Home',
+              'PrevJump',
+              'PrevPage',
+              'Number',
+              'NextPage',
+              'NextJump',
+              'End',
+              'Sizes',
+              'FullJump',
+              'Total'
+            ]"
             @page-change="pageChange"
           />
         </m-card>
@@ -382,7 +455,6 @@ onMounted(() => {
   </div>
 
   <FormModal v-model:show="showUpdate" title="销售订单" size="xl">
-
     <n-form :model="formData" ref="formRef" :rules="formRule">
       <n-grid cols="4" x-gap="12">
         <n-gi>
@@ -392,12 +464,20 @@ onMounted(() => {
         </n-gi>
         <n-gi>
           <n-form-item label="客户" path="customerUid">
-            <n-select v-model:value="formData.customerUid" :disabled="!canEditForm" :options="formData.customerOptions" />
+            <n-select
+              v-model:value="formData.customerUid"
+              :disabled="!canEditForm"
+              :options="formData.customerOptions"
+            />
           </n-form-item>
         </n-gi>
         <n-gi>
           <n-form-item label="订单类型">
-            <n-select v-model:value="formData.orderType" :disabled="!canEditForm" :options="formData.orderTypeOptions" />
+            <n-select
+              v-model:value="formData.orderType"
+              :disabled="!canEditForm"
+              :options="formData.orderTypeOptions"
+            />
           </n-form-item>
         </n-gi>
         <n-gi>
@@ -421,18 +501,20 @@ onMounted(() => {
           <div class="mb-2 flex justify-between items-center">
             <span class="font-medium">销售明细</span>
             <n-button v-if="canEditForm" type="info" secondary @click="showItemsModal">
-              <template #icon><n-icon><Add /></n-icon></template>
+              <template #icon
+                ><n-icon><Add /></n-icon
+              ></template>
               选择物料
             </n-button>
           </div>
           <vxe-table :data="formData.detailList" border :size="componentSize">
             <vxe-column field="name" title="物料" min-width="160" show-overflow="tooltip" />
             <vxe-column title="规格1" width="120" show-overflow="tooltip">
-                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
-              </vxe-column>
-              <vxe-column title="规格2" width="120" show-overflow="tooltip">
-                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
-              </vxe-column>
+              <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+            </vxe-column>
+            <vxe-column title="规格2" width="120" show-overflow="tooltip">
+              <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+            </vxe-column>
             <vxe-column field="unitName" title="单位" width="90" />
             <vxe-column field="quantity" title="数量" width="140">
               <template #default="{ row }">
@@ -446,7 +528,12 @@ onMounted(() => {
             </vxe-column>
             <vxe-column field="salePriceWithTax" title="含税单价" width="150">
               <template #default="{ row }">
-                <n-input-number v-model:value="row.salePriceWithTax" :disabled="!canEditForm" :min="0" :show-button="false" />
+                <n-input-number
+                  v-model:value="row.salePriceWithTax"
+                  :disabled="!canEditForm"
+                  :min="0"
+                  :show-button="false"
+                />
               </template>
             </vxe-column>
             <vxe-column field="remark" title="备注" min-width="150">
@@ -475,7 +562,6 @@ onMounted(() => {
   </FormModal>
 
   <FormModal v-model:show="showItems" title="选择物料" size="lg">
-
     <n-form inline :size="appStore.searchBarSize">
       <n-form-item label="关键字">
         <n-input v-model:value="itemsQuery.key" clearable placeholder="名称/编码" />
@@ -489,11 +575,11 @@ onMounted(() => {
       <vxe-column field="code" title="编码" width="130" />
       <vxe-column field="name" title="名称" min-width="160" />
       <vxe-column title="规格1" width="130">
-                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
-              </vxe-column>
-              <vxe-column title="规格2" width="130">
-                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
-              </vxe-column>
+        <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+      </vxe-column>
+      <vxe-column title="规格2" width="130">
+        <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+      </vxe-column>
       <vxe-column field="unitName" title="单位" width="90" />
       <vxe-column field="purchasePriceWithTax" title="参考含税价" width="130" />
     </vxe-table>
@@ -565,11 +651,11 @@ onMounted(() => {
     <vxe-table :data="detailData.detailList" border :size="componentSize" max-height="300">
       <vxe-column field="name" title="物料" min-width="160" />
       <vxe-column title="规格1" width="120">
-                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
-              </vxe-column>
-              <vxe-column title="规格2" width="120">
-                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
-              </vxe-column>
+        <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+      </vxe-column>
+      <vxe-column title="规格2" width="120">
+        <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+      </vxe-column>
       <vxe-column field="unitName" title="单位" width="90" />
       <vxe-column field="quantity" title="数量" width="100" />
       <vxe-column field="outboundQuantity" title="已出库" width="100" />
@@ -597,7 +683,6 @@ onMounted(() => {
     content="确定删除吗?"
     positive-text="确定"
     @positive-click="confirmDelete"
-   
   />
 </template>
 

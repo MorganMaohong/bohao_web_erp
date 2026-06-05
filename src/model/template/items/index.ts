@@ -9,9 +9,10 @@ export interface ItemsBase extends BaseEntityLd {
   unit?: string
   itemBizType?: string
   spec?: string
+  spec1Uid?: string
+  spec2Uid?: string
   spec1Name?: string
   spec2Name?: string
-  specUids?: string
   material?: string
   brand?: string
   brandUid?: string
@@ -37,9 +38,6 @@ export interface ItemsVo extends Items {
 }
 
 export interface ItemsForm extends Items {
-  specUidList?: string[]
-  spec1Uid?: string
-  spec2Uid?: string
   typeOptions?: TreeOptionVo[]
   unitOptions?: TreeOptionVo[]
   supplierOptions?: OptionVo[]
@@ -52,6 +50,7 @@ export interface ItemsForm extends Items {
 
 export interface ItemsQuery extends PageQuery {
   key?: string
+  code?: string
   type?: string
   unit?: string
   warehouseUid?: string

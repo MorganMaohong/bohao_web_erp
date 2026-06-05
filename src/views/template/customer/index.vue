@@ -1,10 +1,12 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref } from "vue"
-import { Reset, Search } from "@vicons/carbon"
+import { useAutoListSearch } from "@/hooks/useAutoListSearch"
 import { FormInst } from "naive-ui"
 import { VxeTableInstance } from "vxe-table"
 import FormModal from "@/components/FormModal/index.vue"
+import ListPageTable from "@/components/ListPageTable/index.vue"
 import ListPageToolbar from "@/components/ListPageToolbar/index.vue"
+import ListSearchActions from "@/components/ListSearchActions/index.vue"
 import SearchQueryForm from "@/components/SearchQueryForm/index.vue"
 import LCard from "@/components/LCard/index.vue"
 import MCard from "@/components/MCard/index.vue"
@@ -50,14 +52,17 @@ function select() {
     })
 }
 
-function search() {
+function doSearch() {
   query.value.currentPage = 1
   select()
 }
 
-function reset() {
-  query.value = { currentPage: 1, pageSize: 50 }
-  select()
+const { triggerInputSearch, flushInputSearch, withResetSuppressed } = useAutoListSearch(doSearch)
+
+async function reset() {
+  await withResetSuppressed(async () => {
+    query.value = { currentPage: 1, pageSize: 50 }
+  })
 }
 
 function pageChange(event: any) {
@@ -113,7 +118,7 @@ onMounted(() => {
   const $table = VxeTableRef.value
   const $toolbar = VxeToolbarRef.value
   if ($table && $toolbar) {
-    $table.connect($toolbar)
+    $table?.connect?.($toolbar)
   }
 })
 </script>
@@ -123,32 +128,24 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <SearchQueryForm label-placement="left" >
-            <n-grid :cols="4" x-gap="12" y-gap="12">
-              <n-gi>
-                <n-form-item label="客户:">
-                  <n-input clearable v-model:value="query.name" placeholder="名称/编码/联系人/电话" />
-                </n-form-item>
-              </n-gi>
-              <n-gi>
-                <n-form-item>
-                  <div class="flex gap-2">
-                    <n-button type="primary" @click="search">
-                      <template #icon>
-                        <n-icon><Search /></n-icon>
-                      </template>
-                      搜索
-                    </n-button>
-                    <n-button @click="reset">
-                      <template #icon>
-                        <n-icon><Reset /></n-icon>
-                      </template>
-                      重置
-                    </n-button>
-                  </div>
-                </n-form-item>
-              </n-gi>
-            </n-grid>
+          <SearchQueryForm label-placement="left" label-align="right" label-width="70" class="list-search-form">
+            <div class="flex gap-4">
+              <n-grid :cols="3" :x-gap="12" :y-gap="12">
+                <n-gi>
+                  <n-form-item label="客户">
+                    <n-input
+                      class="w-full"
+                      clearable
+                      v-model:value="query.name"
+                      placeholder="名称/编码/联系人/电话"
+                      @update:value="triggerInputSearch"
+                      @keyup.enter="flushInputSearch"
+                    />
+                  </n-form-item>
+                </n-gi>
+              </n-grid>
+              <ListSearchActions @reset="reset" />
+            </div>
           </SearchQueryForm>
         </m-card>
       </template>
@@ -158,15 +155,11 @@ onMounted(() => {
             <n-button type="primary" :size="appStore.searchBarSize" @click="showUpdateModal()">新增客户</n-button>
             <vxe-toolbar ref="VxeToolbarRef" custom />
           </ListPageToolbar>
-          <m-card ref="TableCardRef" class="flex-1">
-            <vxe-table
-              :column-config="{ resizable: true }"
+          <m-card ref="TableCardRef" class="flex-1 erp-list-table-wrap">
+            <ListPageTable
               :data="data.list"
-              border
-              stripe
               :loading="loading"
               :size="componentSize"
-              :row-config="{ isHover: true }"
               :height="TableCardMaxHeight"
               ref="VxeTableRef"
             >
@@ -182,12 +175,16 @@ onMounted(() => {
               <vxe-column fixed="right" title="操作" align="center" show-overflow="tooltip" width="150">
                 <template #default="{ row }">
                   <n-flex justify="center">
-                    <n-button type="info" text :size="appStore.searchBarSize" @click="showUpdateModal(row.uid)">编辑</n-button>
-                    <n-button type="error" text :size="appStore.searchBarSize" @click="showDeleteModal(row.uid)">删除</n-button>
+                    <n-button type="info" text :size="appStore.searchBarSize" @click="showUpdateModal(row.uid)"
+                      >编辑</n-button
+                    >
+                    <n-button type="error" text :size="appStore.searchBarSize" @click="showDeleteModal(row.uid)"
+                      >删除</n-button
+                    >
                   </n-flex>
                 </template>
               </vxe-column>
-            </vxe-table>
+            </ListPageTable>
           </m-card>
         </m-card>
       </template>
@@ -198,7 +195,18 @@ onMounted(() => {
             v-model:currentPage="data.currentPage"
             v-model:pageSize="data.pageSize"
             :total="data.count"
-            :layouts="['Home', 'PrevJump', 'PrevPage', 'Number', 'NextPage', 'NextJump', 'End', 'Sizes', 'FullJump', 'Total']"
+            :layouts="[
+              'Home',
+              'PrevJump',
+              'PrevPage',
+              'Number',
+              'NextPage',
+              'NextJump',
+              'End',
+              'Sizes',
+              'FullJump',
+              'Total'
+            ]"
             @page-change="pageChange"
           />
         </m-card>

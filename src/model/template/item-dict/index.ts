@@ -46,6 +46,7 @@ export interface ItemDictPickerVo {
 
 export interface ItemCodeBuildForm {
   categoryUid?: string
-  specUids?: string[]
+  spec1Uid?: string
+  spec2Uid?: string
   brandUid?: string
 }

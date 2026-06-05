@@ -1,10 +1,12 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref } from "vue"
+import { useAutoListSearch } from "@/hooks/useAutoListSearch"
 import { FormInst } from "naive-ui"
-import { Reset, Search } from "@vicons/carbon"
 import { VxeTableInstance, VxeToolbarInstance } from "vxe-table"
 import FormModal from "@/components/FormModal/index.vue"
+import ListPageTable from "@/components/ListPageTable/index.vue"
 import ListPageToolbar from "@/components/ListPageToolbar/index.vue"
+import ListSearchActions from "@/components/ListSearchActions/index.vue"
 import SearchQueryForm from "@/components/SearchQueryForm/index.vue"
 import LCard from "@/components/LCard/index.vue"
 import MCard from "@/components/MCard/index.vue"
@@ -136,14 +138,17 @@ function confirmDelete() {
     })
 }
 
-function search() {
+function doSearch() {
   query.value.currentPage = 1
   select()
 }
 
-function reset() {
-  query.value = { currentPage: 1, pageSize: 50 }
-  select()
+const { triggerInputSearch, flushInputSearch, triggerSelectSearch, withResetSuppressed } = useAutoListSearch(doSearch)
+
+async function reset() {
+  await withResetSuppressed(async () => {
+    query.value = { currentPage: 1, pageSize: 50 }
+  })
 }
 
 function pageChange(event: { currentPage: number; pageSize: number }) {
@@ -158,7 +163,7 @@ onMounted(() => {
   const $table = VxeTableRef.value
   const $toolbar = VxeToolbarRef.value
   if ($table && $toolbar) {
-    $table.connect($toolbar)
+    $table?.connect?.($toolbar)
   }
 })
 </script>
@@ -168,46 +173,46 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <SearchQueryForm label-placement="left" >
-            <n-grid :cols="4" x-gap="12" y-gap="12">
-              <n-gi>
-                <n-form-item label="关键词:">
-                  <n-input v-model:value="query.key" clearable placeholder="编码 / 名称" />
-                </n-form-item>
-              </n-gi>
-              <n-gi>
-                <n-form-item label="分类:">
-                  <n-select v-model:value="query.category" clearable :options="categoryOptions" />
-                </n-form-item>
-              </n-gi>
-              <n-gi>
-                <n-form-item label="状态:">
-                  <n-select v-model:value="query.enabled" clearable :options="enabledOptions" />
-                </n-form-item>
-              </n-gi>
-              <n-gi>
-                <n-form-item>
-                  <div class="flex gap-2">
-                    <n-button type="primary" @click="search">
-                      <template #icon>
-                        <n-icon>
-                          <Search />
-                        </n-icon>
-                      </template>
-                      搜索
-                    </n-button>
-                    <n-button @click="reset">
-                      <template #icon>
-                        <n-icon>
-                          <Reset />
-                        </n-icon>
-                      </template>
-                      重置
-                    </n-button>
-                  </div>
-                </n-form-item>
-              </n-gi>
-            </n-grid>
+          <SearchQueryForm label-placement="left" label-align="right" label-width="70" class="list-search-form">
+            <div class="flex gap-4">
+              <n-grid :cols="3" :x-gap="12" :y-gap="12">
+                <n-gi>
+                  <n-form-item label="关键词">
+                    <n-input
+                      class="w-full"
+                      v-model:value="query.key"
+                      clearable
+                      placeholder="编码 / 名称"
+                      @update:value="triggerInputSearch"
+                      @keyup.enter="flushInputSearch"
+                    />
+                  </n-form-item>
+                </n-gi>
+                <n-gi>
+                  <n-form-item label="分类">
+                    <n-select
+                      class="w-full"
+                      v-model:value="query.category"
+                      clearable
+                      :options="categoryOptions"
+                      @update:value="triggerSelectSearch"
+                    />
+                  </n-form-item>
+                </n-gi>
+                <n-gi>
+                  <n-form-item label="状态">
+                    <n-select
+                      class="w-full"
+                      v-model:value="query.enabled"
+                      clearable
+                      :options="enabledOptions"
+                      @update:value="triggerSelectSearch"
+                    />
+                  </n-form-item>
+                </n-gi>
+              </n-grid>
+              <ListSearchActions @reset="reset" />
+            </div>
           </SearchQueryForm>
         </m-card>
       </template>
@@ -218,16 +223,12 @@ onMounted(() => {
             <n-button type="primary" :size="appStore.searchBarSize" @click="showUpdateModal()">新增单位</n-button>
             <vxe-toolbar ref="VxeToolbarRef" custom />
           </ListPageToolbar>
-          <m-card ref="TableCardRef" class="flex-1">
-            <vxe-table
+          <m-card ref="TableCardRef" class="flex-1 erp-list-table-wrap">
+            <ListPageTable
               ref="VxeTableRef"
-              :column-config="{ resizable: true }"
               :data="data.list"
-              border
-              stripe
               :loading="loading"
               :height="TableCardMaxHeight"
-              :row-config="{ isHover: true }"
               :size="componentSize"
             >
               <vxe-column field="code" title="编码" align="center" show-overflow="tooltip" min-width="120" />
@@ -254,13 +255,19 @@ onMounted(() => {
               <vxe-column fixed="right" title="操作" align="center" width="180">
                 <template #default="{ row }">
                   <n-flex justify="center">
-                    <n-button type="primary" text :size="appStore.searchBarSize" @click="showCopyModal(row.uid)">复制</n-button>
-                    <n-button type="info" text :size="appStore.searchBarSize" @click="showUpdateModal(row.uid)">编辑</n-button>
-                    <n-button type="error" text :size="appStore.searchBarSize" @click="showDeleteModal(row.uid)">删除</n-button>
+                    <n-button type="primary" text :size="appStore.searchBarSize" @click="showCopyModal(row.uid)"
+                      >复制</n-button
+                    >
+                    <n-button type="info" text :size="appStore.searchBarSize" @click="showUpdateModal(row.uid)"
+                      >编辑</n-button
+                    >
+                    <n-button type="error" text :size="appStore.searchBarSize" @click="showDeleteModal(row.uid)"
+                      >删除</n-button
+                    >
                   </n-flex>
                 </template>
               </vxe-column>
-            </vxe-table>
+            </ListPageTable>
           </m-card>
         </m-card>
       </template>
@@ -310,12 +317,7 @@ onMounted(() => {
         </n-gi>
         <n-gi>
           <n-form-item label="单位分类">
-            <n-select
-              v-model:value="formData.category"
-              clearable
-              placeholder="请选择分类"
-              :options="categoryOptions"
-            />
+            <n-select v-model:value="formData.category" clearable placeholder="请选择分类" :options="categoryOptions" />
           </n-form-item>
         </n-gi>
         <n-gi>
@@ -383,7 +385,13 @@ onMounted(() => {
         </n-gi>
         <n-gi>
           <n-form-item label="排序">
-            <n-input-number v-model:value="formData.sort" class="w-full" placeholder="排序值" :min="0" :show-button="false" />
+            <n-input-number
+              v-model:value="formData.sort"
+              class="w-full"
+              placeholder="排序值"
+              :min="0"
+              :show-button="false"
+            />
           </n-form-item>
         </n-gi>
         <n-gi span="2">

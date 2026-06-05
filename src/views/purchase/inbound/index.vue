@@ -1,8 +1,10 @@
 <script lang="ts" setup>
 import { onMounted, ref, watch } from "vue"
+import { useAutoListSearch } from "@/hooks/useAutoListSearch"
 import { useRoute } from "vue-router"
-import { Reset, Search } from "@vicons/carbon"
 import LCard from "@/components/LCard/index.vue"
+import ListPageTable from "@/components/ListPageTable/index.vue"
+import ListSearchActions from "@/components/ListSearchActions/index.vue"
 import SearchQueryForm from "@/components/SearchQueryForm/index.vue"
 import FormModal from "@/components/FormModal/index.vue"
 import MCard from "@/components/MCard/index.vue"
@@ -20,10 +22,7 @@ import { OptionVo } from "@/model"
 import { resetRef } from "@/utils"
 import { useAppStore } from "@/store/modules/app"
 import { InventInOrderStatusDict, InventInOrderTypeDict } from "@/constants/enum"
-import {
-  TEMPLATE_MODAL_TABLE_MAX,
-  TEMPLATE_MODAL_TABLE_DETAIL_MAX
-} from "@/constants/template-ui"
+import { TEMPLATE_MODAL_TABLE_MAX, TEMPLATE_MODAL_TABLE_DETAIL_MAX } from "@/constants/template-ui"
 import PurchaseOrderRelatedModal from "@/views/purchase/components/PurchaseOrderRelatedModal.vue"
 import PurchaseModalDetailShell from "@/views/purchase/components/PurchaseModalDetailShell.vue"
 
@@ -114,17 +113,20 @@ function openRelatedOrder(uid?: string, code?: string) {
   showRelatedOrder.value = true
 }
 
-function search() {
+function doSearch() {
   query.value.currentPage = 1
   select()
 }
 
-function reset() {
-  query.value = resetRef(query.value)
-  query.value.currentPage = 1
-  query.value.pageSize = 20
-  query.value.type = InventInOrderTypeDict.PURCHASE_INBOUND
-  select()
+const { triggerInputSearch, flushInputSearch, triggerSelectSearch, withResetSuppressed } = useAutoListSearch(doSearch)
+
+async function reset() {
+  await withResetSuppressed(async () => {
+    query.value = resetRef(query.value)
+    query.value.currentPage = 1
+    query.value.pageSize = 20
+    query.value.type = InventInOrderTypeDict.PURCHASE_INBOUND
+  })
 }
 
 function pageChange(event: { currentPage: number; pageSize: number }) {
@@ -187,15 +189,19 @@ function validateForm() {
       return false
     }
   }
-  formData.value.detailList = list
   formData.value.type = InventInOrderTypeDict.PURCHASE_INBOUND
   return true
 }
 
 function confirmInbound() {
   if (!validateForm() || submitting.value) return
+  const payload: InventoryInOrderForm = {
+    ...formData.value,
+    type: InventInOrderTypeDict.PURCHASE_INBOUND,
+    detailList: (formData.value.detailList || []).filter((item) => Number(item.quantity) > 0)
+  }
   submitting.value = true
-  InventoryInOrderService.complete(formData.value)
+  InventoryInOrderService.complete(payload)
     .then(() => {
       window.$message?.success("采购入库成功")
       showHandle.value = false
@@ -224,61 +230,49 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <SearchQueryForm label-placement="left" >
-            <n-grid :cols="4" x-gap="12" y-gap="12">
-              <n-gi>
-                <n-form-item label="关键字:">
-                  <n-input v-model:value="query.key" clearable placeholder="入库单号/备注" />
-                </n-form-item>
-              </n-gi>
-              <n-gi>
-                <n-form-item label="状态:">
-                  <n-select
-                    v-model:value="query.status"
-                    clearable
-                    :options="data.extraData?.statusOptions || []"
-                    label-field="name"
-                    value-field="uid"
-                  />
-                </n-form-item>
-              </n-gi>
-              <n-gi>
-                <n-form-item>
-                  <div class="flex gap-2">
-                    <n-button type="primary" @click="search">
-                      <template #icon>
-                        <n-icon>
-                          <Search />
-                        </n-icon>
-                      </template>
-                      查询
-                    </n-button>
-                    <n-button @click="reset">
-                      <template #icon>
-                        <n-icon>
-                          <Reset />
-                        </n-icon>
-                      </template>
-                      重置
-                    </n-button>
-                  </div>
-                </n-form-item>
-              </n-gi>
-            </n-grid>
+          <SearchQueryForm label-placement="left" label-align="right" label-width="70" class="list-search-form">
+            <div class="flex gap-4">
+              <n-grid :cols="3" :x-gap="12" :y-gap="12">
+                <n-gi>
+                  <n-form-item label="关键字">
+                    <n-input
+                      class="w-full"
+                      v-model:value="query.key"
+                      clearable
+                      placeholder="入库单号/采购订单/备注"
+                      @update:value="triggerInputSearch"
+                      @keyup.enter="flushInputSearch"
+                    />
+                  </n-form-item>
+                </n-gi>
+                <n-gi>
+                  <n-form-item label="状态">
+                    <n-select
+                      class="w-full"
+                      v-model:value="query.status"
+                      clearable
+                      :options="data.extraData?.statusOptions || []"
+                      placeholder="全部"
+                      @update:value="triggerSelectSearch"
+                    />
+                  </n-form-item>
+                </n-gi>
+              </n-grid>
+              <ListSearchActions @reset="reset" />
+            </div>
           </SearchQueryForm>
         </m-card>
       </template>
 
-      <vxe-table
-        border
-        stripe
-        show-overflow
-        align="center"
-        :size="appStore.componentSize"
-        :loading="loading"
-        :data="data.list || []"
-        height="auto"
-      >
+      <div class="erp-list-table-wrap">
+        <ListPageTable
+          show-overflow
+          align="center"
+          :size="appStore.componentSize"
+          :loading="loading"
+          :data="data.list || []"
+          height="auto"
+        >
         <vxe-column field="code" title="采购入库单号" min-width="170">
           <template #default="{ row }">
             <n-button text type="info" @click="showDetailModal(row.uid)">{{ row.code || "-" }}</n-button>
@@ -309,7 +303,8 @@ onMounted(() => {
             </div>
           </template>
         </vxe-column>
-      </vxe-table>
+      </ListPageTable>
+      </div>
 
       <template #footer>
         <vxe-pager
@@ -334,92 +329,92 @@ onMounted(() => {
     </l-card>
 
     <FormModal v-model:show="showHandle" title="采购入库执行" size="xxl" :loading="submitting">
-<n-form :model="formData" class="TemplateForm" label-placement="left" label-width="96">
-          <n-grid cols="2" x-gap="16" y-gap="0">
-            <n-gi span="2">
-              <div class="TemplateForm-section">
-                <div class="TemplateForm-section__title">入库信息</div>
-              </div>
-            </n-gi>
-            <n-gi>
-              <n-form-item label="入库单号">
-                <n-input :value="formData.code" disabled />
-              </n-form-item>
-            </n-gi>
-            <n-gi>
-              <n-form-item label="入库时间">
-                <n-date-picker v-model:value="formData.time" type="datetime" class="w-full" clearable />
-              </n-form-item>
-            </n-gi>
-            <n-gi>
-              <n-form-item label="入库仓库">
-                <n-select
-                  v-model:value="formData.warehouseUid"
-                  :options="warehouseOptions"
-                  filterable
-                  clearable
-                  placeholder="请选择入库仓库"
-                  class="w-full"
-                />
-              </n-form-item>
-            </n-gi>
-            <n-gi span="2">
-              <n-form-item label="备注">
-                <n-input v-model:value="formData.remark" type="textarea" placeholder="请输入备注" />
-              </n-form-item>
-            </n-gi>
-            <n-gi span="2">
-              <div class="TemplateForm-section TemplateForm-section__head">
-                <div class="TemplateForm-section__title">入库明细</div>
-                <n-button type="info" secondary @click="useAllInbound">全部入库</n-button>
-              </div>
-            </n-gi>
-            <n-gi span="2">
-          <div
-            class="TemplateForm-table-wrap w-full"
-            :style="{ '--template-form-table-max': `${TEMPLATE_MODAL_TABLE_MAX}px` }"
-          >
-          <vxe-table
-            border
-            stripe
-            show-overflow
-            align="center"
-            :max-height="TEMPLATE_MODAL_TABLE_MAX"
-            :data="formData.detailList || []"
-          >
-            <vxe-column field="name" title="物料名称" min-width="160" />
-            <vxe-column title="规格1" min-width="150">
-                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
-              </vxe-column>
-              <vxe-column title="规格2" min-width="150">
-                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
-              </vxe-column>
-            <vxe-column field="unitName" title="单位" min-width="90" />
-            <vxe-column field="totalQuantity" title="订单数量" min-width="110" />
-            <vxe-column field="availableQuantity" title="剩余可入库" min-width="110" />
-            <vxe-column title="本次入库" min-width="140">
-              <template #default="{ row }">
-                <n-input-number
-                  v-model:value="row.quantity"
-                  :min="0"
-                  :max="Number(row.availableQuantity || 0)"
-                  :precision="2"
-                  class="w-full"
-                />
-              </template>
-            </vxe-column>
-          </vxe-table>
-          </div>
-            </n-gi>
-          </n-grid>
-        </n-form>
-    <template #footer>
-      <n-flex justify="end">
-        <n-button @click="showHandle = false">取消</n-button>
-                  <n-button type="primary" :loading="submitting" @click="confirmInbound">确定入库</n-button>
-      </n-flex>
-    </template>
-  </FormModal>
+      <n-form :model="formData" class="TemplateForm" label-placement="left" label-width="96">
+        <n-grid cols="2" x-gap="16" y-gap="0">
+          <n-gi span="2">
+            <div class="TemplateForm-section">
+              <div class="TemplateForm-section__title">入库信息</div>
+            </div>
+          </n-gi>
+          <n-gi>
+            <n-form-item label="入库单号">
+              <n-input :value="formData.code" disabled />
+            </n-form-item>
+          </n-gi>
+          <n-gi>
+            <n-form-item label="入库时间">
+              <n-date-picker v-model:value="formData.time" type="datetime" class="w-full" clearable />
+            </n-form-item>
+          </n-gi>
+          <n-gi>
+            <n-form-item label="入库仓库">
+              <n-select
+                v-model:value="formData.warehouseUid"
+                :options="warehouseOptions"
+                filterable
+                clearable
+                placeholder="请选择入库仓库"
+                class="w-full"
+              />
+            </n-form-item>
+          </n-gi>
+          <n-gi span="2">
+            <n-form-item label="备注">
+              <n-input v-model:value="formData.remark" type="textarea" placeholder="请输入备注" />
+            </n-form-item>
+          </n-gi>
+          <n-gi span="2">
+            <div class="TemplateForm-section TemplateForm-section__head">
+              <div class="TemplateForm-section__title">入库明细</div>
+              <n-button type="info" secondary @click="useAllInbound">全部入库</n-button>
+            </div>
+          </n-gi>
+          <n-gi span="2">
+            <div
+              class="TemplateForm-table-wrap w-full"
+              :style="{ '--template-form-table-max': `${TEMPLATE_MODAL_TABLE_MAX}px` }"
+            >
+              <vxe-table
+                border
+                stripe
+                show-overflow
+                align="center"
+                :max-height="TEMPLATE_MODAL_TABLE_MAX"
+                :data="formData.detailList || []"
+              >
+                <vxe-column field="name" title="物料名称" min-width="160" />
+                <vxe-column title="规格1" min-width="150">
+                  <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+                </vxe-column>
+                <vxe-column title="规格2" min-width="150">
+                  <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+                </vxe-column>
+                <vxe-column field="unitName" title="单位" min-width="90" />
+                <vxe-column field="totalQuantity" title="订单数量" min-width="110" />
+                <vxe-column field="availableQuantity" title="剩余可入库" min-width="110" />
+                <vxe-column title="本次入库" min-width="140">
+                  <template #default="{ row }">
+                    <n-input-number
+                      v-model:value="row.quantity"
+                      :min="0"
+                      :max="Number(row.availableQuantity || 0)"
+                      :precision="2"
+                      class="w-full"
+                    />
+                  </template>
+                </vxe-column>
+              </vxe-table>
+            </div>
+          </n-gi>
+        </n-grid>
+      </n-form>
+      <template #footer>
+        <n-flex justify="end">
+          <n-button @click="showHandle = false">取消</n-button>
+          <n-button type="primary" :loading="submitting" @click="confirmInbound">确定入库</n-button>
+        </n-flex>
+      </template>
+    </FormModal>
 
     <FormModal v-model:show="showDetail" title="采购入库详情" size="xxl">
       <PurchaseModalDetailShell :loading="loading">
@@ -455,11 +450,11 @@ onMounted(() => {
           >
             <vxe-column field="name" title="物料名称" min-width="160" />
             <vxe-column title="规格1" min-width="150">
-                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
-              </vxe-column>
-              <vxe-column title="规格2" min-width="150">
-                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
-              </vxe-column>
+              <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+            </vxe-column>
+            <vxe-column title="规格2" min-width="150">
+              <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+            </vxe-column>
             <vxe-column field="unitName" title="单位" min-width="90" />
             <vxe-column field="quantity" title="入库数量" min-width="110" />
             <vxe-column field="returnedQuantity" title="已退货数量" min-width="110" />
@@ -471,4 +466,3 @@ onMounted(() => {
     <PurchaseOrderRelatedModal v-model:show="showRelatedOrder" :uid="relatedOrder.uid" :code="relatedOrder.code" />
   </div>
 </template>
-

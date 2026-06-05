@@ -30,6 +30,7 @@ import "vxe-table/lib/style.css"
 import * as ElementPlusIconsVue from "@element-plus/icons-vue"
 
 import naive from "naive-ui"
+import { applyNaiveDropdownDefaults } from "@/plugins/naive-dropdown-defaults"
 
 bootstrapTokenFromUrl()
 
@@ -51,7 +52,9 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
 // **main.js**
 
 app.directive("permission", Permission)
-app.use(store).use(router).use(naive).use(VxeUIAll).use(VxeUITable)
+app.use(store).use(router).use(naive)
+applyNaiveDropdownDefaults(app)
+app.use(VxeUIAll).use(VxeUITable)
 router.isReady().then(() => {
   app.mount("#app")
 })

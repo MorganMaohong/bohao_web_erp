@@ -1,20 +1,21 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref } from "vue"
-import { Reset, Search } from "@vicons/carbon"
+import { useAutoListSearch } from "@/hooks/useAutoListSearch"
 import { AddPhotoAlternateRound } from "@vicons/material"
 import { VxeTableInstance, VxeToolbarInstance } from "vxe-table"
-import { VxePagerEvents } from "vxe-pc-ui"
 import { useAppStore } from "@/store/modules/app"
 import LCard from "@/components/LCard/index.vue"
 import ListPageToolbar from "@/components/ListPageToolbar/index.vue"
+import ListPageTable from "@/components/ListPageTable/index.vue"
+import ListSearchActions from "@/components/ListSearchActions/index.vue"
 import SearchQueryForm from "@/components/SearchQueryForm/index.vue"
 import FormModal from "@/components/FormModal/index.vue"
 import MCard from "@/components/MCard/index.vue"
 import FastUpload from "@/components/FastUpload/FastUpload.vue"
 import FlowSchemaPreview from "@/components/FlowSchemaPreview/index.vue"
 import { PageVo } from "@/model"
-import { resetRef } from "@/utils"
 import { formatDateTime } from "@/utils"
+import { formatItemSpecLabel, getSpec1Name, getSpec2Name, type ItemSpecRow } from "@/utils/itemSpec"
 import {
   ProductionPlanBomItem,
   ProductionPlanCloseForm,
@@ -55,7 +56,13 @@ const showCompleteNode = ref(false)
 const showInbound = ref(false)
 const showClose = ref(false)
 const currentPlanUid = ref("")
-const formData = ref<ProductionPlanForm>({ imageList: [], docList: [], productList: [], productOptions: [], warehouseOptions: [] })
+const formData = ref<ProductionPlanForm>({
+  imageList: [],
+  docList: [],
+  productList: [],
+  productOptions: [],
+  warehouseOptions: []
+})
 const detailData = ref<ProductionPlanDetail>({})
 const prepareData = ref<ProductionPlanDetail>({})
 const issueData = ref<ProductionPlanIssueForm>({ detailList: [], bomList: [] })
@@ -68,7 +75,9 @@ const inboundPlanMeta = ref({
   inboundCompleted: false
 })
 
-const inboundFormReadonly = computed(() => inboundPlanMeta.value.inboundStatus === "approving" || inboundPlanMeta.value.inboundCompleted)
+const inboundFormReadonly = computed(
+  () => inboundPlanMeta.value.inboundStatus === "approving" || inboundPlanMeta.value.inboundCompleted
+)
 
 const inboundCanSubmit = computed(() => {
   if (inboundFormReadonly.value) return false
@@ -82,21 +91,21 @@ const currentProcessUid = ref("")
 
 const productOptions = computed(() =>
   (itemsData.value.list || []).map((item) => ({
-    label: item.name,
+    label: formatItemOptionLabel(item),
     value: item.uid
   }))
 )
 
 const prepareProductOptions = computed(() =>
   (prepareData.value.productList || []).map((item) => ({
-    label: formatItemLabel(item.name, item.spec),
+    label: formatItemOptionLabel(item),
     value: item.itemUid
   }))
 )
 
 const componentOptions = computed(() =>
   (componentData.value.list || []).map((item) => ({
-    label: formatItemLabel(item.name, item.spec),
+    label: formatItemOptionLabel(item),
     value: item.uid
   }))
 )
@@ -129,7 +138,9 @@ const issueFormReadonly = computed(() => {
 })
 
 const componentMap = computed<Record<string, ItemsVo>>(() =>
-  Object.fromEntries((componentData.value.list || []).filter((item) => item.uid).map((item) => [item.uid as string, item]))
+  Object.fromEntries(
+    (componentData.value.list || []).filter((item) => item.uid).map((item) => [item.uid as string, item])
+  )
 )
 
 function loadBaseOptions() {
@@ -145,14 +156,23 @@ function loadBaseOptions() {
 }
 
 function getCardProps() {
-  TableCardMaxHeight.value = TableCardRef.value?.$el?.clientHeight
-    ? TableCardRef.value.$el.clientHeight - 20
-    : 520
+  TableCardMaxHeight.value = TableCardRef.value?.$el?.clientHeight ? TableCardRef.value.$el.clientHeight - 20 : 520
 }
 
-function formatItemLabel(name?: string, spec?: string) {
+function formatItemOptionLabel(
+  item?: Pick<ItemsVo, "name" | "spec" | "spec1Name" | "spec2Name"> & { itemUid?: string }
+) {
+  const name = item?.name
   if (!name) return ""
-  return spec ? `${name} / ${spec}` : name
+  const specLabel = formatItemSpecLabel(item)
+  return specLabel !== "-" ? `${name} / ${specLabel}` : name
+}
+
+function copyItemSpecMeta(target: ItemSpecRow, source?: ItemsVo | null) {
+  if (!source) return
+  target.spec = source.spec
+  target.spec1Name = source.spec1Name
+  target.spec2Name = source.spec2Name
 }
 
 function formatTimeText(time?: number) {
@@ -227,19 +247,25 @@ function select() {
     })
 }
 
-function search() {
+function doSearch() {
   query.value.currentPage = 1
   select()
 }
 
-function reset() {
-  query.value = resetRef(query.value)
-  query.value.currentPage = 1
-  query.value.pageSize = 50
-  select()
+const { triggerInputSearch, flushInputSearch, withResetSuppressed } = useAutoListSearch(doSearch)
+
+async function reset() {
+  await withResetSuppressed(async () => {
+    query.value = {
+      currentPage: 1,
+      pageSize: 50,
+      key: "",
+      status: ""
+    }
+  })
 }
 
-function pageChange(event: VxePagerEvents) {
+function pageChange(event: { currentPage: number; pageSize: number }) {
   query.value.currentPage = event.currentPage
   query.value.pageSize = event.pageSize
   select()
@@ -296,7 +322,7 @@ function handleProductChange(item: ProductionPlanProductItem) {
   item.unitName = source?.unitName
   item.type = source?.type
   item.typeName = source?.typeName
-  item.spec = source?.spec
+  copyItemSpecMeta(item, source)
   item.material = source?.material
   item.itemBizType = source?.itemBizType
   item.itemBizTypeName = source?.itemBizTypeName
@@ -384,7 +410,7 @@ function fillPrepareProductMeta(item: ProductionPlanBomItem) {
   item.productMaterial = product?.material
   item.productItemBizType = product?.itemBizType
   item.productItemBizTypeName = product?.itemBizTypeName
-  item.requiredQuantity = (Number(product?.quantity || 0) * Number(item.perQuantity || 0)) || 0
+  item.requiredQuantity = Number(product?.quantity || 0) * Number(item.perQuantity || 0) || 0
 }
 
 function fillPrepareComponentMeta(item: ProductionPlanBomItem) {
@@ -716,6 +742,8 @@ function openInbound(uid?: string) {
           productSpec: item.spec,
           productMaterial: item.material,
           productTypeName: item.typeName || item.itemBizTypeName,
+          spec1Name: item.spec1Name,
+          spec2Name: item.spec2Name,
           planQuantity: item.quantity,
           inboundQuantity: item.inboundQuantity,
           availableInboundQuantity: Math.max(Number(item.quantity || 0) - Number(item.inboundQuantity || 0), 0),
@@ -751,7 +779,7 @@ function submitInbound() {
   }
   inboundData.value.detailList = detailList
   submitting.value = true
-  ProductionPlanService.finishInbound(inboundData.value)
+  ProductionPlanService.finishInbound({ ...inboundData.value, detailList })
     .then(() => {
       window.$message?.success("生产入库申请已提交")
       showInbound.value = false
@@ -847,7 +875,7 @@ onMounted(() => {
   const $table = VxeTableRef.value
   const $toolbar = VxeToolbarRef.value
   if ($table && $toolbar) {
-    $table.connect($toolbar)
+    $table?.connect?.($toolbar)
   }
 })
 </script>
@@ -857,28 +885,23 @@ onMounted(() => {
     <l-card class="w-full h-full" border shadow rounded padding="0">
       <template #header>
         <m-card>
-          <SearchQueryForm label-placement="left" >
-            <n-grid :cols="4" x-gap="12" y-gap="12">
-              <n-gi>
-                <n-form-item label="计划:">
-                  <n-input v-model:value="query.key" clearable />
-                </n-form-item>
-              </n-gi>
-              <n-gi span="3">
-                <n-form-item>
-                  <div class="flex gap-2">
-                    <n-button type="primary" @click="search">
-                      <template #icon><n-icon><Search /></n-icon></template>
-                      搜索
-                    </n-button>
-                    <n-button @click="reset">
-                      <template #icon><n-icon><Reset /></n-icon></template>
-                      重置
-                    </n-button>
-                  </div>
-                </n-form-item>
-              </n-gi>
-            </n-grid>
+          <SearchQueryForm label-placement="left" label-align="right" label-width="70" class="list-search-form">
+            <div class="flex gap-4">
+              <n-grid :cols="3" :x-gap="12" :y-gap="12">
+                <n-gi>
+                  <n-form-item label="计划">
+                    <n-input
+                      class="w-full"
+                      v-model:value="query.key"
+                      clearable
+                      @update:value="triggerInputSearch"
+                      @keyup.enter="flushInputSearch"
+                    />
+                  </n-form-item>
+                </n-gi>
+              </n-grid>
+              <ListSearchActions @reset="reset" />
+            </div>
           </SearchQueryForm>
         </m-card>
       </template>
@@ -888,27 +911,39 @@ onMounted(() => {
             <n-button type="primary" :size="appStore.searchBarSize" @click="openEdit()">新增计划</n-button>
             <vxe-toolbar ref="VxeToolbarRef" custom />
           </ListPageToolbar>
-          <m-card ref="TableCardRef" class="flex-1">
-            <vxe-table
+          <m-card ref="TableCardRef" class="flex-1 erp-list-table-wrap">
+            <ListPageTable
               ref="VxeTableRef"
-              :column-config="{ resizable: true }"
               :data="data.list || []"
-              border
-              stripe
               :loading="loading"
-              :row-config="{ isHover: true }"
               :height="TableCardMaxHeight"
               :size="componentSize"
             >
               <vxe-column field="name" title="计划名称" show-overflow="tooltip" align="center" min-width="180" />
               <vxe-column field="statusName" title="审批状态" show-overflow="tooltip" align="center" width="120" />
-              <vxe-column field="currentStageName" title="当前阶段" show-overflow="tooltip" align="center" width="120" />
-              <vxe-column field="currentNodeName" title="当前进度" show-overflow="tooltip" align="center" min-width="140" />
+              <vxe-column
+                field="currentStageName"
+                title="当前阶段"
+                show-overflow="tooltip"
+                align="center"
+                width="120"
+              />
+              <vxe-column
+                field="currentNodeName"
+                title="当前进度"
+                show-overflow="tooltip"
+                align="center"
+                min-width="140"
+              />
               <vxe-column fixed="right" title="操作" align="center" width="320">
                 <template #default="{ row }">
                   <n-flex justify="center" :wrap="false">
-                    <n-button type="primary" text :size="appStore.searchBarSize" @click="openDetail(row.uid)">详情</n-button>
-                    <n-button v-if="row.canEditPlan" text :size="appStore.searchBarSize" @click="openEdit(row.uid)">编辑</n-button>
+                    <n-button type="primary" text :size="appStore.searchBarSize" @click="openDetail(row.uid)"
+                      >详情</n-button
+                    >
+                    <n-button v-if="row.canEditPlan" text :size="appStore.searchBarSize" @click="openEdit(row.uid)"
+                      >编辑</n-button
+                    >
                     <n-button
                       v-if="row.status === 'completed' && !row.inboundCompleted"
                       type="error"
@@ -918,19 +953,16 @@ onMounted(() => {
                     >
                       关闭
                     </n-button>
-                    <n-button v-if="row.status === 'closed'" type="error" text @click="deletePlan(row.uid)">删除</n-button>
-                    <n-button
-                      v-if="canOpenCurrentStage(row)"
-                      type="warning"
-                      text
-                      @click="openCurrentStage(row)"
+                    <n-button v-if="row.status === 'closed'" type="error" text @click="deletePlan(row.uid)"
+                      >删除</n-button
                     >
+                    <n-button v-if="canOpenCurrentStage(row)" type="warning" text @click="openCurrentStage(row)">
                       {{ stageActionLabel(row) }}
                     </n-button>
                   </n-flex>
                 </template>
               </vxe-column>
-            </vxe-table>
+            </ListPageTable>
           </m-card>
         </m-card>
       </template>
@@ -938,10 +970,21 @@ onMounted(() => {
         <m-card class="w-full h-full flex items-center justify-end">
           <vxe-pager
             :size="componentSize"
-            v-model:currentPage="data.currentPage"
-            v-model:pageSize="data.pageSize"
+            :current-page="query.currentPage"
+            :page-size="query.pageSize"
             :total="data.count || 0"
-            :layouts="['Home', 'PrevJump', 'PrevPage', 'Number', 'NextPage', 'NextJump', 'End', 'Sizes', 'FullJump', 'Total']"
+            :layouts="[
+              'Home',
+              'PrevJump',
+              'PrevPage',
+              'Number',
+              'NextPage',
+              'NextJump',
+              'End',
+              'Sizes',
+              'FullJump',
+              'Total'
+            ]"
             @page-change="pageChange"
           />
         </m-card>
@@ -949,7 +992,6 @@ onMounted(() => {
     </l-card>
 
     <FormModal v-model:show="showEdit" title="生产计划" size="xl">
-
       <n-form class="TemplateForm">
         <n-grid cols="2" x-gap="16" y-gap="0">
           <n-gi v-if="planFormReadonly" span="2">
@@ -963,16 +1005,32 @@ onMounted(() => {
             </div>
           </n-gi>
           <n-gi>
-            <n-form-item label="名称"><n-input v-model:value="formData.name" :disabled="planFormReadonly" /></n-form-item>
+            <n-form-item label="名称"
+              ><n-input v-model:value="formData.name" :disabled="planFormReadonly"
+            /></n-form-item>
           </n-gi>
           <n-gi>
-            <n-form-item label="备注"><n-input v-model:value="formData.remark" :disabled="planFormReadonly" /></n-form-item>
+            <n-form-item label="备注"
+              ><n-input v-model:value="formData.remark" :disabled="planFormReadonly"
+            /></n-form-item>
           </n-gi>
           <n-gi>
-            <n-form-item label="开工时间"><n-date-picker v-model:value="formData.startTime" type="datetime" class="w-full" :disabled="planFormReadonly" /></n-form-item>
+            <n-form-item label="开工时间"
+              ><n-date-picker
+                v-model:value="formData.startTime"
+                type="datetime"
+                class="w-full"
+                :disabled="planFormReadonly"
+            /></n-form-item>
           </n-gi>
           <n-gi>
-            <n-form-item label="计划完成"><n-date-picker v-model:value="formData.planCompleteTime" type="datetime" class="w-full" :disabled="planFormReadonly" /></n-form-item>
+            <n-form-item label="计划完成"
+              ><n-date-picker
+                v-model:value="formData.planCompleteTime"
+                type="datetime"
+                class="w-full"
+                :disabled="planFormReadonly"
+            /></n-form-item>
           </n-gi>
           <n-gi span="2">
             <div class="TemplateForm-section">
@@ -985,7 +1043,9 @@ onMounted(() => {
                 <n-image v-for="(item, index) in formData.imageList || []" :key="index" :src="item" class="w-16 h-16" />
                 <FastUpload v-if="!planFormReadonly" @before-upload="pushImage">
                   <n-button tertiary>
-                    <template #icon><n-icon><AddPhotoAlternateRound /></n-icon></template>
+                    <template #icon
+                      ><n-icon><AddPhotoAlternateRound /></n-icon
+                    ></template>
                     上传图片
                   </n-button>
                 </FastUpload>
@@ -1044,21 +1104,32 @@ onMounted(() => {
                       :disabled="planFormReadonly"
                     />
                   </td>
-                  <td><n-input-number v-model:value="item.quantity" :min="0.000001" class="w-full" :disabled="planFormReadonly" /></td>
-                  <td><n-button v-if="!planFormReadonly" type="error" tertiary @click="removeProduct(index)">删除</n-button></td>
+                  <td>
+                    <n-input-number
+                      v-model:value="item.quantity"
+                      :min="0.000001"
+                      class="w-full"
+                      :disabled="planFormReadonly"
+                    />
+                  </td>
+                  <td>
+                    <n-button v-if="!planFormReadonly" type="error" tertiary @click="removeProduct(index)"
+                      >删除</n-button
+                    >
+                  </td>
                 </tr>
               </tbody>
             </n-table>
           </n-gi>
         </n-grid>
       </n-form>
-    <template #footer>
-      <n-flex justify="end">
-        <n-button @click="showEdit = false">取消</n-button>
-                <n-button v-if="!planFormReadonly" type="primary" :loading="submitting" @click="submitPlan">保存</n-button>
-      </n-flex>
-    </template>
-  </FormModal>
+      <template #footer>
+        <n-flex justify="end">
+          <n-button @click="showEdit = false">取消</n-button>
+          <n-button v-if="!planFormReadonly" type="primary" :loading="submitting" @click="submitPlan">保存</n-button>
+        </n-flex>
+      </template>
+    </FormModal>
 
     <FormModal v-model:show="showDetail" title="生产计划详情" size="xxl">
       <div class="space-y-4">
@@ -1067,9 +1138,13 @@ onMounted(() => {
           <n-descriptions-item label="审批状态">{{ detailData.statusName || "-" }}</n-descriptions-item>
           <n-descriptions-item label="当前阶段">{{ detailData.currentStageName || "-" }}</n-descriptions-item>
           <n-descriptions-item label="当前节点">{{ detailData.currentNodeName || "-" }}</n-descriptions-item>
-          <n-descriptions-item v-if="detailData.inboundStatusName" label="入库状态">{{ detailData.inboundStatusName }}</n-descriptions-item>
+          <n-descriptions-item v-if="detailData.inboundStatusName" label="入库状态">{{
+            detailData.inboundStatusName
+          }}</n-descriptions-item>
           <n-descriptions-item v-if="detailData.inboundCompleted" label="入库完成">是</n-descriptions-item>
-          <n-descriptions-item v-if="detailData.closeReason" label="关闭原因">{{ detailData.closeReason }}</n-descriptions-item>
+          <n-descriptions-item v-if="detailData.closeReason" label="关闭原因">{{
+            detailData.closeReason
+          }}</n-descriptions-item>
         </n-descriptions>
         <div class="rounded-xl bg-slate-50 p-4">
           <div class="mb-3 flex items-center justify-between">
@@ -1083,12 +1158,10 @@ onMounted(() => {
               >
                 关闭计划
               </n-button>
-              <n-button v-if="detailData.status === 'closed'" type="error" @click="deletePlan(detailData.uid)">删除计划</n-button>
-              <n-button
-                v-if="canOpenCurrentStage(detailData)"
-                type="primary"
-                @click="openCurrentStage(detailData)"
+              <n-button v-if="detailData.status === 'closed'" type="error" @click="deletePlan(detailData.uid)"
+                >删除计划</n-button
               >
+              <n-button v-if="canOpenCurrentStage(detailData)" type="primary" @click="openCurrentStage(detailData)">
                 {{ stageActionLabel(detailData) }}
               </n-button>
             </div>
@@ -1102,15 +1175,24 @@ onMounted(() => {
                 'border-green-200 bg-green-50 shadow-sm': item.completed,
                 'border-amber-300 bg-amber-50 ring-2 ring-amber-200': item.current,
                 'border-slate-300 bg-slate-100 opacity-80': detailData.status === 'closed',
-                'border-slate-200 bg-white opacity-70': !item.completed && !item.current && detailData.status !== 'closed'
+                'border-slate-200 bg-white opacity-70':
+                  !item.completed && !item.current && detailData.status !== 'closed'
               }"
             >
               <div class="mb-2 flex items-center justify-between">
-                <n-tag :type="stageCardType(item)">{{ item.completed ? "已完成" : item.current ? "进行中" : "未开启" }}</n-tag>
+                <n-tag :type="stageCardType(item)">{{
+                  item.completed ? "已完成" : item.current ? "进行中" : "未开启"
+                }}</n-tag>
               </div>
               <div class="text-base font-semibold">{{ item.name }}</div>
               <div class="mt-2 text-xs text-gray-500">
-                {{ item.completed ? "该阶段已处理完成" : item.current ? "当前仅开放此阶段操作" : "需等待前置阶段完成后开启" }}
+                {{
+                  item.completed
+                    ? "该阶段已处理完成"
+                    : item.current
+                      ? "当前仅开放此阶段操作"
+                      : "需等待前置阶段完成后开启"
+                }}
               </div>
             </div>
           </div>
@@ -1127,7 +1209,8 @@ onMounted(() => {
               <tr>
                 <th>成品</th>
                 <th>零件</th>
-                <th>规格</th>
+                <th>规格1</th>
+                <th>规格2</th>
                 <th>类型</th>
                 <th>单件用量</th>
                 <th>计划需求</th>
@@ -1139,7 +1222,8 @@ onMounted(() => {
               <tr v-for="item in detailData.bomList || []" :key="item.uid">
                 <td>{{ item.productName }}</td>
                 <td>{{ item.componentName }}</td>
-                <td>{{ item.componentSpec || "-" }}</td>
+                <td>{{ getSpec1Name({ spec: item.componentSpec }) }}</td>
+                <td>{{ getSpec2Name({ spec: item.componentSpec }) }}</td>
                 <td>{{ item.componentTypeName || item.componentItemBizTypeName || "-" }}</td>
                 <td>{{ item.perQuantity }}</td>
                 <td>{{ item.requiredQuantity }}</td>
@@ -1154,7 +1238,9 @@ onMounted(() => {
           <div v-for="process in detailData.processList || []" :key="process.uid" class="mb-4 rounded border p-3">
             <div class="flex justify-between gap-4">
               <div class="space-y-2">
-                <div class="font-medium">{{ process.productName }} / {{ process.templateName }} / 数量 {{ process.quantity }}</div>
+                <div class="font-medium">
+                  {{ process.productName }} / {{ process.templateName }} / 数量 {{ process.quantity }}
+                </div>
                 <div class="grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-gray-500 xl:grid-cols-4">
                   <div>计划开始：{{ formatTimeText(process.planStartTime) }}</div>
                   <div>计划完成：{{ formatTimeText(process.planCompleteTime) }}</div>
@@ -1163,22 +1249,56 @@ onMounted(() => {
                 </div>
               </div>
               <div class="flex gap-2">
-                <n-button v-if="detailData.currentStage === 'process'" @click="editProcessItem(detailData.uid!, process)">编辑</n-button>
-                <n-button v-if="detailData.currentStage === 'process'" type="error" tertiary @click="deleteProcess(detailData.uid, process.uid)">删除</n-button>
-                <n-button v-if="detailData.currentStage === 'process'" type="success" @click="confirmProcess(detailData.uid)">确认工序完成</n-button>
+                <n-button
+                  v-if="detailData.currentStage === 'process'"
+                  @click="editProcessItem(detailData.uid!, process)"
+                  >编辑</n-button
+                >
+                <n-button
+                  v-if="detailData.currentStage === 'process'"
+                  type="error"
+                  tertiary
+                  @click="deleteProcess(detailData.uid, process.uid)"
+                  >删除</n-button
+                >
+                <n-button
+                  v-if="detailData.currentStage === 'process'"
+                  type="success"
+                  @click="confirmProcess(detailData.uid)"
+                  >确认工序完成</n-button
+                >
               </div>
             </div>
             <div class="mt-3 space-y-2">
-              <div v-for="node in process.nodeList || []" :key="node.uid" class="flex items-center justify-between rounded bg-gray-50 px-3 py-2">
+              <div
+                v-for="node in process.nodeList || []"
+                :key="node.uid"
+                class="flex items-center justify-between rounded bg-gray-50 px-3 py-2"
+              >
                 <div class="space-y-1">
                   <div class="font-medium">{{ node.leaderName || "-" }}</div>
                   <div class="text-sm text-gray-700">内容：{{ node.name || "-" }}</div>
-                  <div class="text-xs text-gray-500">预计耗时：{{ formatNodeDurationText(node.durationValue, node.durationUnit) }}</div>
+                  <div class="text-xs text-gray-500">
+                    预计耗时：{{ formatNodeDurationText(node.durationValue, node.durationUnit) }}
+                  </div>
                 </div>
                 <div class="flex gap-2">
-                  <n-tag :type="node.completed ? 'success' : 'warning'">{{ node.completed ? "已完成" : "待处理" }}</n-tag>
-                  <n-button v-if="detailData.currentStage === 'process'" type="primary" @click="openCompleteNode(process.uid, node.uid)">完工</n-button>
-                  <n-button v-if="detailData.currentStage === 'process'" type="error" tertiary @click="reworkNode(detailData.uid, process.uid, node.uid)">返工</n-button>
+                  <n-tag :type="node.completed ? 'success' : 'warning'">{{
+                    node.completed ? "已完成" : "待处理"
+                  }}</n-tag>
+                  <n-button
+                    v-if="detailData.currentStage === 'process'"
+                    type="primary"
+                    @click="openCompleteNode(process.uid, node.uid)"
+                    >完工</n-button
+                  >
+                  <n-button
+                    v-if="detailData.currentStage === 'process'"
+                    type="error"
+                    tertiary
+                    @click="reworkNode(detailData.uid, process.uid, node.uid)"
+                    >返工</n-button
+                  >
                 </div>
               </div>
             </div>
@@ -1231,11 +1351,20 @@ onMounted(() => {
                 </td>
                 <td>
                   <div class="info-cell">
-                    <n-image v-if="item.productImage" :src="item.productImage" width="42" height="42" object-fit="cover" />
+                    <n-image
+                      v-if="item.productImage"
+                      :src="item.productImage"
+                      width="42"
+                      height="42"
+                      object-fit="cover"
+                    />
                     <div class="text-xs leading-5 min-w-0">
                       <div class="truncate">{{ item.productName || "-" }}</div>
-                      <div class="text-gray-500 truncate">{{ item.productSpec || "-" }}</div>
-                      <div class="text-gray-500 truncate">{{ item.productTypeName || item.productItemBizTypeName || "-" }}</div>
+                      <div class="text-gray-500 truncate">规格1：{{ getSpec1Name({ spec: item.productSpec }) }}</div>
+                      <div class="text-gray-500 truncate">规格2：{{ getSpec2Name({ spec: item.productSpec }) }}</div>
+                      <div class="text-gray-500 truncate">
+                        {{ item.productTypeName || item.productItemBizTypeName || "-" }}
+                      </div>
                     </div>
                   </div>
                 </td>
@@ -1250,20 +1379,38 @@ onMounted(() => {
                 </td>
                 <td>
                   <div class="info-cell">
-                    <n-image v-if="item.componentImage" :src="item.componentImage" width="42" height="42" object-fit="cover" />
+                    <n-image
+                      v-if="item.componentImage"
+                      :src="item.componentImage"
+                      width="42"
+                      height="42"
+                      object-fit="cover"
+                    />
                     <div class="text-xs leading-5 min-w-0">
                       <div class="truncate">{{ item.componentName || "-" }}</div>
-                      <div class="text-gray-500 truncate">规格：{{ item.componentSpec || "-" }}</div>
-                      <div class="text-gray-500 truncate">类型：{{ item.componentTypeName || item.componentItemBizTypeName || "-" }}</div>
+                      <div class="text-gray-500 truncate">规格1：{{ getSpec1Name({ spec: item.componentSpec }) }}</div>
+                      <div class="text-gray-500 truncate">规格2：{{ getSpec2Name({ spec: item.componentSpec }) }}</div>
+                      <div class="text-gray-500 truncate">
+                        类型：{{ item.componentTypeName || item.componentItemBizTypeName || "-" }}
+                      </div>
                       <div class="text-gray-500 truncate">材质：{{ item.componentMaterial || "-" }}</div>
                     </div>
                   </div>
                 </td>
-                <td><n-input-number v-model:value="item.perQuantity" :min="0.000001" class="w-full compact-number" @update:value="handlePreparePerQuantityChange(item)" /></td>
+                <td>
+                  <n-input-number
+                    v-model:value="item.perQuantity"
+                    :min="0.000001"
+                    class="w-full compact-number"
+                    @update:value="handlePreparePerQuantityChange(item)"
+                  />
+                </td>
                 <td class="text-center whitespace-nowrap">{{ item.requiredQuantity || 0 }}</td>
                 <td class="text-center whitespace-nowrap">{{ item.stockQuantity || 0 }}</td>
                 <td><n-input v-model:value="item.remark" class="compact-input" /></td>
-                <td class="text-center"><n-button type="error" tertiary @click="removePrepareBom(index)">删除</n-button></td>
+                <td class="text-center">
+                  <n-button type="error" tertiary @click="removePrepareBom(index)">删除</n-button>
+                </td>
               </tr>
             </tbody>
           </n-table>
@@ -1279,7 +1426,6 @@ onMounted(() => {
     </FormModal>
 
     <FormModal v-model:show="showIssue" title="领料" size="xl">
-
       <n-alert
         v-if="issuePlanMeta.issueStatusName"
         class="mb-3"
@@ -1287,10 +1433,14 @@ onMounted(() => {
         show-icon
       >
         领料状态：{{ issuePlanMeta.issueStatusName }}
-        <template v-if="issuePlanMeta.materialRequestCode">（申请单：{{ issuePlanMeta.materialRequestCode }}）</template>
+        <template v-if="issuePlanMeta.materialRequestCode"
+          >（申请单：{{ issuePlanMeta.materialRequestCode }}）</template
+        >
       </n-alert>
       <div class="mb-3 flex justify-end">
-        <n-button type="primary" tertiary :disabled="issueFormReadonly" @click="fillAllIssueQuantity">全部领料</n-button>
+        <n-button type="primary" tertiary :disabled="issueFormReadonly" @click="fillAllIssueQuantity"
+          >全部领料</n-button
+        >
       </div>
       <div class="modal-table-scroll">
         <n-table :size="componentSize" striped class="plan-modal-table">
@@ -1323,34 +1473,60 @@ onMounted(() => {
               <td class="truncate">{{ item.componentName }}</td>
               <td>
                 <div class="info-cell">
-                  <n-image v-if="item.componentImage" :src="item.componentImage" width="42" height="42" object-fit="cover" />
+                  <n-image
+                    v-if="item.componentImage"
+                    :src="item.componentImage"
+                    width="42"
+                    height="42"
+                    object-fit="cover"
+                  />
                   <div class="text-xs leading-5 min-w-0">
-                    <div class="text-gray-500 truncate">规格：{{ item.componentSpec || "-" }}</div>
+                    <div class="text-gray-500 truncate">规格1：{{ getSpec1Name(item) }}</div>
+                    <div class="text-gray-500 truncate">规格2：{{ getSpec2Name(item) }}</div>
                     <div class="text-gray-500 truncate">材质：{{ item.componentMaterial || "-" }}</div>
                     <div class="text-gray-500 truncate">类型：{{ item.componentTypeName || "-" }}</div>
                   </div>
                 </div>
               </td>
-              <td><n-select v-model:value="item.warehouseUid" :options="warehouseOptions" :disabled="issueFormReadonly" class="compact-select" /></td>
+              <td>
+                <n-select
+                  v-model:value="item.warehouseUid"
+                  :options="warehouseOptions"
+                  :disabled="issueFormReadonly"
+                  class="compact-select"
+                />
+              </td>
               <td class="text-center whitespace-nowrap">{{ item.availableQuantity || 0 }}</td>
               <td class="text-center whitespace-nowrap">{{ item.stockQuantity ?? "-" }}</td>
               <td class="text-center whitespace-nowrap">{{ item.requiredQuantity || 0 }}</td>
               <td class="text-center whitespace-nowrap">{{ item.issuedQuantity || 0 }}</td>
-              <td><n-input-number v-model:value="item.quantity" :min="0" :max="getIssueRowMax(item)" :disabled="issueFormReadonly" class="w-full compact-number" /></td>
-              <td class="text-center"><n-button tertiary :disabled="issueFormReadonly" @click="fillIssueRowQuantity(item)">全部</n-button></td>
+              <td>
+                <n-input-number
+                  v-model:value="item.quantity"
+                  :min="0"
+                  :max="getIssueRowMax(item)"
+                  :disabled="issueFormReadonly"
+                  class="w-full compact-number"
+                />
+              </td>
+              <td class="text-center">
+                <n-button tertiary :disabled="issueFormReadonly" @click="fillIssueRowQuantity(item)">全部</n-button>
+              </td>
             </tr>
           </tbody>
         </n-table>
       </div>
-    <template #footer>
-      <n-flex justify="end">
-        <div class="flex justify-end gap-2">
-          <n-button @click="showIssue = false">关闭</n-button>
-          <n-button v-if="canSubmitIssueRequest" type="primary" :loading="submitting" @click="submitIssue">提交领料申请</n-button>
-        </div>
-      </n-flex>
-    </template>
-  </FormModal>
+      <template #footer>
+        <n-flex justify="end">
+          <div class="flex justify-end gap-2">
+            <n-button @click="showIssue = false">关闭</n-button>
+            <n-button v-if="canSubmitIssueRequest" type="primary" :loading="submitting" @click="submitIssue"
+              >提交领料申请</n-button
+            >
+          </div>
+        </n-flex>
+      </template>
+    </FormModal>
 
     <FormModal v-model:show="showProcess" title="工序" size="md">
       <n-grid :cols="2" x-gap="12">
@@ -1361,7 +1537,10 @@ onMounted(() => {
         </n-gi>
         <n-gi>
           <n-form-item label="可生产数量">
-            <n-input :value="String(processData.remainingQuantityMap?.[processData.productItemUid || ''] ?? '-')" disabled />
+            <n-input
+              :value="String(processData.remainingQuantityMap?.[processData.productItemUid || ''] ?? '-')"
+              disabled
+            />
           </n-form-item>
         </n-gi>
         <n-gi>
@@ -1396,7 +1575,12 @@ onMounted(() => {
     <FormModal v-model:show="showCompleteNode" title="工序节点完工" size="md" height-mode="auto">
       <div class="space-y-4">
         <div class="flex gap-2 flex-wrap">
-          <n-image v-for="(item, index) in completeNodeForm.imageList || []" :key="index" :src="item" class="w-20 h-20" />
+          <n-image
+            v-for="(item, index) in completeNodeForm.imageList || []"
+            :key="index"
+            :src="item"
+            class="w-20 h-20"
+          />
           <FastUpload @before-upload="pushCompleteImage">
             <n-button tertiary>上传完工图片</n-button>
           </FastUpload>
@@ -1414,7 +1598,13 @@ onMounted(() => {
       <n-alert
         v-if="inboundPlanMeta.inboundStatusName"
         class="mb-3"
-        :type="inboundPlanMeta.inboundCompleted ? 'success' : inboundPlanMeta.inboundStatus === 'approving' ? 'info' : 'warning'"
+        :type="
+          inboundPlanMeta.inboundCompleted
+            ? 'success'
+            : inboundPlanMeta.inboundStatus === 'approving'
+              ? 'info'
+              : 'warning'
+        "
         show-icon
       >
         入库状态：{{ inboundPlanMeta.inboundStatusName }}
@@ -1459,9 +1649,16 @@ onMounted(() => {
               <td class="truncate">{{ item.productName }}</td>
               <td>
                 <div class="info-cell">
-                  <n-image v-if="item.productImage" :src="item.productImage" width="42" height="42" object-fit="cover" />
+                  <n-image
+                    v-if="item.productImage"
+                    :src="item.productImage"
+                    width="42"
+                    height="42"
+                    object-fit="cover"
+                  />
                   <div class="text-xs leading-5 min-w-0">
-                    <div class="text-gray-500 truncate">规格：{{ item.productSpec || "-" }}</div>
+                    <div class="text-gray-500 truncate">规格1：{{ getSpec1Name(item) }}</div>
+                    <div class="text-gray-500 truncate">规格2：{{ getSpec2Name(item) }}</div>
                     <div class="text-gray-500 truncate">材质：{{ item.productMaterial || "-" }}</div>
                     <div class="text-gray-500 truncate">类型：{{ item.productTypeName || "-" }}</div>
                   </div>
@@ -1490,18 +1687,23 @@ onMounted(() => {
       <template #footer>
         <div class="flex justify-end gap-2">
           <n-button @click="showInbound = false">关闭</n-button>
-          <n-button v-if="inboundCanSubmit" type="primary" :loading="submitting" @click="submitInbound">提交入库申请</n-button>
+          <n-button v-if="inboundCanSubmit" type="primary" :loading="submitting" @click="submitInbound"
+            >提交入库申请</n-button
+          >
         </div>
       </template>
     </FormModal>
 
     <FormModal v-model:show="showClose" title="关闭生产计划" size="sm" height-mode="auto">
       <div class="space-y-4">
-        <n-alert type="warning" show-icon>
-          关闭后将不允许继续执行该生产计划，且只有关闭后的计划才允许删除。
-        </n-alert>
+        <n-alert type="warning" show-icon> 关闭后将不允许继续执行该生产计划，且只有关闭后的计划才允许删除。 </n-alert>
         <n-form-item label="关闭原因">
-          <n-input v-model:value="closeData.closeReason" type="textarea" :rows="4" placeholder="请输入关闭原因，便于后续追踪" />
+          <n-input
+            v-model:value="closeData.closeReason"
+            type="textarea"
+            :rows="4"
+            placeholder="请输入关闭原因，便于后续追踪"
+          />
         </n-form-item>
       </div>
       <template #footer>
