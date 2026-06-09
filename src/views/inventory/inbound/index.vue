@@ -15,7 +15,6 @@ import { VxeTableInstance, VxeToolbarInstance } from "vxe-table"
 import { CloseFilled } from "@vicons/material"
 import FastMultipleUpload from "@/components/FastMultipleUpload/FastMultipleUpload.vue"
 import { InventoryInOrderService } from "@/services/inventory/InventoryInOrderService"
-import { getSpec1Name, getSpec2Name } from "@/utils/itemSpec"
 import {
   InventoryInboundDetail,
   InventoryInOrderDetailVo,
@@ -25,14 +24,19 @@ import {
   InventoryInOrderVo
 } from "@/model/inventory/inbound"
 import { InventInOrderStatusDict, InventInOrderTypeDict } from "@/constants/enum"
-import { TEMPLATE_MODAL_TABLE_MAX, TEMPLATE_MODAL_TABLE_PICKER_MAX } from "@/constants/template-ui"
+import { TEMPLATE_MODAL_TABLE_MAX } from "@/constants/template-ui"
 import { PageVo } from "@/model"
 import { VxePagerEvents } from "vxe-pc-ui"
 import { applyWarehouseByUid } from "@/utils/warehouse-select"
-import { ItemsQuery, ItemsVo } from "@/model/template/items"
-import { ItemsService } from "@/services/template/ItemsService"
+import ItemPickerModal from "@/components/ItemPickerModal/index.vue"
+import ItemDetailTable from "@/components/ItemDetailTable/index.vue"
+import ItemPriceSummary from "@/components/ItemPrice/ItemPriceSummary.vue"
+import { ItemPickerVo } from "@/services/ItemPickerService"
+import { cloneItemPrice, sumDetailListAmounts, sumDetailListSaleAmounts } from "@/utils/itemPrice"
+import { useItemPricePermission } from "@/composables/useItemPricePermission"
 
 const appStore = useAppStore()
+const { canViewItemPrice } = useItemPricePermission()
 const TableCardRef = ref()
 const TableCardMaxHeight = ref(0)
 const isSubmitting = ref(false)
@@ -43,9 +47,6 @@ const showCancel = ref(false)
 const showItems = ref(false)
 const showPreview = ref(false)
 const formData = ref<InventoryInOrderForm>({ warehouse: {} })
-const itemsQuery = ref<ItemsQuery>({ currentPage: 1, pageSize: 50 })
-const itemsData = ref<PageVo<ItemsVo, void>>({})
-const VxeTableItemsRef = ref<VxeTableInstance>()
 const detailData = ref<InventoryInboundDetail>({ detailList: [], imageList: [] })
 const tmpImageList = ref([])
 const tmpImageIndex = ref(0)
@@ -238,57 +239,31 @@ function pageChange(event: VxePagerEvents) {
   select()
 }
 
-function itemsPageChange(event: VxePagerEvents) {
-  itemsQuery.value.currentPage = event.currentPage
-  itemsQuery.value.pageSize = event.pageSize
-  selectItems()
-}
-
-function selectItems() {
-  loading.value = true
-  itemsQuery.value.warehouseUid = formData.value.warehouseUid
-  ItemsService.select(itemsQuery.value)
-    .then((data) => {
-      itemsData.value = data
-    })
-    .finally(() => {
-      loading.value = false
-    })
-}
-
 function showItemsModal() {
   if (!formData.value.warehouseUid) {
-    window.$message.error("请选择仓库")
+    window.$message.error("请先选择入库仓库")
     return
   }
   showItems.value = true
-  selectItems()
 }
 
-function confirmUpdateItems() {
-  const records = VxeTableItemsRef.value?.getCheckboxRecords() || []
-
+function confirmUpdateItems(records: ItemPickerVo[]) {
   if (!formData.value.detailList) {
     formData.value.detailList = []
   }
 
-  const existingUids = new Set(formData.value.detailList.map((item) => item.itemUid).filter(Boolean))
-  const newDetails = records
-    .filter((item) => !existingUids.has(item.uid))
-    .map((item) => ({
+  const newDetails = records.map((item) => {
+    const itemUid = "uid" in item ? item.uid : (item as { itemUid?: string }).itemUid
+    return {
       ...item,
-      itemUid: item.uid,
+      itemUid,
       uid: undefined,
-      quantity: 1
-    }))
-
-  if (newDetails.length < records.length) {
-    window.$message?.warning("已跳过重复物料")
-  }
+      quantity: 1,
+      price: cloneItemPrice(item.price) ?? {}
+    }
+  })
 
   formData.value.detailList.push(...newDetails)
-
-  showItems.value = false
 }
 
 function confirmDeleteItems(row: InventoryInOrderDetailVo, index: number) {
@@ -308,26 +283,26 @@ const totalQuantity = computed(() => {
 
 const totalAmountWithTax = computed(() => {
   if (!formData.value.detailList) return 0
-
-  return formData.value.detailList.reduce((sum, item) => {
-    const quantity = Number(item.quantity) || 0
-    const price = Number(item.purchasePriceWithTax) || 0
-    return sum + quantity * price
-  }, 0)
+  return sumDetailListAmounts(formData.value.detailList).withTax
 })
 
 const totalAmountWithoutTax = computed(() => {
   if (!formData.value.detailList) return 0
-
-  return formData.value.detailList.reduce((sum, item) => {
-    const quantity = Number(item.quantity) || 0
-    const price = Number(item.purchasePriceWithoutTax) || 0
-    return sum + quantity * price
-  }, 0)
+  return sumDetailListAmounts(formData.value.detailList).withoutTax
 })
 
 const totalTaxAmount = computed(() => {
   return totalAmountWithTax.value - totalAmountWithoutTax.value
+})
+
+const totalSaleAmountWithTax = computed(() => {
+  if (!formData.value.detailList) return 0
+  return sumDetailListSaleAmounts(formData.value.detailList).withTax
+})
+
+const totalSaleAmountWithoutTax = computed(() => {
+  if (!formData.value.detailList) return 0
+  return sumDetailListSaleAmounts(formData.value.detailList).withoutTax
 })
 
 function showDetailModal(uid: string) {
@@ -522,7 +497,7 @@ onMounted(() => {
     </l-card>
   </div>
   <!-- 弹窗 -->
-  <FormModal v-model:show="showUpdate" title="其他入库单" size="xl">
+  <FormModal v-model:show="showUpdate" title="其他入库单" size="xxxl">
     <n-form :model="formData" ref="formRef" :rules="formRule" class="TemplateForm">
       <n-grid cols="2" x-gap="16" y-gap="0">
         <n-gi span="2">
@@ -663,91 +638,12 @@ onMounted(() => {
         </n-gi>
         <n-gi span="2">
           <n-form-item path="detailList" :show-label="false">
-            <m-card class="w-full" padding="0">
-              <vxe-table
-                v-if="formData.detailList && formData.detailList.length > 0"
-                class="w-full"
-                :data="formData.detailList"
-                border
-                stripe
-                :row-config="{ isHover: true }"
-                :max-height="TEMPLATE_MODAL_TABLE_MAX"
-              >
-                <vxe-column title="批次号" show-overflow="tooltip" align="center" width="20%">
-                  <template #default="{ row }">
-                    <vxe-input placeholder="自动生成批次号" disabled v-model="row.batchNo" />
-                  </template>
-                </vxe-column>
-                <vxe-column field="name" title="名称" show-overflow="tooltip" align="center" width="15%" />
-                <vxe-column field="supplierName" title="供应商" show-overflow="tooltip" align="center" width="15%" />
-                <vxe-column field="typeName" title="类型" show-overflow="tooltip" align="center" width="15%" />
-                <vxe-column field="vatTaxRate" title="税率%" show-overflow="tooltip" align="center" width="12%">
-                  <template #default="{ row }">
-                    <vxe-number-input v-model="row.vatTaxRate" />
-                  </template>
-                </vxe-column>
-                <vxe-column
-                  field="purchasePriceWithTax"
-                  title="采购含税"
-                  show-overflow="tooltip"
-                  align="center"
-                  width="12%"
-                >
-                  <template #default="{ row }">
-                    <vxe-number-input v-model="row.purchasePriceWithTax" />
-                  </template>
-                </vxe-column>
-                <vxe-column
-                  field="purchasePriceWithoutTax"
-                  title="采购不含税"
-                  show-overflow="tooltip"
-                  align="center"
-                  width="12%"
-                >
-                  <template #default="{ row }">
-                    <vxe-number-input v-model="row.purchasePriceWithoutTax" />
-                  </template>
-                </vxe-column>
-                <vxe-column field="unitName" title="单位" show-overflow="tooltip" align="center" width="10%" />
-                <vxe-column title="规格1" show-overflow="tooltip" align="center" width="10%">
-                  <template #default="{ row }">{{ getSpec1Name(row) }}</template>
-                </vxe-column>
-                <vxe-column title="规格2" show-overflow="tooltip" align="center" width="10%">
-                  <template #default="{ row }">{{ getSpec2Name(row) }}</template>
-                </vxe-column>
-                <vxe-column field="material" title="材质" show-overflow="tooltip" align="center" width="10%" />
-                <vxe-column field="remark" title="备注" show-overflow="tooltip" align="center" width="15%" />
-                <vxe-column
-                  field="totalQuantity"
-                  fixed="right"
-                  title="库存数量"
-                  align="center"
-                  show-overflow="tooltip"
-                  width="12%"
-                />
-                <vxe-column
-                  field="availableQuantity"
-                  fixed="right"
-                  title="可用库存"
-                  align="center"
-                  show-overflow="tooltip"
-                  width="12%"
-                />
-                <vxe-column fixed="right" title="入库数量" align="center" show-overflow="tooltip" width="12%">
-                  <template #default="{ row }">
-                    <vxe-number-input v-model="row.quantity" min="1" />
-                  </template>
-                </vxe-column>
-                <vxe-column fixed="right" title="操作" align="center" show-overflow="tooltip" width="60">
-                  <template #default="{ row, rowIndex }">
-                    <n-flex justify="center">
-                      <n-button type="error" text @click="confirmDeleteItems(row, rowIndex)">删除</n-button>
-                    </n-flex>
-                  </template>
-                </vxe-column>
-              </vxe-table>
-              <el-empty :image-size="80" class="TemplateForm-empty" description="无数据" v-else />
-            </m-card>
+            <ItemDetailTable
+              :data="formData.detailList"
+              preset="inventory_inbound_edit"
+              :max-height="TEMPLATE_MODAL_TABLE_MAX"
+              @delete="confirmDeleteItems"
+            />
           </n-form-item>
         </n-gi>
         <n-gi span="2">
@@ -755,25 +651,16 @@ onMounted(() => {
             <div class="TemplateForm-section__title">汇总信息</div>
           </div>
         </n-gi>
-        <n-gi>
-          <n-form-item label="入库总数">
-            <n-input disabled placeholder="0" v-model:value="totalQuantity" />
-          </n-form-item>
-        </n-gi>
-        <n-gi>
-          <n-form-item label="采购总价(含税)">
-            <n-input disabled placeholder="0.00" v-model:value="totalAmountWithTax" />
-          </n-form-item>
-        </n-gi>
-        <n-gi>
-          <n-form-item label="采购总价(不含税)">
-            <n-input disabled placeholder="0.00" v-model:value="totalAmountWithoutTax" />
-          </n-form-item>
-        </n-gi>
-        <n-gi>
-          <n-form-item label="总税额">
-            <n-input disabled placeholder="0.00" v-model:value="totalTaxAmount" />
-          </n-form-item>
+        <n-gi span="2">
+          <ItemPriceSummary
+            mode="form"
+            :total-quantity="totalQuantity"
+            :total-amount-with-tax="totalAmountWithTax"
+            :total-amount-without-tax="totalAmountWithoutTax"
+            :total-tax-amount="totalTaxAmount"
+            :total-sale-amount-with-tax="totalSaleAmountWithTax"
+            :total-sale-amount-without-tax="totalSaleAmountWithoutTax"
+          />
         </n-gi>
       </n-grid>
     </n-form>
@@ -788,93 +675,12 @@ onMounted(() => {
       </n-flex>
     </template>
   </FormModal>
-  <FormModal v-model:show="showItems" title="物料信息" size="xxl">
-    <l-card class="w-full h-full" shadow rounded padding="0">
-      <vxe-table
-        :data="itemsData.list"
-        border
-        stripe
-        :loading="loading"
-        :max-height="TEMPLATE_MODAL_TABLE_PICKER_MAX"
-        :row-config="{ isHover: true }"
-        :checkbox-config="{ trigger: 'row' }"
-        ref="VxeTableItemsRef"
-      >
-        <vxe-column type="checkbox" width="70" align="center" />
-        <vxe-column field="name" title="名称" show-overflow="tooltip" align="center" width="15%" />
-        <vxe-column field="typeName" title="类型" show-overflow="tooltip" align="center" width="15%" />
-        <vxe-column title="规格1" show-overflow="tooltip" align="center" width="15%">
-          <template #default="{ row }">{{ getSpec1Name(row) }}</template>
-        </vxe-column>
-        <vxe-column title="规格2" show-overflow="tooltip" align="center" width="15%">
-          <template #default="{ row }">{{ getSpec2Name(row) }}</template>
-        </vxe-column>
-        <vxe-column field="supplierName" title="供应商名称" show-overflow="tooltip" align="center" width="15%" />
-        <vxe-column field="unitName" title="单位" show-overflow="tooltip" align="center" width="15%" />
-        <vxe-column field="vatTaxRate" title="增值税率%" show-overflow="tooltip" align="center" width="15%" />
-        <vxe-column
-          field="purchasePriceWithTax"
-          title="采购单价（含税）/元"
-          show-overflow="tooltip"
-          align="center"
-          width="15%"
-        />
-        <vxe-column
-          field="purchasePriceWithoutTax"
-          title="采购单价（不含税）/元"
-          show-overflow="tooltip"
-          align="center"
-          width="15%"
-        />
-
-        <vxe-column field="material" title="材质" show-overflow="tooltip" align="center" width="15%" />
-        <vxe-column field="remark" title="备注" show-overflow="tooltip" align="center" width="30%" />
-        <vxe-column
-          field="totalQuantity"
-          fixed="right"
-          title="库存数量"
-          align="center"
-          show-overflow="tooltip"
-          width="15%"
-        />
-        <vxe-column
-          field="availableQuantity"
-          fixed="right"
-          title="可用库存"
-          align="center"
-          show-overflow="tooltip"
-          width="15%"
-        />
-      </vxe-table>
-      <template #footer>
-        <m-card class="w-full h-full flex items-center justify-end">
-          <vxe-pager
-            v-model:currentPage="itemsData.currentPage"
-            v-model:pageSize="itemsData.pageSize"
-            :total="itemsData.count"
-            :layouts="[
-              'Home',
-              'PrevJump',
-              'PrevPage',
-              'Number',
-              'NextPage',
-              'NextJump',
-              'End',
-              'Sizes',
-              'FullJump',
-              'Total'
-            ]"
-            @page-change="itemsPageChange"
-          />
-        </m-card>
-      </template>
-    </l-card>
-    <template #footer>
-      <n-flex justify="end">
-        <n-button type="primary" @click="confirmUpdateItems"> 确定</n-button>
-      </n-flex>
-    </template>
-  </FormModal>
+  <ItemPickerModal
+    v-model:show="showItems"
+    scenario="inbound_other"
+    :warehouse-uid="formData.warehouseUid"
+    @confirm="confirmUpdateItems"
+  />
   <n-modal
     :mask-closable="false"
     v-model:show="showDelete"
@@ -885,24 +691,38 @@ onMounted(() => {
     positive-text="确定"
     @positive-click="confirmDelete"
   />
-  <FormModal v-model:show="showDetail" title="入库信息" size="xl">
+  <FormModal v-model:show="showDetail" title="其他入库单" size="xxl">
     <n-space vertical :size="12">
-      <n-descriptions bordered :column="4" title="单据信息">
-        <n-descriptions-item label="编号">{{ detailData.code }}</n-descriptions-item>
-        <n-descriptions-item label="入库类型">{{ detailData.typeName }}</n-descriptions-item>
-        <n-descriptions-item label="入库时间">{{ detailData.timeName }}</n-descriptions-item>
-        <n-descriptions-item label="仓库名称">{{ detailData.warehouseName }}</n-descriptions-item>
+      <div class="TemplateForm-section">
+        <div class="TemplateForm-section__title">基本信息</div>
+      </div>
+      <n-descriptions bordered :column="2" label-placement="left">
+        <n-descriptions-item label="编号">{{ detailData.code || "-" }}</n-descriptions-item>
+        <n-descriptions-item label="入库类型">{{ detailData.typeName || "-" }}</n-descriptions-item>
+        <n-descriptions-item label="入库时间">{{ detailData.timeName || "-" }}</n-descriptions-item>
+        <n-descriptions-item v-if="detailData.type === InventInOrderTypeDict.OTHER" label="其他名称">
+          {{ detailData.otherType || "-" }}
+        </n-descriptions-item>
+        <n-descriptions-item label="入库仓库">{{ detailData.warehouseName || "-" }}</n-descriptions-item>
         <n-descriptions-item label="关联项目">{{ detailData.projectName || "-" }}</n-descriptions-item>
         <n-descriptions-item label="客户/来货方">{{ detailData.customerName || "-" }}</n-descriptions-item>
         <n-descriptions-item label="经手人">{{ detailData.handlerName || "-" }}</n-descriptions-item>
-        <n-descriptions-item label="状态">{{ detailData.statusName }}</n-descriptions-item>
-        <n-descriptions-item label="业务说明" :span="4">{{ detailData.sourcePartyName || "-" }}</n-descriptions-item>
-        <n-descriptions-item label="审批说明" :span="4">{{ detailData.approvalRemark || "-" }}</n-descriptions-item>
-        <n-descriptions-item label="验收说明" :span="4">{{ detailData.inspectionRemark || "-" }}</n-descriptions-item>
-        <n-descriptions-item label="备注" :span="4">{{ detailData.remark }}</n-descriptions-item>
-        <n-descriptions-item label="照片" :span="4">
-          <n-grid x-gap="12" y-gap="12" cols="8">
-            <n-gi v-for="(url, index) in detailData.imageList">
+        <n-descriptions-item label="状态">{{ detailData.statusName || "-" }}</n-descriptions-item>
+      </n-descriptions>
+      <div class="TemplateForm-section">
+        <div class="TemplateForm-section__title">业务说明</div>
+      </div>
+      <n-descriptions bordered :column="1" label-placement="left">
+        <n-descriptions-item label="业务说明">{{ detailData.sourcePartyName || "-" }}</n-descriptions-item>
+        <n-descriptions-item label="审批说明">{{ detailData.approvalRemark || "-" }}</n-descriptions-item>
+      </n-descriptions>
+      <div class="TemplateForm-section">
+        <div class="TemplateForm-section__title">附件与备注</div>
+      </div>
+      <n-descriptions bordered :column="1" label-placement="left">
+        <n-descriptions-item label="照片">
+          <n-grid v-if="detailData.imageList?.length" x-gap="12" y-gap="12" cols="8">
+            <n-gi v-for="(url, index) in detailData.imageList" :key="index">
               <m-card border class="relative group w-full aspect-[1/1] overflow-hidden">
                 <div class="w-full h-full flex items-center justify-center p-2 bg-white">
                   <el-image
@@ -916,73 +736,34 @@ onMounted(() => {
               </m-card>
             </n-gi>
           </n-grid>
+          <span v-else>-</span>
         </n-descriptions-item>
+        <n-descriptions-item label="验收说明">{{ detailData.inspectionRemark || "-" }}</n-descriptions-item>
+        <n-descriptions-item label="备注">{{ detailData.remark || "-" }}</n-descriptions-item>
       </n-descriptions>
       <div>
-        <n-descriptions :column="4" title="入库明细单" />
+        <div class="TemplateForm-section">
+          <div class="TemplateForm-section__title">入库明细</div>
+        </div>
         <m-card ref="TableCardRef" padding="0">
-          <vxe-table
-            :loading="loading"
-            class="w-full"
+          <ItemDetailTable
             :data="detailData.detailList"
-            border
-            stripe
-            :row-config="{ isHover: true }"
+            preset="inventory_inbound_view"
+            :loading="loading"
             :max-height="TEMPLATE_MODAL_TABLE_MAX"
-          >
-            <vxe-column field="batchNo" title="批次号" show-overflow="tooltip" align="center" width="20%" />
-            <vxe-column field="name" title="名称" show-overflow="tooltip" align="center" width="20%" />
-            <vxe-column field="supplierName" title="供应商名称" show-overflow="tooltip" align="center" width="20%" />
-            <vxe-column field="typeName" title="类型" show-overflow="tooltip" align="center" width="15%" />
-            <vxe-column field="vatTaxRate" title="增值税率%" show-overflow="tooltip" align="center" width="10%" />
-            <vxe-column
-              field="purchasePriceWithTax"
-              title="采购单价（含税）/元"
-              show-overflow="tooltip"
-              align="center"
-              width="15%"
-            />
-            <vxe-column
-              field="purchasePriceWithoutTax"
-              title="采购单价（不含税）/元"
-              show-overflow="tooltip"
-              align="center"
-              width="15%"
-            />
-            <vxe-column
-              fixed="right"
-              field="quantity"
-              title="入库数量"
-              align="center"
-              show-overflow="tooltip"
-              width="10%"
-            />
-            <vxe-column field="unitName" title="单位" show-overflow="tooltip" align="center" width="15%" />
-            <vxe-column title="规格1" show-overflow="tooltip" align="center" width="15%">
-              <template #default="{ row }">{{ getSpec1Name(row) }}</template>
-            </vxe-column>
-            <vxe-column title="规格2" show-overflow="tooltip" align="center" width="15%">
-              <template #default="{ row }">{{ getSpec2Name(row) }}</template>
-            </vxe-column>
-            <vxe-column field="material" title="材质" show-overflow="tooltip" align="center" width="15%" />
-            <vxe-column field="remark" title="备注" show-overflow="tooltip" align="center" width="30%" />
-          </vxe-table>
+          />
         </m-card>
       </div>
-      <n-descriptions :column="4" bordered>
-        <n-descriptions-item label="入库总数">
-          {{ detailData.totalQuantity }}
-        </n-descriptions-item>
-        <n-descriptions-item label="入库总采购价（含税）/元">
-          {{ detailData.totalAmountWithTax }}
-        </n-descriptions-item>
-        <n-descriptions-item label="入库总采购价（不含税）/元">
-          {{ detailData.totalPurchasePriceWithTax }}
-        </n-descriptions-item>
-        <n-descriptions-item label="本次入库品总税额/元">
-          {{ detailData.totalTaxAmount }}
-        </n-descriptions-item>
-      </n-descriptions>
+      <template v-if="canViewItemPrice">
+        <div class="TemplateForm-section">
+          <div class="TemplateForm-section__title">汇总信息</div>
+        </div>
+        <ItemPriceSummary
+          mode="descriptions"
+          :total-quantity="detailData.totalQuantity"
+          :summary="detailData.priceSummary"
+        />
+      </template>
       <div
         v-if="
           detailData.type === InventInOrderTypeDict.TRANSFER &&

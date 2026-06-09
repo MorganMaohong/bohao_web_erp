@@ -1,4 +1,5 @@
 import { BaseEntityLd, OptionVo, PageQuery, TreeOptionVo } from "@/model"
+import { ItemPriceDto } from "@/model/itemPrice"
 
 export interface Inventory extends BaseEntityLd {
   itemUid?: string
@@ -8,23 +9,27 @@ export interface Inventory extends BaseEntityLd {
 }
 
 export interface InventoryVo extends Inventory {
+  code?: string
   name?: string
   type?: string
   typeName?: string
   unit?: string
   unitName?: string
+  itemBizType?: string
+  itemBizTypeName?: string
   image?: string
   spec?: string
   spec1Name?: string
   spec2Name?: string
   material?: string
+  remark?: string
+  brand?: string
+  brandUid?: string
   warehouseUid?: string
   warehouseName?: string
   supplierUid?: string
   supplierName?: string
-  vatTaxRate?: number
-  purchasePriceWithTax?: number
-  purchasePriceWithoutTax?: number
+  price?: ItemPriceDto | null
   totalQuantity?: number
   availableQuantity?: number
 }
@@ -35,6 +40,9 @@ export interface InventoryOverviewDetail extends InventoryVo {
 
 export interface InventoryQuery extends PageQuery {
   key?: string
+  code?: string
+  itemBizType?: string
+  availableOnly?: boolean
   /** 末级品类 uid */
   type?: string
   spec1Uid?: string
@@ -77,6 +85,7 @@ export interface InventoryFlow extends BaseEntityLd {
 }
 
 export interface InventoryFlowVo extends InventoryFlow {
+  code?: string
   name?: string
   type?: string
   typeName?: string
@@ -87,11 +96,16 @@ export interface InventoryFlowVo extends InventoryFlow {
   spec1Name?: string
   spec2Name?: string
   material?: string
+  brand?: string
+  itemBizType?: string
+  itemBizTypeName?: string
+  remark?: string
   warehouseName?: string
   supplierUid?: string
   supplierName?: string
   businessTypeName?: string
   createTimeName?: string
+  updateTimeName?: string
   itemsName?: string
   itemsType?: string
   itemsTypeName?: string
@@ -108,6 +122,7 @@ export interface InventoryFlowVo extends InventoryFlow {
 
 export interface InventoryFlowQuery extends PageQuery {
   key?: string
+  itemUid?: string
   type?: string
   spec1Uid?: string
   spec2Uid?: string

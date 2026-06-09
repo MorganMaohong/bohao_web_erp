@@ -1,4 +1,5 @@
 import { BaseEntityLd, OptionVo, PageQuery } from "@/model"
+import { ItemPriceSummaryDto } from "@/model/itemPrice"
 import { Warehouse } from "@/model/stock"
 import { ItemsBase } from "@/model/template/items"
 
@@ -77,6 +78,7 @@ export interface InventoryInboundDetail extends InventoryInOrder {
   typeName?: string
   statusName?: string
   detailList?: InventoryInOrderDetailVo[]
+  priceSummary?: ItemPriceSummaryDto | null
   totalAmountWithTax?: number
   totalPurchasePriceWithTax?: number
   totalTaxAmount?: number

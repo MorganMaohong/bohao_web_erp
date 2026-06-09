@@ -1,0 +1,1 @@
+import{d as t,a1 as r,u as a,A as o,f as s}from"./vendor-misc-BdtE1feT.js";const m=t({__name:"index",setup(u){const e=a();return r().replace({path:"/"+e.params.path,query:e.query}),(c,p)=>(s(),o("div"))}});export{m as default};

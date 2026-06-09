@@ -3,17 +3,19 @@ import { ElConfigProvider } from "element-plus"
 import { computed, ref, useAttrs, useSlots, watch } from "vue"
 import { closeFormModalLayer, openFormModalLayer } from "@/utils/form-modal-z-index"
 
-type FormModalSize = "sm" | "md" | "lg" | "xl" | "xxl"
+export type FormModalSize = "sm" | "md" | "lg" | "xl" | "xxl" | "xxxl" | "full"
 /** fixed：按 size 上限展示，内容区滚动、footer 贴底；auto：随内容增高，不超过 size 上限 */
 type FormModalHeightMode = "fixed" | "auto"
 
-/** 各尺寸弹窗高度上限（px）；xxl 接近全屏 */
+/** 各尺寸弹窗高度上限（px）；xxxl / full 使用视口高度 */
 const FORM_MODAL_SIZE_MAX: Record<FormModalSize, number | null> = {
   sm: 480,
   md: 620,
   lg: 760,
   xl: 880,
-  xxl: null
+  xxl: null,
+  xxxl: null,
+  full: null
 }
 
 const VIEWPORT_MAX = "calc(100vh - 48px)"

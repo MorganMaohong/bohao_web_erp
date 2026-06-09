@@ -1,5 +1,6 @@
 import { BaseEntityLd, OptionVo, PageQuery } from "@/model"
 import { FlowDefinitionSchemaVo } from "@/model/flow/schema"
+import { ItemPriceDto } from "@/model/itemPrice"
 import { ItemsBase } from "@/model/template/items"
 
 export interface PurchaseApplyOrder extends BaseEntityLd {
@@ -77,6 +78,7 @@ export interface PurchaseApplyOrderDetail extends ItemsBase {
 }
 
 export interface PurchaseApplyOrderDetailVo extends PurchaseApplyOrderDetail {
+  price?: ItemPriceDto | null
   typeName?: string
   unitName?: string
   supplierName?: string

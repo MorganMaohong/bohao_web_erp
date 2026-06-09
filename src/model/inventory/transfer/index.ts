@@ -1,7 +1,7 @@
 import { BaseEntityLd, OptionVo, PageQuery } from "@/model"
+import { ItemPriceDto, ItemPriceSummaryDto } from "@/model/itemPrice"
 import { ItemsBase } from "@/model/template/items"
 import { Warehouse } from "@/model/stock"
-import { InventoryCheckOrderDetailVo } from "@/model/inventory/check"
 
 export interface InventoryTransferOrder extends BaseEntityLd {
   type?: string
@@ -35,6 +35,7 @@ export interface InventoryTransferOrderForm extends InventoryTransferOrder {
 export interface InventoryTransferDetail extends InventoryTransferOrder {
   detailList?: InventoryTransferOrderDetailVo[]
   imageList?: string[]
+  priceSummary?: ItemPriceSummaryDto | null
   totalQuantity?: number
   totalPurchasePriceWithTax?: number
   totalAmountWithTax?: number
@@ -74,7 +75,10 @@ export interface InventoryTransferOrderDetail extends ItemsBase {
 }
 
 export interface InventoryTransferOrderDetailVo extends InventoryTransferOrderDetail {
+  price?: ItemPriceDto | null
   typeName?: string
   unitName?: string
   supplierName?: string
+  totalQuantity?: number
+  availableQuantity?: number
 }

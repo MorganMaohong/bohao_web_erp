@@ -1,4 +1,5 @@
 import { BaseEntityLd, OptionVo, PageQuery, TreeOptionVo } from "@/model"
+import { ItemPriceDto } from "@/model/itemPrice"
 
 export interface ItemsBase extends BaseEntityLd {
   code?: string
@@ -18,12 +19,7 @@ export interface ItemsBase extends BaseEntityLd {
   brandUid?: string
   supplierUid?: string
   remark?: string
-  vatTaxRate?: number
-  taxAmount?: number
-  purchasePriceWithTax?: number
-  purchasePriceWithoutTax?: number
-  salePriceWithTax?: number
-  salePriceWithoutTax?: number
+  price?: ItemPriceDto | null
 }
 
 export interface Items extends ItemsBase {}

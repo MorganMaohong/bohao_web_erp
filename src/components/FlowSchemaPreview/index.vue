@@ -14,7 +14,7 @@ const props = withDefaults(
     title?: string
   }>(),
   {
-    title: "流程预览"
+    title: "流程进度"
   }
 )
 
@@ -207,11 +207,9 @@ watch(
 <style scoped lang="scss">
 .flow-schema-preview {
   overflow: auto;
-  border-radius: 18px;
+  border-radius: 16px;
   padding: 16px 18px;
-  //background: radial-gradient(circle at top right, rgba(59, 130, 246, 0.16), transparent 30%),
-  //  linear-gradient(180deg, #f8fbff 0%, #f1f5f9 100%);
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  border: 1px solid rgba(148, 163, 184, 0.16);
 }
 
 .flow-schema-preview__head {
@@ -244,12 +242,14 @@ watch(
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr);
   gap: 12px;
+  align-items: stretch;
 }
 
 .flow-schema-preview__rail {
   display: flex;
   flex-direction: column;
   align-items: center;
+  min-height: 100%;
 }
 
 .flow-schema-preview__dot {
@@ -257,37 +257,39 @@ watch(
   height: 14px;
   border-radius: 999px;
   background: #94a3b8;
-  box-shadow: 0 0 0 4px rgba(148, 163, 184, 0.18);
+  flex-shrink: 0;
+  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.14);
 }
 
 .flow-schema-preview__dot--start {
   background: #0f766e;
-  box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.16);
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
 }
 
 .flow-schema-preview__dot--approve {
   background: #2563eb;
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.16);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
 .flow-schema-preview__dot--end {
   background: #dc2626;
-  box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.14);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
 }
 
 .flow-schema-preview__line {
   width: 2px;
   flex: 1;
+  min-height: 12px;
   margin-top: 8px;
-  background: linear-gradient(180deg, rgba(37, 99, 235, 0.35), rgba(148, 163, 184, 0.2));
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.28), rgba(148, 163, 184, 0.18));
 }
 
 .flow-schema-preview__card {
-  border-radius: 16px;
+  border-radius: 14px;
   padding: 14px 16px;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+  background: #fff;
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
 }
 
 .flow-schema-preview__card-head {
@@ -307,7 +309,7 @@ watch(
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 6px;
 }
 
 .flow-schema-preview__node-summary {
@@ -326,14 +328,14 @@ watch(
 .flow-schema-preview__labels {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
+  gap: 6px;
+  margin-top: 8px;
 }
 
 .flow-schema-preview__users {
   margin-top: 14px;
   padding-top: 12px;
-  border-top: 1px dashed rgba(148, 163, 184, 0.35);
+  border-top: 1px dashed rgba(148, 163, 184, 0.32);
 }
 
 .flow-schema-preview__users-title {
@@ -354,7 +356,7 @@ watch(
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   text-align: center;
 }
 
@@ -387,7 +389,7 @@ watch(
 }
 
 .flow-schema-preview__user-avatar--active {
-  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.25);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.22);
 }
 
 .flow-schema-preview__user-avatar--fallback {

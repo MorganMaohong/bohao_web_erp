@@ -1,9 +1,11 @@
 import { BaseEntityLd, OptionVo, PageQuery } from "@/model"
+import { ItemPriceDto } from "@/model/itemPrice"
 import { Warehouse } from "@/model/stock"
 
 export interface InventoryCheckOrder extends BaseEntityLd {
   code?: string
   type?: string
+  otherType?: string
   startTime?: number
   endTime?: number
   warehouseUid?: string
@@ -61,6 +63,7 @@ export interface InventoryCheckOrderDetail extends BaseEntityLd {
 }
 
 export interface InventoryCheckOrderDetailVo extends InventoryCheckOrderDetail {
+  price?: ItemPriceDto | null
   typeName?: string
   unitName?: string
   supplierName?: string

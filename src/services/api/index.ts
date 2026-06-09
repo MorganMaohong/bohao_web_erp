@@ -30,6 +30,7 @@ export const apiPrefix = {
   templateCustomer: "/template/customer",
   templateSupplier: "/template/supplier",
   templateItems: "/template/items",
+  templateItemPicker: "/template/item-picker",
   templateWarehouse: "/template/warehouse",
   templateUnit: "/template/unit",
   inventoryInbound: "/inventory/inbound",
@@ -815,7 +816,14 @@ export const templateItemsApi = {
   update: { url: `${apiPrefix.templateItems}/update`, permission: "template:items:edit" },
   delete: { url: `${apiPrefix.templateItems}/delete`, permission: "template:items:delete" },
   select: { url: `${apiPrefix.templateItems}/select`, permission: "template:items:select" },
-  form: { url: `${apiPrefix.templateItems}/form`, permission: "" }
+  form: { url: `${apiPrefix.templateItems}/form`, permission: "" },
+  /** 价格信息查看权限校验 */
+  price: { url: `${apiPrefix.templateItems}/price/permission`, permission: "template:items:price" }
+}
+
+/** 统一物料选择（按 scenario 路由到物料主数据或库存概览） */
+export const templateItemPickerApi = {
+  select: { url: `${apiPrefix.templateItemPicker}/select`, permission: "template:items:select" }
 }
 
 export const templateWarehouseApi = {

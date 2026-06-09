@@ -3,6 +3,7 @@
 /* 列表页主表格（参考 template/items） */
 .erp-list-table-wrap {
   padding: 8px;
+  overscroll-behavior: contain;
 }
 
 .erp-list-table {
@@ -17,6 +18,13 @@
 
   .erp-list-table__col-secondary {
     color: var(--n-text-color-2, var(--el-text-color-secondary));
+  }
+
+  // 表格内滚动到顶/底时，不把滚动链传给外层弹窗或页面
+  .vxe-table--body-wrapper,
+  .vxe-table--body-inner-wrapper,
+  .vxe-table--footer-wrapper {
+    overscroll-behavior: contain;
   }
 }
 

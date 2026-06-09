@@ -294,6 +294,13 @@ export enum InventCheckOrderStatusDict {
   COMPLETE = "complete"
 }
 
+export enum InventCheckOrderTypeDict {
+  INITIAL = "initial",
+  STOCK = "stock",
+  FINAL_EXAM = "final_exam",
+  OTHER = "other"
+}
+
 export enum FlowInstanceStatusDict {
   RUNNING = "running",
   WITHDRAWN = "withdrawn",

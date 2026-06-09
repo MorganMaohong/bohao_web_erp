@@ -264,7 +264,7 @@ onMounted(() => {
       </template>
     </l-card>
 
-    <FormModal v-model:show="showEdit" title="工序模板" size="xl">
+    <FormModal v-model:show="showEdit" title="工序模板" size="xxl">
       <n-form class="TemplateForm">
         <n-grid cols="2" x-gap="16" y-gap="0">
           <n-gi span="2">

@@ -1,0 +1,1 @@
+import{t as o,l as s}from"./index-Bi14c7eV.js";const n={async select(r){try{const e=o.select.url,t=await s({url:e,method:"POST",data:r});return Promise.resolve(t.data)}catch(e){return Promise.reject(e)}}};export{n as I};

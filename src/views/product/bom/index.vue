@@ -279,7 +279,7 @@ onMounted(() => {
       </template>
     </l-card>
 
-    <FormModal v-model:show="showEdit" title="编辑生产BOM" size="xl">
+    <FormModal v-model:show="showEdit" title="生产BOM" size="xxl">
       <n-form class="TemplateForm">
         <n-alert type="info" :show-icon="false" class="mb-3"> 当前成品：{{ formData.productName || "-" }} </n-alert>
         <div class="TemplateForm-section TemplateForm-section__head">

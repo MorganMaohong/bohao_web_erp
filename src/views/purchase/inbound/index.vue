@@ -273,37 +273,37 @@ onMounted(() => {
           :data="data.list || []"
           height="auto"
         >
-        <vxe-column field="code" title="采购入库单号" min-width="170">
-          <template #default="{ row }">
-            <n-button text type="info" @click="showDetailModal(row.uid)">{{ row.code || "-" }}</n-button>
-          </template>
-        </vxe-column>
-        <vxe-column field="purchaseOrderCode" title="采购订单" min-width="170">
-          <template #default="{ row }">
-            <n-button
-              v-if="row.purchaseOrderCode"
-              text
-              type="info"
-              @click="openRelatedOrder(row.purchaseOrderUid, row.purchaseOrderCode)"
-            >
-              {{ row.purchaseOrderCode }}
-            </n-button>
-            <span v-else>-</span>
-          </template>
-        </vxe-column>
-        <vxe-column field="warehouseName" title="仓库" min-width="140" />
-        <vxe-column field="timeName" title="入库时间" min-width="170" />
-        <vxe-column field="statusName" title="状态" min-width="100" />
-        <vxe-column field="remark" title="备注" min-width="200" />
-        <vxe-column title="操作" width="160" fixed="right">
-          <template #default="{ row }">
-            <div class="flex justify-center gap-2">
-              <n-button text type="info" @click="showDetailModal(row.uid)">详情</n-button>
-              <n-button v-if="canHandle(row)" text type="primary" @click="showHandleModal(row.uid)">入库</n-button>
-            </div>
-          </template>
-        </vxe-column>
-      </ListPageTable>
+          <vxe-column field="code" title="采购入库单号" min-width="170">
+            <template #default="{ row }">
+              <n-button text type="info" @click="showDetailModal(row.uid)">{{ row.code || "-" }}</n-button>
+            </template>
+          </vxe-column>
+          <vxe-column field="purchaseOrderCode" title="采购订单" min-width="170">
+            <template #default="{ row }">
+              <n-button
+                v-if="row.purchaseOrderCode"
+                text
+                type="info"
+                @click="openRelatedOrder(row.purchaseOrderUid, row.purchaseOrderCode)"
+              >
+                {{ row.purchaseOrderCode }}
+              </n-button>
+              <span v-else>-</span>
+            </template>
+          </vxe-column>
+          <vxe-column field="warehouseName" title="仓库" min-width="140" />
+          <vxe-column field="timeName" title="入库时间" min-width="170" />
+          <vxe-column field="statusName" title="状态" min-width="100" />
+          <vxe-column field="remark" title="备注" min-width="200" />
+          <vxe-column title="操作" width="160" fixed="right">
+            <template #default="{ row }">
+              <div class="flex justify-center gap-2">
+                <n-button text type="info" @click="showDetailModal(row.uid)">详情</n-button>
+                <n-button v-if="canHandle(row)" text type="primary" @click="showHandleModal(row.uid)">入库</n-button>
+              </div>
+            </template>
+          </vxe-column>
+        </ListPageTable>
       </div>
 
       <template #footer>
@@ -328,7 +328,7 @@ onMounted(() => {
       </template>
     </l-card>
 
-    <FormModal v-model:show="showHandle" title="采购入库执行" size="xxl" :loading="submitting">
+    <FormModal v-model:show="showHandle" title="采购入库执行" size="xxxl" :loading="submitting">
       <n-form :model="formData" class="TemplateForm" label-placement="left" label-width="96">
         <n-grid cols="2" x-gap="16" y-gap="0">
           <n-gi span="2">

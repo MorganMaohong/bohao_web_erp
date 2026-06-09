@@ -16,7 +16,7 @@ import { VxePagerEvents } from "vxe-pc-ui"
 import { ItemDictService } from "@/services/template/ItemDictService"
 import { InventoryFlowService } from "@/services/inventory/InventoryFlowService"
 import { InventoryFlowQuery, InventoryFlowQueryData, InventoryFlowVo } from "@/model/inventory"
-import { getSpec1Name, getSpec2Name } from "@/utils/itemSpec"
+import { formatItemSpecLabel, getSpec1Name, getSpec2Name } from "@/utils/itemSpec"
 
 const appStore = useAppStore()
 const showAdvancedFilter = ref(false)
@@ -97,6 +97,12 @@ function changeQuantityClass(value?: number | string | null) {
   const num = Number(value)
   if (!Number.isFinite(num) || num === 0) return "qty qty--zero"
   return num > 0 ? "qty qty--in" : "qty qty--out"
+}
+
+function bizTypeTagType(itemBizType?: string) {
+  if (itemBizType === "finished_product") return "success"
+  if (itemBizType === "component") return "info"
+  return "default"
 }
 
 function select() {
@@ -361,82 +367,90 @@ onMounted(() => {
             </div>
           </div>
 
-          <div class="inventory-flow__table-zone erp-list-table-wrap">
-            <ListPageTable
-              :data="data.list"
-              :loading="loading"
-              :cell-height="72"
-              ref="VxeTableRef"
-              :merge-cells="mergeCells"
-              :size="appStore.componentSize"
-            >
-              <vxe-column field="warehouseName" title="仓库" align="left" min-width="130">
-                <template #default="{ row }">
-                  <div class="inventory-flow__warehouse-cell">
-                    <n-icon size="16" :component="Store" />
-                    <span>{{ row.warehouseName || "-" }}</span>
-                  </div>
-                </template>
-              </vxe-column>
-              <vxe-column field="name" title="物料" align="left" min-width="150" show-overflow="tooltip" />
-              <vxe-column title="图片" align="center" width="76">
-                <template #default="{ row }">
-                  <n-image v-if="row.image" :src="row.image" class="inventory-flow__thumb" object-fit="cover" />
-                  <span v-else class="inventory-flow__thumb-placeholder">-</span>
-                </template>
-              </vxe-column>
-              <vxe-column
-                field="businessTypeName"
-                title="业务类型"
-                align="center"
-                min-width="110"
-                show-overflow="tooltip"
-              />
-              <vxe-column field="typeName" title="品类" align="center" min-width="100" show-overflow="tooltip" />
-              <vxe-column field="supplierName" title="供应商" align="center" min-width="110" show-overflow="tooltip" />
-              <vxe-column title="规格1" align="center" min-width="100" show-overflow="tooltip">
-                <template #default="{ row }">{{ getSpec1Name(row) }}</template>
-              </vxe-column>
-              <vxe-column title="规格2" align="center" min-width="100" show-overflow="tooltip">
-                <template #default="{ row }">{{ getSpec2Name(row) }}</template>
-              </vxe-column>
-              <vxe-column field="unitName" title="单位" align="center" width="72" />
-              <vxe-column field="beforeQuantity" title="变动前" align="center" width="88">
-                <template #default="{ row }">
-                  <span class="qty">{{ formatNumber(row.beforeQuantity) }}</span>
-                </template>
-              </vxe-column>
-              <vxe-column field="changeQuantity" title="变动数量" align="center" width="96">
-                <template #default="{ row }">
-                  <span :class="changeQuantityClass(row.changeQuantity)">
-                    {{ formatNumber(row.changeQuantity) }}
-                  </span>
-                </template>
-              </vxe-column>
-              <vxe-column field="afterQuantity" title="变动后" align="center" width="88">
-                <template #default="{ row }">
-                  <span class="qty">{{ formatNumber(row.afterQuantity) }}</span>
-                </template>
-              </vxe-column>
-              <vxe-column
-                field="createTimeName"
-                title="变动时间"
-                align="center"
-                min-width="150"
-                show-overflow="tooltip"
-              />
-              <vxe-column fixed="right" title="操作" align="center" width="72">
-                <template #default="{ row }">
-                  <n-button type="primary" text @click="showDetailModal(row)">详情</n-button>
-                </template>
-              </vxe-column>
-            </ListPageTable>
+          <div class="inventory-flow__table-zone">
+            <m-card class="flex-1 erp-list-table-wrap" padding="0">
+              <ListPageTable
+                :data="data.list"
+                :loading="loading"
+                :cell-height="72"
+                ref="VxeTableRef"
+                :merge-cells="mergeCells"
+                :size="appStore.componentSize"
+              >
+                <vxe-column field="warehouseName" title="仓库" align="left" min-width="130">
+                  <template #default="{ row }">
+                    <div class="inventory-flow__warehouse-cell">
+                      <n-icon size="16" :component="Store" />
+                      <span>{{ row.warehouseName || "-" }}</span>
+                    </div>
+                  </template>
+                </vxe-column>
+                <vxe-column field="name" title="物料" align="left" min-width="150" show-overflow="tooltip" />
+                <vxe-column title="图片" align="center" width="76">
+                  <template #default="{ row }">
+                    <n-image v-if="row.image" :src="row.image" class="inventory-flow__thumb" object-fit="cover" />
+                    <span v-else class="inventory-flow__thumb-placeholder">-</span>
+                  </template>
+                </vxe-column>
+                <vxe-column
+                  field="businessTypeName"
+                  title="业务类型"
+                  align="center"
+                  min-width="110"
+                  show-overflow="tooltip"
+                />
+                <vxe-column field="typeName" title="品类" align="center" min-width="100" show-overflow="tooltip" />
+                <vxe-column
+                  field="supplierName"
+                  title="供应商"
+                  align="center"
+                  min-width="110"
+                  show-overflow="tooltip"
+                />
+                <vxe-column title="规格1" align="center" min-width="100" show-overflow="tooltip">
+                  <template #default="{ row }">{{ getSpec1Name(row) }}</template>
+                </vxe-column>
+                <vxe-column title="规格2" align="center" min-width="100" show-overflow="tooltip">
+                  <template #default="{ row }">{{ getSpec2Name(row) }}</template>
+                </vxe-column>
+                <vxe-column field="unitName" title="单位" align="center" width="72" />
+                <vxe-column field="beforeQuantity" title="变动前" align="center" width="88">
+                  <template #default="{ row }">
+                    <span class="qty">{{ formatNumber(row.beforeQuantity) }}</span>
+                  </template>
+                </vxe-column>
+                <vxe-column field="changeQuantity" title="变动数量" align="center" width="96">
+                  <template #default="{ row }">
+                    <span :class="changeQuantityClass(row.changeQuantity)">
+                      {{ formatNumber(row.changeQuantity) }}
+                    </span>
+                  </template>
+                </vxe-column>
+                <vxe-column field="afterQuantity" title="变动后" align="center" width="88">
+                  <template #default="{ row }">
+                    <span class="qty">{{ formatNumber(row.afterQuantity) }}</span>
+                  </template>
+                </vxe-column>
+                <vxe-column
+                  field="createTimeName"
+                  title="变动时间"
+                  align="center"
+                  min-width="150"
+                  show-overflow="tooltip"
+                />
+                <vxe-column fixed="right" title="操作" align="center" width="72">
+                  <template #default="{ row }">
+                    <n-button type="primary" text @click="showDetailModal(row)">详情</n-button>
+                  </template>
+                </vxe-column>
+              </ListPageTable>
+            </m-card>
           </div>
         </div>
       </template>
 
       <template #footer>
-        <m-card class="w-full flex items-center justify-end inventory-flow__pager" padding="8">
+        <m-card class="w-full flex items-center justify-end" padding="8">
           <vxe-pager
             :size="appStore.componentSize"
             v-model:currentPage="data.currentPage"
@@ -461,7 +475,7 @@ onMounted(() => {
     </l-card>
   </div>
 
-  <FormModal v-model:show="showDetail" title="流水详情" size="xl" height-mode="auto">
+  <FormModal v-model:show="showDetail" title="流水详情" size="xxl" height-mode="auto">
     <n-space vertical :size="14">
       <div class="inventory-flow__detail-hero">
         <n-image
@@ -473,7 +487,8 @@ onMounted(() => {
         <div class="inventory-flow__detail-main">
           <div class="inventory-flow__detail-name">{{ detailData.name || "-" }}</div>
           <div class="inventory-flow__detail-meta">
-            {{ detailData.warehouseName || "-" }} · {{ detailData.businessTypeName || "-" }}
+            {{ detailData.warehouseName || "-" }} · {{ detailData.typeName || "-" }} ·
+            {{ formatItemSpecLabel(detailData) }}
           </div>
           <div class="inventory-flow__detail-qty">
             <n-tag type="info" :bordered="false">变动前 {{ formatNumber(detailData.beforeQuantity) }}</n-tag>
@@ -484,17 +499,50 @@ onMounted(() => {
           </div>
         </div>
       </div>
-      <n-descriptions bordered :column="2" label-placement="left" size="small">
+      <n-descriptions bordered :column="3" label-placement="left" title="物料信息">
+        <n-descriptions-item label="物料编码">{{ detailData.code || "-" }}</n-descriptions-item>
+        <n-descriptions-item label="仓库">{{ detailData.warehouseName || "-" }}</n-descriptions-item>
         <n-descriptions-item label="品类">{{ detailData.typeName || "-" }}</n-descriptions-item>
+        <n-descriptions-item label="业务类型">
+          <n-tag
+            v-if="detailData.itemBizTypeName"
+            size="small"
+            :type="bizTypeTagType(detailData.itemBizType)"
+            :bordered="false"
+          >
+            {{ detailData.itemBizTypeName }}
+          </n-tag>
+          <span v-else>-</span>
+        </n-descriptions-item>
         <n-descriptions-item label="供应商">{{ detailData.supplierName || "-" }}</n-descriptions-item>
-        <n-descriptions-item label="规格1">{{ getSpec1Name(detailData) }}</n-descriptions-item>
-        <n-descriptions-item label="规格2">{{ getSpec2Name(detailData) }}</n-descriptions-item>
-        <n-descriptions-item label="材质">{{ detailData.material || "-" }}</n-descriptions-item>
+        <n-descriptions-item label="品牌">{{ detailData.brand || "-" }}</n-descriptions-item>
         <n-descriptions-item label="单位">{{ detailData.unitName || "-" }}</n-descriptions-item>
-        <n-descriptions-item label="变动时间">{{
-          detailData.createTimeName || detailData.createTime || "-"
-        }}</n-descriptions-item>
-        <n-descriptions-item label="业务单号" :span="2">{{ detailData.businessUid || "-" }}</n-descriptions-item>
+        <n-descriptions-item label="规格1">{{ getSpec1Name(detailData) || "-" }}</n-descriptions-item>
+        <n-descriptions-item label="规格2">{{ getSpec2Name(detailData) || "-" }}</n-descriptions-item>
+        <n-descriptions-item label="材质">{{ detailData.material || "-" }}</n-descriptions-item>
+        <n-descriptions-item label="备注" :span="3">{{ detailData.remark || "-" }}</n-descriptions-item>
+      </n-descriptions>
+      <n-descriptions bordered :column="3" label-placement="left" title="变动信息">
+        <n-descriptions-item label="库存业务">{{ detailData.businessTypeName || "-" }}</n-descriptions-item>
+        <n-descriptions-item label="变动时间"
+          >{{ detailData.createTimeName || detailData.createTime || "-" }}
+        </n-descriptions-item>
+        <n-descriptions-item label="更新时间"
+          >{{ detailData.updateTimeName || detailData.updateTime || "-" }}
+        </n-descriptions-item>
+        <n-descriptions-item label="变动前">
+          <span class="qty">{{ formatNumber(detailData.beforeQuantity) }}</span>
+        </n-descriptions-item>
+        <n-descriptions-item label="变动数量">
+          <span :class="changeQuantityClass(detailData.changeQuantity)">
+            {{ formatNumber(detailData.changeQuantity) }}
+          </span>
+        </n-descriptions-item>
+        <n-descriptions-item label="变动后">
+          <span class="qty">{{ formatNumber(detailData.afterQuantity) }}</span>
+        </n-descriptions-item>
+        <n-descriptions-item label="关联单据">{{ detailData.businessUid || "-" }}</n-descriptions-item>
+        <n-descriptions-item label="关联明细" :span="2">{{ detailData.businessDetailUid || "-" }}</n-descriptions-item>
       </n-descriptions>
     </n-space>
   </FormModal>
@@ -507,7 +555,6 @@ onMounted(() => {
   }
 
   &__page {
-    padding: 12px;
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -530,7 +577,7 @@ onMounted(() => {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 4px 4px 0;
+    padding: 12px 8px 0px;
   }
 
   &__table-zone {
@@ -575,10 +622,6 @@ onMounted(() => {
 
   &__thumb-placeholder {
     color: var(--n-text-color-3);
-  }
-
-  &__pager {
-    padding: 0 12px 8px;
   }
 
   &__detail-hero {

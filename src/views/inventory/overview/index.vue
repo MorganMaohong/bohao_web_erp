@@ -15,7 +15,11 @@ import { Box, ChartPie, Store } from "@vicons/carbon"
 import { VxePagerEvents } from "vxe-pc-ui"
 import { ItemDictService } from "@/services/template/ItemDictService"
 import { InventoryOverviewService } from "@/services/inventory/InventoryOverviewService"
+import { InventoryFlowService } from "@/services/inventory/InventoryFlowService"
 import {
+  InventoryFlowQuery,
+  InventoryFlowQueryData,
+  InventoryFlowVo,
   InventoryOverviewDetail,
   InventoryOverviewSummary,
   InventoryQuery,
@@ -24,6 +28,7 @@ import {
 } from "@/model/inventory"
 import { TEMPLATE_MODAL_TABLE_MAX } from "@/constants/template-ui"
 import { formatItemSpecLabel, getSpec1Name, getSpec2Name } from "@/utils/itemSpec"
+import ItemPriceDetailDescriptions from "@/components/ItemPrice/ItemPriceDetailDescriptions.vue"
 
 const appStore = useAppStore()
 const showAdvancedFilter = ref(false)
@@ -55,6 +60,26 @@ const data = ref<PageVo<InventoryVo, InventoryQueryData>>({
   }
 })
 const detailData = ref<InventoryOverviewDetail>({})
+const flowLoading = ref(false)
+const flowQuery = ref<InventoryFlowQuery>({
+  currentPage: 1,
+  pageSize: 50,
+  itemUid: undefined,
+  warehouseUidList: [],
+  businessType: undefined
+})
+const flowData = ref<{
+  list: InventoryFlowVo[]
+  count: number
+  currentPage: number
+  pageSize: number
+  extraData?: InventoryFlowQueryData
+}>({
+  list: [],
+  count: 0,
+  currentPage: 1,
+  pageSize: 50
+})
 const VxeTableRef = ref<VxeTableInstance>()
 const mergeCells = ref<VxeTablePropTypes.MergeCells>([])
 
@@ -163,6 +188,54 @@ function isLowAvailable(row: InventoryVo) {
   return total > 0 && available <= total * 0.2
 }
 
+function changeQuantityClass(value?: number | string | null) {
+  const num = Number(value)
+  if (!Number.isFinite(num) || num === 0) return "qty qty--zero"
+  return num > 0 ? "qty qty--in" : "qty qty--out"
+}
+
+function bizTypeTagType(itemBizType?: string) {
+  if (itemBizType === "finished_product") return "success"
+  if (itemBizType === "component") return "info"
+  return "default"
+}
+
+async function selectDetailFlow() {
+  if (!flowQuery.value.itemUid || !flowQuery.value.warehouseUidList?.length) {
+    flowData.value = { list: [], count: 0, currentPage: 1, pageSize: flowQuery.value.pageSize }
+    return
+  }
+  flowLoading.value = true
+  try {
+    const res = await InventoryFlowService.select(flowQuery.value)
+    flowData.value = {
+      list: res.list || [],
+      count: res.count || 0,
+      currentPage: res.currentPage || flowQuery.value.currentPage,
+      pageSize: res.pageSize || flowQuery.value.pageSize,
+      extraData: res.extraData
+    }
+  } finally {
+    flowLoading.value = false
+  }
+}
+
+function resetDetailFlowQuery() {
+  flowQuery.value = {
+    currentPage: 1,
+    pageSize: 50,
+    itemUid: detailData.value.itemUid,
+    warehouseUidList: detailData.value.warehouseUid ? [detailData.value.warehouseUid] : [],
+    businessType: undefined
+  }
+}
+
+function flowPageChange(event: VxePagerEvents) {
+  flowQuery.value.currentPage = event.currentPage
+  flowQuery.value.pageSize = event.pageSize
+  selectDetailFlow()
+}
+
 function select() {
   loading.value = true
   InventoryOverviewService.select(query.value)
@@ -208,8 +281,11 @@ async function showDetailModal(uid?: string) {
   showDetail.value = true
   detailLoading.value = true
   detailData.value = {}
+  flowData.value = { list: [], count: 0, currentPage: 1, pageSize: 50 }
   try {
     detailData.value = await InventoryOverviewService.detail(uid)
+    resetDetailFlowQuery()
+    await selectDetailFlow()
   } finally {
     detailLoading.value = false
   }
@@ -510,7 +586,7 @@ onMounted(() => {
     </l-card>
   </div>
 
-  <FormModal v-model:show="showDetail" title="库存详情" size="lg">
+  <FormModal v-model:show="showDetail" title="库存详情" size="xxl">
     <n-spin :show="detailLoading">
       <n-space vertical :size="16">
         <div class="inventory-overview__detail-hero">
@@ -533,25 +609,106 @@ onMounted(() => {
             </div>
           </div>
         </div>
-        <n-descriptions bordered :column="2" label-placement="left" size="small">
+        <n-descriptions bordered :column="3" label-placement="left" title="物料信息">
+          <n-descriptions-item label="物料编码">{{ detailData.code || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="仓库">{{ detailData.warehouseName || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="品类">{{ detailData.typeName || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="业务类型">
+            <n-tag
+              v-if="detailData.itemBizTypeName"
+              size="small"
+              :type="bizTypeTagType(detailData.itemBizType)"
+              :bordered="false"
+            >
+              {{ detailData.itemBizTypeName }}
+            </n-tag>
+            <span v-else>-</span>
+          </n-descriptions-item>
           <n-descriptions-item label="供应商">{{ detailData.supplierName || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="品牌">{{ detailData.brand || "-" }}</n-descriptions-item>
           <n-descriptions-item label="单位">{{ detailData.unitName || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="规格1">{{ getSpec1Name(detailData) || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="规格2">{{ getSpec2Name(detailData) || "-" }}</n-descriptions-item>
           <n-descriptions-item label="材质">{{ detailData.material || "-" }}</n-descriptions-item>
-          <n-descriptions-item label="增值税率">{{ detailData.vatTaxRate ?? "-" }}%</n-descriptions-item>
-          <n-descriptions-item label="采购单价(含税)">{{ detailData.purchasePriceWithTax ?? "-" }}</n-descriptions-item>
-          <n-descriptions-item label="采购单价(不含税)">{{
-            detailData.purchasePriceWithoutTax ?? "-"
-          }}</n-descriptions-item>
+          <n-descriptions-item label="库存数量">{{ formatNumber(stockQuantity(detailData)) }}</n-descriptions-item>
+          <n-descriptions-item label="可用库存">{{ formatNumber(detailData.availableQuantity) }}</n-descriptions-item>
+          <n-descriptions-item label="占用库存">{{ formatNumber(occupiedQuantity) }}</n-descriptions-item>
+          <n-descriptions-item label="创建时间">{{ detailData.createTime || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="更新时间">{{ detailData.updateTime || "-" }}</n-descriptions-item>
+          <n-descriptions-item label="备注" :span="3">{{ detailData.remark || "-" }}</n-descriptions-item>
+          <ItemPriceDetailDescriptions :data="detailData" />
         </n-descriptions>
         <div>
-          <div class="inventory-overview__section-title">最近库存流水</div>
-          <vxe-table :data="detailData.recentFlowList || []" border stripe :max-height="TEMPLATE_MODAL_TABLE_MAX">
-            <vxe-column field="businessTypeName" title="业务类型" align="center" min-width="120" />
-            <vxe-column field="beforeQuantity" title="变动前" align="center" width="90" />
-            <vxe-column field="changeQuantity" title="变动数量" align="center" width="90" />
-            <vxe-column field="afterQuantity" title="变动后" align="center" width="90" />
-            <vxe-column field="createTime" title="时间" align="center" min-width="150" />
-          </vxe-table>
+          <div class="inventory-overview__section-head">
+            <div class="inventory-overview__section-title">库存流水</div>
+            <n-select
+              class="inventory-overview__flow-filter"
+              clearable
+              filterable
+              placeholder="业务类型"
+              :options="flowData.extraData?.businessTypeOptions || []"
+              v-model:value="flowQuery.businessType"
+              @update:value="
+                () => {
+                  flowQuery.currentPage = 1
+                  selectDetailFlow()
+                }
+              "
+            />
+          </div>
+          <ListPageTable
+            :data="flowData.list"
+            :loading="flowLoading"
+            :max-height="TEMPLATE_MODAL_TABLE_MAX"
+            :size="appStore.componentSize"
+          >
+            <vxe-column field="businessTypeName" title="业务类型" align="center" min-width="120" show-overflow="tooltip" />
+            <vxe-column field="beforeQuantity" title="变动前" align="center" width="96">
+              <template #default="{ row }">
+                <span class="qty">{{ formatNumber(row.beforeQuantity) }}</span>
+              </template>
+            </vxe-column>
+            <vxe-column field="changeQuantity" title="变动数量" align="center" width="104">
+              <template #default="{ row }">
+                <span :class="changeQuantityClass(row.changeQuantity)">
+                  {{ formatNumber(row.changeQuantity) }}
+                </span>
+              </template>
+            </vxe-column>
+            <vxe-column field="afterQuantity" title="变动后" align="center" width="96">
+              <template #default="{ row }">
+                <span class="qty">{{ formatNumber(row.afterQuantity) }}</span>
+              </template>
+            </vxe-column>
+            <vxe-column
+              field="createTimeName"
+              title="变动时间"
+              align="center"
+              min-width="160"
+              show-overflow="tooltip"
+            />
+          </ListPageTable>
+          <div class="inventory-overview__flow-pager">
+            <vxe-pager
+              :size="appStore.componentSize"
+              v-model:currentPage="flowQuery.currentPage"
+              v-model:pageSize="flowQuery.pageSize"
+              :total="flowData.count"
+              :layouts="[
+                'Home',
+                'PrevJump',
+                'PrevPage',
+                'Number',
+                'NextPage',
+                'NextJump',
+                'End',
+                'Sizes',
+                'FullJump',
+                'Total'
+              ]"
+              @page-change="flowPageChange"
+            />
+          </div>
         </div>
       </n-space>
     </n-spin>
@@ -756,11 +913,42 @@ onMounted(() => {
     margin-top: 10px;
   }
 
-  &__section-title {
+  &__section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
     margin-bottom: 8px;
+  }
+
+  &__section-title {
     font-size: 14px;
     font-weight: 600;
   }
+
+  &__flow-filter {
+    width: 200px;
+  }
+
+  &__flow-pager {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 8px;
+  }
+}
+
+.qty--in {
+  color: #18a058;
+  font-weight: 600;
+}
+
+.qty--out {
+  color: #d03050;
+  font-weight: 600;
+}
+
+.qty--zero {
+  color: var(--n-text-color-3);
 }
 
 .dot {

@@ -28,6 +28,15 @@ $form-modal-footer-height: 53px;
     width: 1280px !important;
   }
 
+  &.FormModal--xxxl {
+    width: 1440px !important;
+  }
+
+  &.FormModal--full {
+    width: calc(100vw - 32px) !important;
+    max-width: calc(100vw - 32px) !important;
+  }
+
   > .n-card-header {
     flex-shrink: 0;
   }
@@ -62,6 +71,13 @@ $form-modal-footer-height: 53px;
     padding: var(--erp-modal-body-padding-y, 20px) var(--erp-modal-body-padding-x, 22px);
     box-sizing: border-box;
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  // 弹窗内嵌表格：优先在表格区域消费滚动，避免带动整页表单
+  .FormModal__body .erp-list-table-wrap,
+  .FormModal__body .erp-list-table .vxe-table--body-wrapper {
+    overscroll-behavior: contain;
   }
 
   .FormModal__shell > .el-config-provider,

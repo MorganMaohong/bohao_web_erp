@@ -282,8 +282,8 @@ onMounted(() => {
             </div>
           </div>
 
-          <div class="inventory-request-issue__table-zone erp-list-table-wrap">
-            <m-card ref="TableCardRef" class="w-full" padding="0">
+          <div class="inventory-request-issue__table-zone">
+            <m-card ref="TableCardRef" class="w-full flex-1 erp-list-table-wrap" padding="0">
               <ListPageTable
                 :data="data.list || []"
                 :loading="loading"
@@ -322,7 +322,7 @@ onMounted(() => {
         </div>
       </template>
       <template #footer>
-        <m-card class="w-full flex items-center justify-end inventory-request-issue__pager" padding="8">
+        <m-card class="w-full flex items-center justify-end" padding="8">
           <vxe-pager
             :size="componentSize"
             v-model:currentPage="data.currentPage"
@@ -420,7 +420,7 @@ onMounted(() => {
     </template>
   </FormModal>
 
-  <FormModal v-model:show="showDetail" title="领料申请详情" size="xl">
+  <FormModal v-model:show="showDetail" title="领料申请详情" size="xxxl">
     <n-descriptions bordered title="基础信息" column="4">
       <n-descriptions-item label="申请单号">{{ detailData.code || "-" }}</n-descriptions-item>
       <n-descriptions-item label="状态">{{ detailData.statusName || "-" }}</n-descriptions-item>
@@ -487,7 +487,6 @@ onMounted(() => {
   }
 
   &__page {
-    padding: 12px;
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -504,7 +503,7 @@ onMounted(() => {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 4px 4px 0;
+    padding: 4px 8px 0;
   }
 
   &__table-zone {
@@ -522,8 +521,5 @@ onMounted(() => {
     font-weight: 600;
   }
 
-  &__pager {
-    padding: 0 12px 8px;
-  }
 }
 </style>

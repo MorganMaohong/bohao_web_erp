@@ -1,4 +1,5 @@
 import { BaseEntityLd, OptionVo, PageQuery } from "@/model"
+import { ItemPriceDto } from "@/model/itemPrice"
 import { Warehouse } from "@/model/stock"
 import { ItemsBase } from "@/model/template/items"
 
@@ -24,6 +25,7 @@ export interface MaterialRequestOrderDetail extends ItemsBase {
 }
 
 export interface MaterialRequestOrderDetailVo extends MaterialRequestOrderDetail {
+  price?: ItemPriceDto | null
   typeName?: string
   unitName?: string
   totalQuantity?: number

@@ -1,8 +1,9 @@
 <script lang="ts" setup>
-import { computed, onMounted, ref, watch } from "vue"
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import { useAutoListSearch } from "@/hooks/useAutoListSearch"
 import FormModal from "@/components/FormModal/index.vue"
 import ListPageTable from "@/components/ListPageTable/index.vue"
+import ErTableThumb from "@/components/ErTableThumb/index.vue"
 import ListPageToolbar from "@/components/ListPageToolbar/index.vue"
 import ListSearchActions from "@/components/ListSearchActions/index.vue"
 import SearchQueryForm from "@/components/SearchQueryForm/index.vue"
@@ -20,8 +21,21 @@ import FastUpload from "@/components/FastUpload/FastUpload.vue"
 import { AddPhotoAlternateRound } from "@vicons/material"
 import { getSpec1Name, getSpec2Name } from "@/utils/itemSpec"
 import { formatMoney } from "@/utils/purchasePrice"
+import {
+  displayPurchasePriceWithoutTax,
+  displayPurchaseTaxAmount,
+  displaySalePriceWithoutTax,
+  getPurchasePriceWithTax,
+  getSalePriceWithTax,
+  getVatTaxRate,
+  syncNestedItemPrice,
+  validateNestedItemPrice
+} from "@/utils/itemPrice"
+import ItemPriceFormSection from "@/components/ItemPrice/ItemPriceFormSection.vue"
+import { omitItemPriceFields, useItemPricePermission } from "@/composables/useItemPricePermission"
 
 const appStore = useAppStore()
+const { canViewItemPrice } = useItemPricePermission()
 const componentSize = computed(() => appStore.componentSize as any)
 const isSubmitting = ref(false)
 const showUpdate = ref(false)
@@ -39,11 +53,6 @@ const formRule = {
   type: {
     required: true,
     message: "请选择品类",
-    trigger: ["input", "blur"]
-  },
-  brandUid: {
-    required: true,
-    message: "请选择品牌",
     trigger: ["input", "blur"]
   },
   name: {
@@ -73,7 +82,15 @@ const queryBrandOptions = ref(queryFormData.value.brandOptions || [])
 const queryCascadeKey = ref(0)
 const VxeTableRef = ref<VxeTableInstance>()
 const VxeToolbarRef = ref<VxeToolbarInstance>()
+const TableCardRef = ref()
+const TableCardMaxHeight = ref(0)
 const showAdvancedFilter = ref(false)
+
+function syncTableCardHeight() {
+  const el = TableCardRef.value?.$el as HTMLElement | undefined
+  if (!el?.clientHeight) return
+  TableCardMaxHeight.value = el.clientHeight - 8
+}
 
 const advancedFilterCount = computed(() => {
   let count = 0
@@ -119,6 +136,7 @@ function select() {
     .finally(() => {
       loading.value = false
       VxeTableRef.value?.setAllTreeExpand?.(true)
+      nextTick(syncTableCardHeight)
     })
 }
 
@@ -137,6 +155,7 @@ function showUpdateModal(uid?: string) {
   ItemsService.form(uid).then((data) => {
     formData.value = data
     codePreview.value = data.code || ""
+    syncFormPriceFields()
     refreshCodePreview()
   })
 }
@@ -150,12 +169,16 @@ function showCopyModal(uid: string) {
     formData.value.uid = undefined
     formData.value.id = undefined
     formData.value.code = undefined
+    syncFormPriceFields()
     refreshCodePreview()
   })
 }
 
 function confirmUpdate() {
-  normalizePrice()
+  if (canViewItemPrice.value) {
+    normalizePrice()
+    if (!validateFormPrices()) return
+  }
   formRef.value?.validate((err) => {
     if (err) return
     if (isSubmitting.value) return
@@ -166,7 +189,8 @@ function confirmUpdate() {
         if (codePreview.value) {
           formData.value.code = codePreview.value
         }
-        return ItemsService.addOrUpdate(formData.value)
+        const payload = canViewItemPrice.value ? formData.value : omitItemPriceFields(formData.value)
+        return ItemsService.addOrUpdate(payload)
       })
       .then(() => {
         showUpdate.value = false
@@ -235,49 +259,28 @@ function handlerBeforeUpload(v: string) {
   formData.value.image = v
 }
 
-const priceWithoutTaxPreview = computed(() => {
-  const price = Number(formData.value.purchasePriceWithTax || 0)
-  const rate = Number(formData.value.vatTaxRate || 0)
-  if (!price) return 0
-  return Number((price / (1 + rate / 100)).toFixed(4))
-})
+function syncFormPriceFields() {
+  if (!canViewItemPrice.value) return
+  syncNestedItemPrice(formData.value)
+}
 
-const taxAmountPreview = computed(() => {
-  const withTax = Number(formData.value.purchasePriceWithTax || 0)
-  const withoutTax = Number(formData.value.purchasePriceWithoutTax || 0)
-  return Number((withTax - withoutTax).toFixed(4))
-})
-
-const salePriceWithoutTaxPreview = computed(() => {
-  const price = Number(formData.value.salePriceWithTax || 0)
-  const rate = Number(formData.value.vatTaxRate || 0)
-  if (!price) return 0
-  return Number((price / (1 + rate / 100)).toFixed(4))
-})
+function validateFormPrices() {
+  return validateNestedItemPrice(formData.value, (message) => window.$message?.error(message), formData.value.name)
+}
 
 watch(
-  () => [formData.value.purchasePriceWithTax, formData.value.vatTaxRate],
+  () => [
+    formData.value.price?.purchasePriceWithTax,
+    formData.value.price?.salePriceWithTax,
+    formData.value.price?.vatTaxRate
+  ],
   () => {
-    formData.value.purchasePriceWithoutTax = priceWithoutTaxPreview.value
-    formData.value.taxAmount = taxAmountPreview.value
-  }
-)
-
-watch(
-  () => [formData.value.salePriceWithTax, formData.value.vatTaxRate],
-  () => {
-    formData.value.salePriceWithoutTax = salePriceWithoutTaxPreview.value
+    syncFormPriceFields()
   }
 )
 
 function normalizePrice() {
-  if (formData.value.purchasePriceWithTax !== undefined && formData.value.purchasePriceWithTax !== null) {
-    formData.value.purchasePriceWithoutTax = priceWithoutTaxPreview.value
-    formData.value.taxAmount = taxAmountPreview.value
-  }
-  if (formData.value.salePriceWithTax !== undefined && formData.value.salePriceWithTax !== null) {
-    formData.value.salePriceWithoutTax = salePriceWithoutTaxPreview.value
-  }
+  syncFormPriceFields()
 }
 
 async function handleUpdateTypeValue(v: string | null) {
@@ -349,10 +352,6 @@ async function refreshCodePreview() {
     if (!formData.value.uid) codePreview.value = ""
     return
   }
-  if (!formData.value.brandUid) {
-    if (!formData.value.uid) codePreview.value = ""
-    return
-  }
   try {
     codePreview.value = await ItemDictService.buildCode({
       categoryUid: formData.value.type,
@@ -386,14 +385,24 @@ watch(
   }
 )
 
+watch(showAdvancedFilter, () => {
+  nextTick(syncTableCardHeight)
+})
+
 onMounted(() => {
   loadQueryOptions()
   select()
+  nextTick(syncTableCardHeight)
+  window.addEventListener("resize", syncTableCardHeight)
   const $table = VxeTableRef.value
   const $toolbar = VxeToolbarRef.value
   if ($table && $toolbar) {
     $table?.connect?.($toolbar)
   }
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener("resize", syncTableCardHeight)
 })
 </script>
 
@@ -506,6 +515,7 @@ onMounted(() => {
                     <n-form-item label="业务类型">
                       <n-select
                         class="w-full"
+                        :key="`query-itemBizType-${queryCascadeKey}`"
                         clearable
                         v-model:value="query.itemBizType"
                         :options="queryFormData.itemBizTypeOptions"
@@ -528,34 +538,25 @@ onMounted(() => {
         </m-card>
       </template>
       <template #default>
-        <div class="items-page__body">
-          <m-card class="w-full flex flex-col" padding="0">
-            <ListPageToolbar justify="between" class="items-page__toolbar">
-              <n-button type="primary" :size="appStore.searchBarSize" @click="showUpdateModal()">新增物料</n-button>
-              <vxe-toolbar ref="VxeToolbarRef" custom />
-            </ListPageToolbar>
-            <m-card class="erp-list-table-wrap" padding="0">
-              <ListPageTable
-                :data="data.list"
-                :loading="loading"
-                :cell-height="64"
-                ref="VxeTableRef"
-                :size="componentSize"
-              >
+        <m-card class="w-full h-full flex flex-col items-page__body" padding="0">
+          <ListPageToolbar justify="between" class="items-page__toolbar">
+            <n-button type="primary" :size="appStore.searchBarSize" @click="showUpdateModal()">新增物料</n-button>
+            <vxe-toolbar ref="VxeToolbarRef" custom />
+          </ListPageToolbar>
+          <m-card ref="TableCardRef" class="flex-1 erp-list-table-wrap" padding="0">
+            <ListPageTable
+              :data="data.list"
+              :loading="loading"
+              :cell-height="64"
+              :height="TableCardMaxHeight"
+              ref="VxeTableRef"
+              :size="componentSize"
+            >
                 <vxe-column field="code" title="物料编码" align="center" min-width="200" />
                 <vxe-column field="name" title="名称" align="center" min-width="200" />
                 <vxe-column title="图片" align="center" width="72">
                   <template #default="{ row }">
-                    <n-image
-                      v-if="row.image"
-                      :src="row.image"
-                      width="48"
-                      height="48"
-                      object-fit="cover"
-                      class="items-page__thumb"
-                      preview-disabled
-                    />
-                    <span v-else class="items-page__thumb-empty">—</span>
+                    <ErTableThumb :src="row.image" />
                   </template>
                 </vxe-column>
                 <vxe-column field="typeName" title="品类" align="center" min-width="200" />
@@ -581,40 +582,58 @@ onMounted(() => {
                   <template #default="{ row }">{{ getSpec2Name(row) }}</template>
                 </vxe-column>
                 <vxe-column field="material" title="材质" align="center" min-width="200" />
-                <vxe-column title="采购含税" align="center" min-width="116">
-                  <template #default="{ row }">
-                    <span class="erp-list-table__money">{{ formatMoney(row.purchasePriceWithTax) }}</span>
-                  </template>
-                </vxe-column>
-                <vxe-column title="销售含税" align="center" min-width="116">
-                  <template #default="{ row }">
-                    <span class="erp-list-table__money">{{ formatMoney(row.salePriceWithTax) }}</span>
-                  </template>
-                </vxe-column>
                 <vxe-column
-                  field="vatTaxRate"
                   title="税率%"
                   align="center"
                   min-width="88"
                   class-name="erp-list-table__col-secondary"
+                  :visible="canViewItemPrice"
                 >
                   <template #default="{ row }">
-                    <span>{{ row.vatTaxRate != null && row.vatTaxRate !== "" ? `${row.vatTaxRate}%` : "—" }}</span>
+                    <span>{{ getVatTaxRate(row) != null ? `${getVatTaxRate(row)}%` : "—" }}</span>
                   </template>
                 </vxe-column>
-                <vxe-column title="采购不含税" align="center" min-width="116" class-name="erp-list-table__col-secondary">
+                <vxe-column title="采购含税" align="center" min-width="116" :visible="canViewItemPrice">
                   <template #default="{ row }">
-                    <span class="erp-list-table__money">{{ formatMoney(row.purchasePriceWithoutTax) }}</span>
+                    <span class="erp-list-table__money">{{ formatMoney(getPurchasePriceWithTax(row)) }}</span>
                   </template>
                 </vxe-column>
-                <vxe-column title="税额" align="center" min-width="100" class-name="erp-list-table__col-secondary">
+                <vxe-column
+                  title="采购不含税"
+                  align="center"
+                  min-width="116"
+                  class-name="erp-list-table__col-secondary"
+                  :visible="canViewItemPrice"
+                >
                   <template #default="{ row }">
-                    <span class="erp-list-table__money">{{ formatMoney(row.taxAmount) }}</span>
+                    <span class="erp-list-table__money">{{ displayPurchasePriceWithoutTax(row) }}</span>
                   </template>
                 </vxe-column>
-                <vxe-column title="销售不含税" align="center" min-width="116" class-name="erp-list-table__col-secondary">
+                <vxe-column
+                  title="采购税额"
+                  align="center"
+                  min-width="100"
+                  class-name="erp-list-table__col-secondary"
+                  :visible="canViewItemPrice"
+                >
                   <template #default="{ row }">
-                    <span class="erp-list-table__money">{{ formatMoney(row.salePriceWithoutTax) }}</span>
+                    <span class="erp-list-table__money">{{ displayPurchaseTaxAmount(row) }}</span>
+                  </template>
+                </vxe-column>
+                <vxe-column title="销售含税" align="center" min-width="116" :visible="canViewItemPrice">
+                  <template #default="{ row }">
+                    <span class="erp-list-table__money">{{ formatMoney(getSalePriceWithTax(row)) }}</span>
+                  </template>
+                </vxe-column>
+                <vxe-column
+                  title="销售不含税"
+                  align="center"
+                  min-width="116"
+                  class-name="erp-list-table__col-secondary"
+                  :visible="canViewItemPrice"
+                >
+                  <template #default="{ row }">
+                    <span class="erp-list-table__money">{{ displaySalePriceWithoutTax(row) }}</span>
                   </template>
                 </vxe-column>
                 <vxe-column
@@ -652,7 +671,6 @@ onMounted(() => {
               </ListPageTable>
             </m-card>
           </m-card>
-        </div>
       </template>
       <template #footer>
         <m-card class="w-full h-full flex items-center justify-end items-page__pager">
@@ -707,7 +725,7 @@ onMounted(() => {
             <n-input
               :value="codePreview || formData.code"
               disabled
-              placeholder="选择品类、规格1/规格2、品牌后自动生成"
+              placeholder="选择品类、规格后自动生成"
             />
           </n-form-item>
         </n-gi>
@@ -771,7 +789,7 @@ onMounted(() => {
           </div>
         </n-gi>
         <n-gi>
-          <n-form-item label="品牌" path="brandUid">
+          <n-form-item label="品牌">
             <n-select
               v-model:value="formData.brandUid"
               :options="formData.brandOptions || []"
@@ -818,80 +836,8 @@ onMounted(() => {
             <n-input v-model:value="formData.material" placeholder="请输入材质" />
           </n-form-item>
         </n-gi>
-        <n-gi span="2">
-          <div class="ItemsForm-section">
-            <div class="ItemsForm-section__title">价格信息</div>
-          </div>
-        </n-gi>
-        <n-gi>
-          <n-form-item label="增值税率(%)">
-            <n-input-number
-              v-model:value="formData.vatTaxRate"
-              placeholder="如 13"
-              :show-button="false"
-              :min="0"
-              :max="100"
-              class="w-full"
-            />
-          </n-form-item>
-        </n-gi>
-        <n-gi>
-          <n-form-item label="采购单价(含税)">
-            <n-input-number
-              class="w-full"
-              v-model:value="formData.purchasePriceWithTax"
-              placeholder="请输入含税单价"
-              :show-button="false"
-              :min="0"
-            />
-          </n-form-item>
-        </n-gi>
-        <n-gi>
-          <n-form-item label="采购单价(不含税)">
-            <n-input-number
-              class="w-full"
-              v-model:value="formData.purchasePriceWithoutTax"
-              placeholder="自动计算"
-              :show-button="false"
-              :min="0"
-              disabled
-            />
-          </n-form-item>
-        </n-gi>
-        <n-gi>
-          <n-form-item label="税额">
-            <n-input-number
-              class="w-full"
-              v-model:value="formData.taxAmount"
-              placeholder="自动计算"
-              :show-button="false"
-              :min="0"
-              disabled
-            />
-          </n-form-item>
-        </n-gi>
-        <n-gi>
-          <n-form-item label="销售单价(含税)">
-            <n-input-number
-              class="w-full"
-              v-model:value="formData.salePriceWithTax"
-              placeholder="请输入含税单价"
-              :show-button="false"
-              :min="0"
-            />
-          </n-form-item>
-        </n-gi>
-        <n-gi>
-          <n-form-item label="销售单价(不含税)">
-            <n-input-number
-              class="w-full"
-              v-model:value="formData.salePriceWithoutTax"
-              placeholder="自动计算"
-              :show-button="false"
-              :min="0"
-              disabled
-            />
-          </n-form-item>
+        <n-gi v-show="canViewItemPrice" span="2">
+          <ItemPriceFormSection v-model:price="formData.price" />
         </n-gi>
         <n-gi span="2">
           <n-form-item label="备注">
@@ -971,16 +917,14 @@ onMounted(() => {
     height: 100%;
     min-height: 0;
 
-    // LCard 主体：搜索栏展开后在此区域滚动，避免表格被压扁
     :deep(> .flex-1.min-h-0) {
-      overflow-y: auto !important;
-      overflow-x: hidden;
-      -webkit-overflow-scrolling: touch;
+      overflow: hidden !important;
     }
   }
 
   &__body {
-    min-height: min(100%, 480px);
+    min-height: 0;
+    flex: 1 1 auto;
   }
 }
 
@@ -1027,17 +971,7 @@ onMounted(() => {
   color: var(--n-text-color-1);
 }
 
-.items-page__thumb {
-  border-radius: 8px;
-}
-
-.items-page__thumb-empty {
-  color: var(--n-text-color-3);
-  font-size: 13px;
-}
-
 .items-page__pager {
   padding: 0 12px 8px;
 }
-
 </style>

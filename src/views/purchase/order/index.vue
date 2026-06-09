@@ -42,6 +42,7 @@ import {
   validatePurchasePriceRows
 } from "@/utils/purchasePrice"
 import PurchaseApplyRelatedModal from "@/views/purchase/components/PurchaseApplyRelatedModal.vue"
+import PurchaseOrderDetailView from "@/views/purchase/components/PurchaseOrderDetailView.vue"
 import PurchaseInboundRelatedModal from "@/views/purchase/components/PurchaseInboundRelatedModal.vue"
 import PurchaseModalDetailShell from "@/views/purchase/components/PurchaseModalDetailShell.vue"
 import PurchaseOrderRelatedModal from "@/views/purchase/components/PurchaseOrderRelatedModal.vue"
@@ -455,55 +456,55 @@ onBeforeUnmount(() => {
           :size="appStore.componentSize"
           :height="'auto'"
         >
-        <vxe-column field="code" title="订单编号" min-width="170">
-          <template #default="{ row }">
-            <n-button text type="info" @click="showDetailModal(row.uid)">{{ row.code || "-" }}</n-button>
-          </template>
-        </vxe-column>
-        <vxe-column field="orderTypeName" title="订单类型" min-width="110" />
-        <vxe-column field="applyOrderCode" title="申请单号" min-width="170">
-          <template #default="{ row }">
-            <n-button
-              v-if="row.applyOrderCode"
-              text
-              type="info"
-              @click="openRelatedApply(row.applyOrderUid, row.applyOrderCode)"
-            >
-              {{ row.applyOrderCode }}
-            </n-button>
-            <span v-else>-</span>
-          </template>
-        </vxe-column>
-        <vxe-column field="sourceOrderCode" title="来源订单" min-width="170">
-          <template #default="{ row }">
-            <n-button
-              v-if="row.sourceOrderCode"
-              text
-              type="info"
-              @click="openRelatedOrder(row.sourceOrderUid, row.sourceOrderCode)"
-            >
-              {{ row.sourceOrderCode }}
-            </n-button>
-            <span v-else>-</span>
-          </template>
-        </vxe-column>
-        <vxe-column field="supplierName" title="供应商" min-width="140" />
-        <vxe-column field="totalAmount" title="含税金额" min-width="120" />
-        <vxe-column field="totalAmountWithoutTax" title="不含税金额" min-width="120" />
-        <vxe-column field="expectTimeName" title="预计到货" min-width="120" />
-        <vxe-column field="statusName" title="状态" min-width="110" />
-        <vxe-column field="createTime" title="创建时间" min-width="170" />
-        <vxe-column title="操作" fixed="right" width="180">
-          <template #default="{ row }">
-            <div class="flex justify-center gap-2">
-              <n-button text type="info" @click="showDetailModal(row.uid)">详情</n-button>
-              <n-button v-if="canConfirm(row)" text type="primary" @click="showConfirmModal(row.uid)"
-                >确认订单
+          <vxe-column field="code" title="订单编号" min-width="170">
+            <template #default="{ row }">
+              <n-button text type="info" @click="showDetailModal(row.uid)">{{ row.code || "-" }}</n-button>
+            </template>
+          </vxe-column>
+          <vxe-column field="orderTypeName" title="订单类型" min-width="110" />
+          <vxe-column field="applyOrderCode" title="申请单号" min-width="170">
+            <template #default="{ row }">
+              <n-button
+                v-if="row.applyOrderCode"
+                text
+                type="info"
+                @click="openRelatedApply(row.applyOrderUid, row.applyOrderCode)"
+              >
+                {{ row.applyOrderCode }}
               </n-button>
-            </div>
-          </template>
-        </vxe-column>
-      </ListPageTable>
+              <span v-else>-</span>
+            </template>
+          </vxe-column>
+          <vxe-column field="sourceOrderCode" title="来源订单" min-width="170">
+            <template #default="{ row }">
+              <n-button
+                v-if="row.sourceOrderCode"
+                text
+                type="info"
+                @click="openRelatedOrder(row.sourceOrderUid, row.sourceOrderCode)"
+              >
+                {{ row.sourceOrderCode }}
+              </n-button>
+              <span v-else>-</span>
+            </template>
+          </vxe-column>
+          <vxe-column field="supplierName" title="供应商" min-width="140" />
+          <vxe-column field="totalAmount" title="含税金额" min-width="120" />
+          <vxe-column field="totalAmountWithoutTax" title="不含税金额" min-width="120" />
+          <vxe-column field="expectTimeName" title="预计到货" min-width="120" />
+          <vxe-column field="statusName" title="状态" min-width="110" />
+          <vxe-column field="createTime" title="创建时间" min-width="170" />
+          <vxe-column title="操作" fixed="right" width="180">
+            <template #default="{ row }">
+              <div class="flex justify-center gap-2">
+                <n-button text type="info" @click="showDetailModal(row.uid)">详情</n-button>
+                <n-button v-if="canConfirm(row)" text type="primary" @click="showConfirmModal(row.uid)"
+                  >确认订单
+                </n-button>
+              </div>
+            </template>
+          </vxe-column>
+        </ListPageTable>
       </div>
 
       <template #footer>
@@ -528,120 +529,18 @@ onBeforeUnmount(() => {
       </template>
     </l-card>
 
-    <FormModal v-model:show="showDetail" title="采购订单详情" size="xxl">
+    <FormModal v-model:show="showDetail" title="采购订单" size="full">
       <PurchaseModalDetailShell :loading="detailLoading">
-        <n-card title="订单详情" :bordered="false" class="detail-card">
-          <n-descriptions bordered :column="2" label-placement="left">
-            <n-descriptions-item label="订单编号">{{ detailData.code || "-" }}</n-descriptions-item>
-            <n-descriptions-item label="订单类型">{{ detailData.orderTypeName || "-" }}</n-descriptions-item>
-            <n-descriptions-item label="状态">{{ detailData.statusName || "-" }}</n-descriptions-item>
-            <n-descriptions-item label="供应商">{{ detailData.supplierName || "-" }}</n-descriptions-item>
-            <n-descriptions-item label="申请单号">
-              <n-button
-                v-if="detailData.applyOrderCode"
-                text
-                type="info"
-                @click="openRelatedApply(detailData.applyOrderUid, detailData.applyOrderCode)"
-              >
-                {{ detailData.applyOrderCode }}
-              </n-button>
-              <span v-else>-</span>
-            </n-descriptions-item>
-            <n-descriptions-item label="来源订单">
-              <n-button
-                v-if="detailData.sourceOrderCode"
-                text
-                type="info"
-                @click="openRelatedOrder(detailData.sourceOrderUid, detailData.sourceOrderCode)"
-              >
-                {{ detailData.sourceOrderCode }}
-              </n-button>
-              <span v-else>-</span>
-            </n-descriptions-item>
-            <n-descriptions-item label="预计到货">{{ detailData.expectTimeName || "-" }}</n-descriptions-item>
-            <n-descriptions-item label="含税总额">{{ formatMoney(detailData.totalAmount) }}</n-descriptions-item>
-            <n-descriptions-item label="不含税总额">{{
-              formatMoney(detailData.totalAmountWithoutTax)
-            }}</n-descriptions-item>
-            <n-descriptions-item label="申请状态">{{ detailData.applyOrderStatusName || "-" }}</n-descriptions-item>
-            <n-descriptions-item label="备注" :span="2">{{ detailData.remark || "-" }}</n-descriptions-item>
-          </n-descriptions>
-        </n-card>
-
-        <n-card title="订单明细" :bordered="false" class="detail-card">
-          <vxe-table
-            border
-            stripe
-            show-overflow
-            align="center"
-            :data="detailData.detailList || []"
-            :max-height="TEMPLATE_MODAL_TABLE_DETAIL_MAX"
-          >
-            <vxe-column field="name" title="物料名称" min-width="160" />
-            <vxe-column title="规格1" min-width="150">
-              <template #default="{ row }">{{ getSpec1Name(row) }}</template>
-            </vxe-column>
-            <vxe-column title="规格2" min-width="150">
-              <template #default="{ row }">{{ getSpec2Name(row) }}</template>
-            </vxe-column>
-            <vxe-column field="unitName" title="单位" min-width="90" />
-            <vxe-column field="applyQuantity" title="申请数量" min-width="100" />
-            <vxe-column field="quantity" title="到货数量" min-width="100" />
-            <vxe-column field="inboundQuantity" title="已入库" min-width="100" />
-            <vxe-column field="returnQuantity" title="已退货" min-width="100" />
-            <vxe-column field="availableInboundQuantity" title="可入库" min-width="100" />
-            <vxe-column field="availableReturnQuantity" title="可退货" min-width="100" />
-            <vxe-column field="purchasePriceWithTax" title="含税单价" min-width="110" />
-            <vxe-column field="vatTaxRate" title="税率(%)" min-width="90" />
-            <vxe-column title="不含税单价" min-width="110">
-              <template #default="{ row }">
-                {{
-                  formatMoney(
-                    row.purchasePriceWithoutTax || calcPriceWithoutTax(row.purchasePriceWithTax, row.vatTaxRate)
-                  )
-                }}
-              </template>
-            </vxe-column>
-            <vxe-column title="税额" min-width="110">
-              <template #default="{ row }">
-                {{ formatMoney(calcTaxAmount(row.purchasePriceWithTax, row.vatTaxRate, row.quantity)) }}
-              </template>
-            </vxe-column>
-            <vxe-column title="含税小计" min-width="120">
-              <template #default="{ row }">
-                {{ formatMoney(calcAmountWithTax(row.purchasePriceWithTax, row.quantity)) }}
-              </template>
-            </vxe-column>
-          </vxe-table>
-        </n-card>
-
-        <n-card v-if="detailData.inboundOrderList?.length" title="相关采购入库" :bordered="false" class="detail-card">
-          <vxe-table
-            border
-            stripe
-            show-overflow
-            align="center"
-            :data="detailData.inboundOrderList || []"
-            :max-height="TEMPLATE_MODAL_TABLE_RECORD_MAX"
-          >
-            <vxe-column field="code" title="入库单号" min-width="170">
-              <template #default="{ row }">
-                <n-button text type="info" @click="openRelatedInbound(row.uid, row.code)">
-                  {{ row.code || "-" }}
-                </n-button>
-              </template>
-            </vxe-column>
-            <vxe-column field="warehouseName" title="仓库" min-width="120" />
-            <vxe-column field="timeName" title="入库时间" min-width="160" />
-            <vxe-column field="totalQuantity" title="入库总数" min-width="110" />
-            <vxe-column field="statusName" title="状态" min-width="100" />
-          </vxe-table>
-        </n-card>
+        <PurchaseOrderDetailView
+          :detail="detailData"
+          :loading="detailLoading"
+          @open-apply="openRelatedApply"
+          @open-order="openRelatedOrder"
+          @open-inbound="openRelatedInbound"
+        />
         <template #side>
-          <FlowSchemaPreview v-if="detailData.flowSchema" title="审批流程" :schema-data="detailData.flowSchema" />
-          <n-card v-else title="审批流程" :bordered="false" class="detail-card">
-            <n-empty description="暂无流程数据" />
-          </n-card>
+          <FlowSchemaPreview v-if="detailData.flowSchema" title="流程进度" :schema-data="detailData.flowSchema" />
+          <n-empty v-else description="暂无流程数据" />
         </template>
       </PurchaseModalDetailShell>
     </FormModal>

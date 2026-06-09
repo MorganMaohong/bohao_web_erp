@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { computed, nextTick, ref, useAttrs, watch } from "vue"
 import type { VxeTableInstance, VxeTablePropTypes } from "vxe-table"
+import { ERP_LIST_TABLE_SCROLL_X, ERP_LIST_TABLE_SCROLL_Y } from "@/constants/list-table"
 
 defineOptions({ inheritAttrs: false })
 
@@ -10,6 +11,8 @@ const props = withDefaults(
     loading?: boolean
     size?: VxeTablePropTypes.Size
     height?: number | string
+    /** 与 height 二选一；有值时同样启用纵向虚拟滚动 */
+    maxHeight?: number | string
     /** 行高（px）；物料等有图片列的页面可传 64 */
     cellHeight?: number
   }>(),
@@ -27,10 +30,14 @@ const passthroughAttrs = computed(() => {
     loading: _loading,
     size: _size,
     height: _height,
+    maxHeight: _maxHeight,
+    "max-height": _maxHeightKebab,
     columnConfig: _columnConfig,
     "column-config": _columnConfigKebab,
     scrollX: _scrollX,
     "scroll-x": _scrollXKebab,
+    scrollY: _scrollY,
+    "scroll-y": _scrollYKebab,
     rowConfig: _rowConfig,
     "row-config": _rowConfigKebab,
     cellConfig: _cellConfig,
@@ -51,6 +58,17 @@ const tableHeight = computed(() => {
   return h
 })
 
+const tableMaxHeight = computed(() => {
+  const h =
+    props.maxHeight ??
+    (attrs.maxHeight as number | string | undefined) ??
+    (attrs["max-height"] as number | string | undefined)
+  if (h == null || h === "" || h === 0) return undefined
+  return h
+})
+
+const useVirtualScrollY = computed(() => tableHeight.value != null || tableMaxHeight.value != null)
+
 const tableClass = computed(() => {
   const extra = attrs.class
   const base = ["erp-list-table"]
@@ -64,13 +82,19 @@ const columnConfig = computed<VxeTablePropTypes.ColumnConfig>(() => ({
 }))
 
 const scrollX = computed<VxeTablePropTypes.ScrollX>(() => ({
-  enabled: true,
-  gt: 0,
+  ...ERP_LIST_TABLE_SCROLL_X,
   ...((attrs.scrollX ?? attrs["scroll-x"]) as VxeTablePropTypes.ScrollX | undefined)
 }))
 
+const scrollY = computed<VxeTablePropTypes.ScrollY | undefined>(() => {
+  const user = (attrs.scrollY ?? attrs["scroll-y"]) as VxeTablePropTypes.ScrollY | undefined
+  if (user) return user
+  return useVirtualScrollY.value ? ERP_LIST_TABLE_SCROLL_Y : undefined
+})
+
 const rowConfig = computed<VxeTablePropTypes.RowConfig>(() => ({
   isHover: true,
+  keyField: "uid",
   ...((attrs.rowConfig ?? attrs["row-config"]) as VxeTablePropTypes.RowConfig | undefined)
 }))
 
@@ -80,8 +104,8 @@ const cellConfig = computed<VxeTablePropTypes.CellConfig | undefined>(() => {
   return { height: props.cellHeight, ...user }
 })
 
-const treeConfig = computed(() =>
-  (attrs.treeConfig ?? attrs["tree-config"]) as VxeTablePropTypes.TreeConfig | undefined
+const treeConfig = computed(
+  () => (attrs.treeConfig ?? attrs["tree-config"]) as VxeTablePropTypes.TreeConfig | undefined
 )
 
 /** expandAll 仅在 vxe-table 初始化时生效一次，数据异步加载后需主动展开 */
@@ -107,8 +131,8 @@ defineExpose(
   })
 )
 
-watch(tableHeight, (height) => {
-  if (height == null) return
+watch([tableHeight, tableMaxHeight], ([height, maxHeight]) => {
+  if (height == null && maxHeight == null) return
   nextTick(() => {
     tableRef.value?.recalculate?.()
   })
@@ -126,8 +150,10 @@ watch(tableHeight, (height) => {
     :loading="tableLoading"
     :size="tableSize"
     :height="tableHeight"
+    :max-height="tableMaxHeight"
     :column-config="columnConfig"
     :scroll-x="scrollX"
+    :scroll-y="scrollY"
     :row-config="rowConfig"
     :cell-config="cellConfig"
   >

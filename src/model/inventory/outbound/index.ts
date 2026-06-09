@@ -1,4 +1,5 @@
 import { BaseEntityLd, OptionVo, PageQuery } from "@/model"
+import { ItemPriceDto, ItemPriceSummaryDto } from "@/model/itemPrice"
 import { Warehouse } from "@/model/stock"
 import { ItemsBase } from "@/model/template/items"
 
@@ -8,6 +9,8 @@ export interface InventoryOutOrder extends BaseEntityLd {
   otherType?: string
   time?: number | string
   warehouseUid?: string
+  projectUid?: string
+  projectName?: string
   purchaseOrderUid?: string
   purchaseOrderCode?: string
   inOrderUid?: string
@@ -46,6 +49,7 @@ export interface InventoryOutOrderDetail extends ItemsBase {
 }
 
 export interface InventoryOutOrderDetailVo extends InventoryOutOrderDetail {
+  price?: ItemPriceDto | null
   typeName?: string
   unitName?: string
   supplierName?: string
@@ -89,6 +93,7 @@ export interface InventoryOutboundDetail extends InventoryOutOrder {
   resendOrderCodeList?: string[]
   detailList?: InventoryOutOrderDetailVo[]
   recordList?: PurchaseReturnRecordVo[]
+  priceSummary?: ItemPriceSummaryDto | null
   totalAmountWithTax?: number
   totalPurchasePriceWithTax?: number
   totalTaxAmount?: number

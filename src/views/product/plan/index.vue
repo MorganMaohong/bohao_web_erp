@@ -1131,7 +1131,7 @@ onMounted(() => {
       </template>
     </FormModal>
 
-    <FormModal v-model:show="showDetail" title="生产计划详情" size="xxl">
+    <FormModal v-model:show="showDetail" title="生产计划详情" size="xxxl">
       <div class="space-y-4">
         <n-descriptions :column="2" bordered>
           <n-descriptions-item label="计划名称">{{ detailData.name || "-" }}</n-descriptions-item>
